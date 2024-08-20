@@ -1,26 +1,35 @@
-use std::{collections::BinaryHeap, sync::{Arc, Mutex}};
+use std::{cmp::Ordering, collections::BinaryHeap, sync::{Arc, RwLock}};
 use hashbrown::{HashMap, HashSet};
+use indexmap::IndexMap;
 
 use bevy::prelude::*;
 use thiserror::Error;
 
 use std::hash::{Hash, Hasher};
+use rustc_hash::FxHasher;
+use std::hash::BuildHasherDefault;
 
+use indexmap::map::Entry::{Occupied, Vacant};
+
+type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[derive(Default, Debug, Clone)]
-struct PointGuard(pub Arc<Mutex<Point>>);
+struct PointGuard {
+    pub id: i64,
+    pub point: Arc<RwLock<Point>>,
+}
 
 impl PointGuard {
     fn new(id: i64, pos: Vec3, weight: f32, enabled: bool) -> Self {
-        PointGuard(Arc::new(Mutex::new(
-            Point {
-                id,
+        PointGuard {
+            id,
+            point: Arc::new(RwLock::new(Point {
                 pos,
                 weight,
                 enabled,
                 ..Default::default()
-            }
-        )))
+            }))
+        }
     }
 }
 
@@ -28,22 +37,19 @@ impl Eq for PointGuard{}
 
 impl PartialEq for PointGuard {
     fn eq(&self, other: &Self) -> bool {
-        let internal = self.0.lock().unwrap();
-        let other = other.0.lock().unwrap();
-
-        internal.id == other.id
+        self.id == other.id
     }
 }
 
 impl Hash for PointGuard {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.lock().unwrap().id.hash(state);
+        self.id.hash(state);
     }
 }
 
-impl PartialOrd for PointGuard {
+/*impl PartialOrd for PointGuard {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.0.lock().unwrap().f_score.partial_cmp(&self.0.lock().unwrap().f_score)
+        other.0.read().unwrap().f_score.partial_cmp(&self.0.read().unwrap().f_score)
     }
 }
 
@@ -51,11 +57,10 @@ impl Ord for PointGuard {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap().reverse()
     }
-}
+} */
 
 #[derive(Default, Debug, Clone)]
 struct Point {
-    id: i64,
     pos: Vec3,
 
     weight: f32,
@@ -65,7 +70,7 @@ struct Point {
     neighbors: HashSet<PointGuard>,
     unlinked_neighbors: HashSet<PointGuard>,
 
-    prev_point: Option<PointGuard>,
+    /*prev_point: Option<PointGuard>,
 
     open_pass: u64,
     closed_pass: u64,
@@ -75,9 +80,9 @@ struct Point {
 
     // Used for getting closest_point_of_last_pathing_call.
     abs_g_score: f32,
-    abs_f_score: f32,
+    abs_f_score: f32,*/
 }
-
+/*
 impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
         self.f_score == other.f_score
@@ -96,7 +101,7 @@ impl Ord for Point {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap().reverse()
     }
-}
+} */
 
 /* mod segment_direction {
     pub const NONE: u8 = 0;
@@ -135,6 +140,42 @@ pub enum PathfindingError {
     LibError,
 }
 
+struct SmallestCostHolder {
+    estimated_cost: f32,
+    cost: f32,
+    index: usize,
+}
+
+impl PartialEq for SmallestCostHolder {
+    fn eq(&self, other: &Self) -> bool {
+        self.estimated_cost.eq(&other.estimated_cost) && self.cost.eq(&other.cost)
+    }
+}
+
+impl Eq for SmallestCostHolder {}
+
+impl PartialOrd for SmallestCostHolder {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SmallestCostHolder {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.estimated_cost.to_bits().cmp(&other.estimated_cost.to_bits()) {
+            Ordering::Equal => {self.cost.to_bits().cmp(&other.cost.to_bits())},
+            s => s,
+        }
+    }
+}
+
+/*impl Hash for SmallestCostHolder {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}*/
+
+
 impl Pathfinding {
     pub fn add_vec(&mut self, pos: Vec3, weight: f32) {
         let index = Pathfinding::calculate_index(pos);
@@ -143,7 +184,7 @@ impl Pathfinding {
 
     pub fn add_point(&mut self, id: i64, pos: Vec3, weight: f32) {
         if let Some(point_guard) = self.points.get_mut(&id) {
-            let mut point = point_guard.0.lock().unwrap();
+            let mut point = point_guard.point.write().unwrap();
             point.pos = pos;
             point.weight = weight;
         } else {
@@ -173,16 +214,16 @@ impl Pathfinding {
         let Some(from_guard) = self.points.get(&from_id) else {return Err(PathfindingError::PointDoesNotExist)};
         let Some(to_guard) = self.points.get(&to_id) else {return Err(PathfindingError::PointDoesNotExist)};
 
-        let mut from = from_guard.0.lock().unwrap();
+        let mut from = from_guard.point.write().unwrap();
         from.neighbors.insert(to_guard.clone());
 
         std::mem::drop(from);
 
         if bidirectional {
-            let mut to = to_guard.0.lock().unwrap();
+            let mut to = to_guard.point.write().unwrap();
             to.neighbors.insert(from_guard.clone());
         } else {
-            let mut to = to_guard.0.lock().unwrap();
+            let mut to = to_guard.point.write().unwrap();
             to.unlinked_neighbors.insert(from_guard.clone());
         }
 
@@ -215,7 +256,8 @@ impl Pathfinding {
         (x << 40) | (y << 20) | z
     }
 
-    pub fn get_point_path_by_index(
+
+    /*pub fn get_point_path_by_index(
         &mut self, 
         start_index: i64, 
         end_index: i64,
@@ -238,7 +280,7 @@ impl Pathfinding {
         let mut current = self.last_closest_point.clone();
 
         while let Some(point_guard) = current {
-            let point = point_guard.0.lock().unwrap();
+            let point = point_guard.0.read().unwrap();
             path.push(point.pos);
             current = point.prev_point.clone();
         }
@@ -246,9 +288,9 @@ impl Pathfinding {
         path.reverse();
 
         Ok(path)
-    }
+    }*/
 
-    pub fn get_point_path(
+    /*pub fn get_point_path(
         &mut self, 
         start: Vec3, 
         end: Vec3, 
@@ -258,75 +300,149 @@ impl Pathfinding {
         let end_index = Pathfinding::calculate_index(end);
 
         self.get_point_path_by_index(start_index, end_index, allow_partial)
+    }*/
+
+    pub fn get_path_by_vec(&self, begin: Vec3, end: Vec3, allow_partial: bool) -> Result<Vec<Vec3>, PathfindingError> {
+        let begin_index = Pathfinding::calculate_index(begin);
+        let end_index = Pathfinding::calculate_index(end);
+
+        self.get_path(begin_index, end_index, allow_partial)
     }
 
-    fn solve(&mut self, begin_index: i64, end_index: i64, allow_partial: bool) -> Result<bool, PathfindingError> {
+    pub fn get_path(&self, begin_index: i64, end_index: i64, allow_partial: bool) -> Result<Vec<Vec3>, PathfindingError> {
         if begin_index == end_index {
-            return Ok(false);
+            return Err(PathfindingError::IdsAreEqual)
         }
-
-        self.pass += 1;
 
         let begin_guard = self.get_point(&begin_index)?;
         let end_guard = self.get_point(&end_index)?;
 
-        let mut begin = begin_guard.0.lock().unwrap();
+        let end_id = end_guard.id;
+
+        let mut to_see = BinaryHeap::new();
+        to_see.push(SmallestCostHolder {
+            estimated_cost: 0.0,
+            cost: 0.0,
+            index: 0,
+        });
+
+        let mut parents: FxIndexMap<PointGuard, (usize, f32)> = FxIndexMap::default();
+        parents.insert(begin_guard.clone(), (usize::MAX, 0.0));
+
+        while let Some(SmallestCostHolder{ cost, index, .. }) = to_see.pop() {
+            let (point_guard, &(_, c)) = parents.get_index(index).unwrap();
+            let point_guard = point_guard.clone();
+            let point = point_guard.point.read().unwrap();
+            
+            if point_guard.id == end_id {
+                let mut i = index;
+                let mut path = std::iter::from_fn(|| {
+                    parents.get_index(i).map(|(guard, value)| {
+                        i = value.0;
+                        guard.point.read().unwrap().pos
+                    })
+                }).collect::<Vec<Vec3>>();
+                path.reverse();
+                return Ok(path)
+
+                //parents.get(&point_guard).map(|| )
+            }
+
+            if cost > c {
+                continue;
+            }
+
+            for neighbor_guard in point.neighbors.clone().into_iter() {
+                let neighbor = neighbor_guard.point.read().unwrap();
+
+                let new_cost = cost + neighbor.weight;
+                let new_index: usize;
+
+                match parents.entry(neighbor_guard.clone()) {
+                    Vacant(e) => {
+                        new_index = e.index();
+                        e.insert((index, new_cost));
+                    },
+                    Occupied(mut e) => {
+                        if e.get().1 > new_cost {
+                            new_index = e.index();
+                            e.insert((index, new_cost));
+                        } else {
+                            continue;
+                        }
+                    },
+                }
+
+                to_see.push(SmallestCostHolder{
+                    estimated_cost: new_cost + neighbor.pos.distance(point.pos),
+                    cost: new_cost,
+                    index: new_index,
+                });
+            }
+        }
+
+        Ok(Vec::new())
+    }
+
+    /*fn solve(&mut self, begin_index: i64, end_index: i64, allow_partial: bool) -> Result<bool, PathfindingError> {
+        if begin_index == end_index {
+            return Ok(false);
+        }
+
+        let begin_guard = self.get_point(&begin_index)?;
+        let end_guard = self.get_point(&end_index)?;
+
+        let begin = begin_guard.0.read().unwrap();
         let end_pos = {
-            let end = end_guard.0.lock().unwrap();
+            let end = end_guard.0.read().unwrap();
             end.pos
         };
 
-        let mut open_list: BinaryHeap<PointGuard> = BinaryHeap::new();
+        let mut open: IndexMap<i64, SmallestCostHolder> = IndexMap::new();
+        let mut closed: HashSet<i64> = HashSet::new();
 
-        begin.f_score = begin.pos.distance(end_pos);
-        begin.abs_f_score = begin.f_score;
+        let begin_smallest_cost = SmallestCostHolder {
+            estimated_cost: begin.pos.distance(end_pos),
+            cost: begin.pos.distance(end_pos),
+            point_guard: begin_guard.clone(),
+        };
 
-        begin.closed_pass = self.pass;
-
-        open_list.push(begin_guard.clone());
+        open.insert(begin.id, begin_smallest_cost);
+        closed.insert(begin.id);
 
         std::mem::drop(begin);
 
-        while !open_list.is_empty() {
-            let point_guard = open_list.pop().unwrap();
-            let point = point_guard.0.lock().unwrap();
-
-            if let Some(lcp) = self.last_closest_point.clone() {
-                let lcp = lcp.0.lock().unwrap();
-
-                if lcp.abs_f_score > point.abs_f_score
-                    || (lcp.abs_f_score >= point.abs_f_score && lcp.abs_g_score > point.abs_g_score) 
-                {
-                    self.last_closest_point = Some(point_guard.clone());
-                }
-            } else {
-                self.last_closest_point = Some(point_guard.clone());
-            }
+        while !open.is_empty() {
+            let (point_id, smallest_cost) = open.pop().unwrap();
+            let point = smallest_cost.point.0.read().unwrap();
 
             if point.id == end_index {
-                self.last_closest_point = Some(point_guard.clone());
                 break;
             }
 
             for neighbor_guard in point.neighbors.clone().into_iter() {
-                let mut neighbor = neighbor_guard.0.lock().unwrap();
+                let neighbor = neighbor_guard.0.read().unwrap();
 
-                if !neighbor.enabled || neighbor.closed_pass == self.pass {
+                if !neighbor.enabled || closed.contains(&neighbor.id) {
                     continue;
                 }
 
                 let distance = point.pos.distance(neighbor.pos);
 
-                let tentative_g_score = point.g_score + distance * neighbor.weight;
+                let estimated_cost = smallest_cost.cost + distance * neighbor.weight;
 
-                let mut new_point = false;
+                let mut neighbor_smallest_cost: &SmallestCostHolder;
 
-                if neighbor.open_pass != self.pass {
-                    neighbor.open_pass = self.pass;
-                    new_point = true;
-                    //open_list.push(neighbor_guard.clone());
-                } else if tentative_g_score >= neighbor.g_score {
-                    continue;
+                let maybe_open = open.get_mut(&neighbor.id);
+
+                if let Some(open) = maybe_open {
+                    if estimated_cost >= open.cost {
+                        continue;
+                    } else {
+                        neighbor_smallest_cost = open;
+                    }
+                } else {
+                    neigb
                 }
 
                 neighbor.prev_point = Some(point_guard.clone()); 
@@ -345,7 +461,7 @@ impl Pathfinding {
         }
 
         if let Some(lcp) = &self.last_closest_point {
-            if end_index == lcp.0.lock().unwrap().id || allow_partial {
+            if end_index == lcp.0.read().unwrap().id || allow_partial {
                 return Ok(true);
             } else {
                 return Ok(false);
@@ -353,18 +469,73 @@ impl Pathfinding {
         } else {
             Err(PathfindingError::Unsolvable)
         }
-    }
+    }*/
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::BinaryHeap;
+    use std::sync::Arc;
+    use std::sync::RwLock;
 
+    use crate::FxIndexMap;
     use crate::Pathfinding;
+    use crate::PathfindingError;
     use bevy::math::Vec3;
     use crate::Point;
+    use crate::PointGuard;
 
     #[test]
+    fn corner_to_corner() {
+        let mut pathfinding = Pathfinding::default();
+
+        for x in 0..16 {
+            for y in 0..16 {
+                pathfinding.add_vec(Vec3::new(x as f32, y as f32, 0.0), 0.0);
+            }
+        }
+    
+        for x in 0..16 {
+            for y in 0..16 {
+                if x > 0 {
+                    pathfinding.connect_points(
+                        Vec3::new(x as f32, y as f32, 0.), 
+                        Vec3::new(x as f32 - 1.0, y as f32, 0.), 
+                        false
+                    ).unwrap();
+                }
+                if x < 15 {
+                    pathfinding.connect_points(
+                        Vec3::new(x as f32, y as f32, 0.), 
+                        Vec3::new(x as f32 + 1.0, y as f32, 0.), 
+                        false
+                    ).unwrap();
+                }
+                if y > 0 {
+                    pathfinding.connect_points(
+                        Vec3::new(x as f32, y as f32, 0.), 
+                        Vec3::new(x as f32, y as f32 - 1.0, 0.), 
+                        false 
+                    ).unwrap();
+                }
+                if y < 15 {
+                    pathfinding.connect_points(
+                        Vec3::new(x as f32, y as f32, 0.), 
+                        Vec3::new(x as f32, y as f32 + 1.0, 0.), 
+                        false
+                    ).unwrap();
+                }
+            }
+        }
+    
+        let _ = pathfinding.get_path_by_vec(
+            Vec3::new(0., 0., 0.),
+            Vec3::new(15., 15., 0.),
+            false
+        );
+    }
+
+/*    #[test]
     fn test_point_ordering() {
         let mut a = Point::default();
         a.f_score = 1.0;
@@ -399,6 +570,17 @@ mod tests {
         pathfinding.add_point(0, Vec3::new(0.0, 0.0, 0.0), 1.0);
 
         assert_eq!(pathfinding.solve(0, 0, false).unwrap(), false);
+    }*/
+
+    #[test]
+    fn test_something() {
+        let mut map: FxIndexMap<String, (usize, f32)> = FxIndexMap::default();
+
+        map.insert("Beta".to_string(), (usize::MAX, 1.0));
+        map.insert("Gamma".to_string(), (40, 1.8));
+        map.insert("Alpha".to_string(), (60, 1.4));
+
+        println!("{:?}", map);
     }
 
     #[test]
@@ -420,10 +602,12 @@ mod tests {
         let _ = pathfinding.connect_points_by_index(i1, i2, true);
         let _ = pathfinding.connect_points_by_index(i2, i3, true);
 
-        assert_eq!(pathfinding.solve(i1, i3, false).unwrap(), true);
+        let path = pathfinding.get_path(i1, i3, false);
+
+        assert_eq!(path.unwrap(), vec![v1, v2, v3]);
     }
 
-    #[test]
+/*    #[test]
     fn test_unsolveable() {
         let mut pathfinding = Pathfinding::default();
 
@@ -566,5 +750,5 @@ mod tests {
         path_two = pathfinding.get_point_path_by_index(0, 15, false).unwrap();
 
         assert_ne!(path_one, path_two);
-    }
+    } */
 }
