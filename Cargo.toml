@@ -12,14 +12,16 @@ strum = "0.26.3"
 slab = "0.4.9"
 
 [dependencies.bevy]
-version = "0.14"
+version = "0.15.0"
 default-features = false
 features=["bevy_render", "bevy_gizmos"]
 
 [dev-dependencies]
-bevy = { version = "0.14.2", features=["bevy_dev_tools"] }
-bevy_ecs_tilemap = { version = "0.14.0" }
-bevy_ecs_tiled = { version = "0.4.1", features=["user_properties"]}
+bevy = { version = "0.15.0", features=["bevy_dev_tools"] }
+# bevy_ecs_tilemap = { version = "0.14.0" }
+bevy_ecs_tilemap = { git = "https://github.com/rparrett/bevy_ecs_tilemap.git", rev = "86235d6f9f4f05cd4e3f6af9d3392b08a590a48f", default-features = false }
+# bevy_ecs_tiled = { version = "0.4.1", features=["user_properties"]}
+bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
 
 ### Causing build issues on Windows, need to look into how to handle this 
 # criterion = {version = "0.5.1", features = ["html_reports"]}

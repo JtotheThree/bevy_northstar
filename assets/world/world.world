@@ -1,0 +1,118 @@
+{
+    "maps": [
+        {
+            "fileName": "demo_001.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 0,
+            "y": 0
+        },
+        {
+            "fileName": "demo_002.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 1024,
+            "y": 0
+        },
+        {
+            "fileName": "demo_003.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 2048,
+            "y": 0
+        },
+        {
+            "fileName": "demo_004.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 3072,
+            "y": 0
+        },
+        {
+            "fileName": "demo_005.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 0,
+            "y": 1024
+        },
+        {
+            "fileName": "demo_006.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 1024,
+            "y": 1024
+        },
+        {
+            "fileName": "demo_007.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 2048,
+            "y": 1024
+        },
+        {
+            "fileName": "demo_008.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 3072,
+            "y": 1024
+        },
+        {
+            "fileName": "demo_009.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 0,
+            "y": 2048
+        },
+        {
+            "fileName": "demo_010.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 1024,
+            "y": 2048
+        },
+        {
+            "fileName": "demo_011.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 2048,
+            "y": 2048
+        },
+        {
+            "fileName": "demo_012.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 3072,
+            "y": 2048
+        },
+        {
+            "fileName": "demo_013.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 0,
+            "y": 3072
+        },
+        {
+            "fileName": "demo_014.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 1024,
+            "y": 3072
+        },
+        {
+            "fileName": "demo_015.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 2048,
+            "y": 3072
+        },
+        {
+            "fileName": "demo_016.tmx",
+            "height": 1024,
+            "width": 1024,
+            "x": 3072,
+            "y": 3072
+        }
+    ],
+    "onlyShowAdjacentMaps": false,
+    "type": "world"
+}
