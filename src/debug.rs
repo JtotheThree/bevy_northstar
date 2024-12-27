@@ -11,6 +11,7 @@ use crate::path::Path;
 pub enum MapType {
     #[default]
     Square,
+    SquareCentered,
     Isometric,
 }
 
@@ -73,12 +74,13 @@ fn draw_debug_paths<N: Neighborhood + 'static>(query: Query<&Path>, config: Res<
     }
 
     let offset = match config.map_type {
-        MapType::Square => {
+        MapType::Square => { Vec2::new(0.0, 0.0) },
+        MapType::SquareCentered => {
             Vec2::new(
                 ((grid.get_width() * config.grid_width) as f32 / 2.0) - config.grid_width as f32,
                 ((grid.get_height() * config.grid_height) as f32 / 2.0) - config.grid_height as f32,
             )
-        }
+        },
         MapType::Isometric => Vec2::new(grid.get_width() as f32 / 4.0, 0.0),
     };
 
@@ -109,7 +111,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(query: Query<&Path>, config: Res<
 
         for next in iter {
             let prev_position = match config.map_type {
-                MapType::Square => Vec2::new(
+                MapType::Square | MapType::SquareCentered => Vec2::new(
                     (prev.x * config.grid_width) as f32,
                     (prev.y * config.grid_height) as f32,
                 ),
@@ -120,7 +122,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(query: Query<&Path>, config: Res<
             };
 
             let next_position = match config.map_type {
-                MapType::Square => Vec2::new(
+                MapType::Square | MapType::SquareCentered => Vec2::new(
                     (next.x * config.grid_width) as f32,
                     (next.y * config.grid_height) as f32,
                 ),
@@ -147,16 +149,22 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
     mut gizmos: Gizmos,
 ) {
     let offset = match config.map_type {
-        MapType::Square => {
+        MapType::Square => { Vec2::new(0.0, 0.0) },
+        MapType::SquareCentered => {
             Vec2::new(
                 ((grid.get_width() * config.grid_width) as f32 / 2.0) - config.grid_width as f32,
                 ((grid.get_height() * config.grid_height) as f32 / 2.0) - config.grid_height as f32,
             )
-        }
+        },
         MapType::Isometric => Vec2::new(grid.get_width() as f32 / 4.0, 0.0),
     };
 
     if config.draw_points {
+        let center = Vec2::new(
+            (config.grid_width as f32) / 2.0,
+            (config.grid_height as f32) / 2.0,
+        );
+
         // Draw point gizmos
         for x in 0..grid.get_width() {
             for y in 0..grid.get_height() {
@@ -164,7 +172,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
                 let color = if point.wall { css::RED } else { css::WHITE };
 
                 let position = match config.map_type {
-                    MapType::Square => Vec2::new(
+                    MapType::Square | MapType::SquareCentered => Vec2::new(
                         (x * config.grid_width) as f32,
                         (y * config.grid_height) as f32,
                     ),
@@ -174,7 +182,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
                     ),
                 };
 
-                gizmos.circle_2d(position - offset, 2.0, color);
+                gizmos.circle_2d(position - offset + center, 2.0, color);
             }
         }
     }
@@ -186,7 +194,8 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
         let chunk_height = grid.get_height() / chunk_size;
 
         let offset = match config.map_type {
-            MapType::Square => {
+            MapType::Square => { Vec2::new(0.0, 0.0) },
+            MapType::SquareCentered => {
                 Vec2::new(
                     (grid.get_width() * config.grid_width) as f32 / 2.0,
                     (grid.get_height() * config.grid_height) as f32 / 2.0,
@@ -201,7 +210,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
         for x in 0..chunk_width {
             for y in 0..chunk_height {
                 match config.map_type {
-                    MapType::Square => {
+                    MapType::Square | MapType::SquareCentered => {
                         let bottom_left = Vec2::new(
                             (x * chunk_size) as f32 * config.grid_width as f32,
                             (y * chunk_size) as f32 * config.grid_height as f32,
@@ -257,9 +266,14 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
 
     if config.draw_entrances {
         // Draw graph nodes
+        let center = Vec2::new(
+            (config.grid_width as f32) / 2.0,
+            (config.grid_height as f32) / 2.0,
+        );
+
         for node in grid.graph.get_nodes() {
             let position = match config.map_type {
-                MapType::Square => Vec2::new(
+                MapType::Square | MapType::SquareCentered => Vec2::new(
                     (node.pos.x * config.grid_width) as f32,
                     (node.pos.y * config.grid_height) as f32,
                 ),
@@ -269,7 +283,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
                 ),
             };
 
-            gizmos.circle_2d(position - offset, 2.0, css::MAGENTA);
+            gizmos.circle_2d(position - offset + center, 2.0, css::MAGENTA);
         }
     }
 
@@ -303,7 +317,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
 
             for next in iter {
                 let prev_position = match config.map_type {
-                    MapType::Square => Vec2::new(
+                    MapType::Square | MapType::SquareCentered => Vec2::new(
                         (prev.x * config.grid_width) as f32,
                         (prev.y * config.grid_height) as f32,
                     ),
@@ -314,7 +328,7 @@ fn draw_debug_grid<N: Neighborhood + 'static>(
                 };
 
                 let next_position = match config.map_type {
-                    MapType::Square => Vec2::new(
+                    MapType::Square | MapType::SquareCentered => Vec2::new(
                         (next.x * config.grid_width) as f32,
                         (next.y * config.grid_height) as f32,
                     ),

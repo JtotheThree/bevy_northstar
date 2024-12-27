@@ -3913,6 +3913,7 @@ dependencies = [
 [[package]]
 name = "tiled"
 version = "0.14.0"
+source = "git+https://github.com/JtoTheThree/rs-tiled.git?branch=worldfiles#534ab0a4083d7537785745647e63478f9c22de86"
 dependencies = [
  "base64 0.22.1",
  "flate2",

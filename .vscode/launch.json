@@ -39,6 +39,23 @@
                 "CARGO_MANIFEST_DIR": "${workspaceFolder}"
             },
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug stress_demo example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example",
+                    "stress_demo"
+                ]
+            },
+            "args": [],
+            "env": {
+                "CARGO_MANIFEST_DIR": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

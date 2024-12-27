@@ -36,3 +36,6 @@ rand = "0.8.5"
 
 [[examples]]
 name = "demo"
+
+[[examples]]
+name = "stress_demo"
