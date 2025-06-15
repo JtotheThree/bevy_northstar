@@ -1,0 +1,315 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Pathfinding - bevy_northstar Documentation</title>
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="favicon.svg">
+                        <link rel="shortcut icon" href="favicon.png">
+                <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+                <link rel="stylesheet" href="css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="pathfinding.html" class="active"><strong aria-hidden="true">2.</strong> Pathfinding</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">4.</strong> Debugging</a></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">bevy_northstar Documentation</h1>
+
+                    <div class="right-buttons">
+                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="pathfinding-with-built-in-systems"><a class="header" href="#pathfinding-with-built-in-systems">Pathfinding With Built-In Systems</a></h1>
+<h2 id="pathfind-and-gridpos-components"><a class="header" href="#pathfind-and-gridpos-components">Pathfind and GridPos Components</a></h2>
+<p>To use the <code>NorthstarPlugin</code> pathfinding systems, insert a <code>Pathfind</code> and <code>GridPos</code> component.</p>
+<p>The <code>GridPos</code> you will need to maintain as the current GridPos of the entity.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>commands
+    .spawn((
+        Name::new(&quot;Player&quot;),
+        Pathfind {
+            goal: UVec3::new(12, 12, 0),
+            // you can set use_astar to true to bypass HPA* and use the traditional A* pathfinding algorithm if desired.
+            use_astar: false,
+        },
+        GridPos(UVec3::new(1, 1, 0)),
+        Blocking, // Insert the Blocking component if using collision and this entity should block.
+    ));
+<span class="boring">}
+</span></code></pre></pre>
+<p>There are also shortened functions for creating a new component using HPA* or A*</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>commands
+    .spawn((
+        Name::new(&quot;Player&quot;),
+        // new will default to HPA*.
+        Pathfind::new(UVec3::new(12, 12, 0)),
+        GridPos(UVec3::new(1, 1, 0)),
+        Blocking, // Insert the Blocking component if using collision and this entity should block.
+    ))
+    .spawn((
+        Name::new(&quot;Npc&quot;),
+        // new_astar will default to using A*.
+        Pathfind::new_astar(UVec3::new(14, 14, 0)),
+        GridPos(UVec3::new(2, 2, 0)),
+        Blocking,
+    ));
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="nextpos"><a class="header" href="#nextpos">NextPos</a></h2>
+<p>The <code>pathfind</code> system looks for any entity with a <code>Changed</code> <code>Pathfind</code> component. It then runs the pathfinding algorithm and when a valid path is found it will insert the next position in the path as a <code>NextPos</code> component.</p>
+<p>Consume the <code>NextPos</code> component by handling the movement and then remove the <code>NextPos</code> component. The <code>next_position</code> system will insert a new <code>NextPos</code> component in a later frame. </p>
+<p>If collision is enabled the <code>next_position</code> system will also handle local collision avoidance and adjust the entities path if there is a blocking entity in the path in the <code>avoidance_distance</code> look ahead set in <code>GridSettings</code>.</p>
+<p>Example movement system:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn movement(
+    mut commands: Commands,
+    mut query: Query&lt;(Entity, &amp;mut GridPos, &amp;NextPos)&gt;,
+) {
+    for (entity, mut grid_pos, next_pos) in query.iter_mut() {
+        // Set the entities GridPos to the NextPos UVec3.
+        grid_pos.0 = next_pos.0;
+
+        // Update the entities translation
+        let translation = Vec3::new(
+            next.0.x as f32 * 32.0, // Assuming tiles are 32x32
+            next.0.y as f32 * 32.0,
+            0.0
+        );
+
+        commands.entity(entity)
+            .insert(Transform::from_translation(translation))
+            .remove::&lt;NextPos&gt;();
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="pathfindingcollision-marker-components"><a class="header" href="#pathfindingcollision-marker-components">Pathfinding/Collision Marker Components</a></h2>
+<p><code>PathfindingFailed</code> will inserted into the entity if a path is not found for the desired goal. You can create your own system to handle these failures, or let the built-in system attempt another pathfind for the goal on the next frame.</p>
+<p><code>AvoidanceFailed</code> will be inserted when collision is enabled and the entity is not able to path around a local blocking entity. The <code>reroute_path</code> system will attempt to find a new full HPA* path in an attempt to resolve the issue. You can handle these in your own custom system if desired.</p>
+<p><code>RerouteFailed</code> is added to the component when all attempts to resolve collision pathing issues have failed and means that there's no viable path at all to the entities desired goal. At this point you will need to handle the issue in your own custom system. Whether this is looking for a new goal or waiting a set amount of time before attempting pathing is up to you. Remove the <code>RerouteFailed</code> component from the entity when the entity is ready to attempt pathfinding again.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn handle_reroute_failed(
+    mut commands: Commands,
+    mut query: Query&lt;(Entity, &amp;Pathfind), With&lt;&amp;RerouteFailed&gt;&gt;,
+) {
+    for (entity, pathfind) {
+        let some_new_goal = UVec3::new(3, 30, 0); // Just some random new goal
+        commands
+            .entity(entity)
+            .insert(Pathfind::new(some_new_goal)
+            .remove::&lt;RerouteFailed&gt;();
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h1 id="manual-pathfinding"><a class="header" href="#manual-pathfinding">Manual Pathfinding</a></h1>
+<p>You don't need to use the pathfinding systems in the <code>NorthstarPlugin</code> in order to take advantage of this crate. </p>
+<p>You can use both, or choose to not add the <code>NorthstarPlugin</code> and call the pathfinding functions completely manually.</p>
+<p>If you don't use <code>NorthstarPlugin</code> you'll need to maintain your own <code>BlockingMap</code> or <code>HashMap&lt;UVec3, Entity&gt;</code> to pass to the <code>pathfind</code> function to provide it a list of blocked positions.</p>
+<p>All of the pathfinding calls can be done on the <code>Grid</code> component.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn manual_pathfind(
+    mut commands: Commands,
+    player: Single&lt;(Entity, &amp;GridPos, &amp;MoveAction), With&lt;Player&gt;&gt;,
+    grid: Single&lt;&amp;CardinalGrid&gt;,
+    // If using collision you can use the BlockingMap resource to track blockers.
+    blocking: Res&lt;BlockingMap&gt;,
+) {
+    let grid = grid.into_inner();
+    let (player, grid_pos, move_action) = player.into_inner();
+
+    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, true);
+
+    // Setting use_partial to true will allow the pathfinding to return a partial path if a complete path isn't found.
+
+    // If you're not using collision you can pass an empty hashmap for the blocking map.
+    let path = grid.pathfind(grid_pos.0, move_action.0, HashMap::new(), true);
+}
+<span class="boring">}
+</span></code></pre></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="getting_started.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+                                                    <a rel="next" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="getting_started.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+                                    <a rel="next" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        
+    </body>
+</html>
