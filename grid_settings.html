@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Pathfinding - bevy_northstar Documentation</title>
+        <title>Grid Settings - bevy_northstar Documentation</title>
                 
 
         <!-- Custom HTML head -->
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="pathfinding.html" class="active"><strong aria-hidden="true">2.</strong> Pathfinding</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">4.</strong> Debugging</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html" class="active"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -143,125 +143,59 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="pathfinding-with-built-in-systems"><a class="header" href="#pathfinding-with-built-in-systems">Pathfinding With Built-In Systems</a></h1>
-<h2 id="pathfind-and-gridpos-components"><a class="header" href="#pathfind-and-gridpos-components">Pathfind and GridPos Components</a></h2>
-<p>To use the <code>NorthstarPlugin</code> pathfinding systems, insert a <code>Pathfind</code> and <code>GridPos</code> component.</p>
-<p>The <code>GridPos</code> you will need to maintain as the current GridPos of the entity.</p>
+                        <h1 id="configuring-the-grid-with-gridsettingsbuilder"><a class="header" href="#configuring-the-grid-with-gridsettingsbuilder">Configuring the Grid with GridSettingsBuilder</a></h1>
+<p>Use <code>GridSettingsBuilder</code> to generate <code>GridSettings</code> to pass to the <code>Grid</code> constructor.
+You will need to call <code>build()</code> to get the returned settings to pass to <code>Grid</code>.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>commands
-    .spawn((
-        Name::new(&quot;Player&quot;),
-        Pathfind {
-            goal: UVec3::new(12, 12, 0),
-            // you can set use_astar to true to bypass HPA* and use the traditional A* pathfinding algorithm if desired.
-            use_astar: false,
-        },
-        GridPos(UVec3::new(1, 1, 0)),
-        Blocking, // Insert the Blocking component if using collision and this entity should block.
-    ));
+</span>use bevy_northstar::prelude::*;
+
+let grid_settings = GridSettingsBuilder::new_2d(128, 128)
+    .chunk_size(16)
+    .default_impassable()
+    .add_neighbor_filter(filter::NoCornerClipping)
+    .enable_collision()
+    .avoidance_distance(5)
+    .build();
+
+let grid: Grid&lt;OrdinalNeighborhood&gt; = Grid::new(&amp;grid_settings);
 <span class="boring">}
 </span></code></pre></pre>
-<p>There are also shortened functions for creating a new component using HPA* or A*</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>commands
-    .spawn((
-        Name::new(&quot;Player&quot;),
-        // new will default to HPA*.
-        Pathfind::new(UVec3::new(12, 12, 0)),
-        GridPos(UVec3::new(1, 1, 0)),
-        Blocking, // Insert the Blocking component if using collision and this entity should block.
-    ))
-    .spawn((
-        Name::new(&quot;Npc&quot;),
-        // new_astar will default to using A*.
-        Pathfind::new_astar(UVec3::new(14, 14, 0)),
-        GridPos(UVec3::new(2, 2, 0)),
-        Blocking,
-    ));
-<span class="boring">}
-</span></code></pre></pre>
-<h2 id="nextpos"><a class="header" href="#nextpos">NextPos</a></h2>
-<p>The <code>pathfind</code> system looks for any entity with a <code>Changed</code> <code>Pathfind</code> component. It then runs the pathfinding algorithm and when a valid path is found it will insert the next position in the path as a <code>NextPos</code> component.</p>
-<p>Consume the <code>NextPos</code> component by handling the movement and then remove the <code>NextPos</code> component. The <code>next_position</code> system will insert a new <code>NextPos</code> component in a later frame. </p>
-<p>If collision is enabled the <code>next_position</code> system will also handle local collision avoidance and adjust the entities path if there is a blocking entity in the path in the <code>avoidance_distance</code> look ahead set in <code>GridSettings</code>.</p>
-<p>Example movement system:</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn movement(
-    mut commands: Commands,
-    mut query: Query&lt;(Entity, &amp;mut GridPos, &amp;NextPos)&gt;,
-) {
-    for (entity, mut grid_pos, next_pos) in query.iter_mut() {
-        // Set the entities GridPos to the NextPos UVec3.
-        grid_pos.0 = next_pos.0;
-
-        // Update the entities translation
-        let translation = Vec3::new(
-            next.0.x as f32 * 32.0, // Assuming tiles are 32x32
-            next.0.y as f32 * 32.0,
-            0.0
-        );
-
-        commands.entity(entity)
-            .insert(Transform::from_translation(translation))
-            .remove::&lt;NextPos&gt;();
-    }
-}
-<span class="boring">}
-</span></code></pre></pre>
-<h2 id="pathfindingcollision-marker-components"><a class="header" href="#pathfindingcollision-marker-components">Pathfinding/Collision Marker Components</a></h2>
-<p><code>PathfindingFailed</code> will inserted into the entity if a path is not found for the desired goal. You can create your own system to handle these failures, or let the built-in system attempt another pathfind for the goal on the next frame.</p>
-<p><code>AvoidanceFailed</code> will be inserted when collision is enabled and the entity is not able to path around a local blocking entity. The <code>reroute_path</code> system will attempt to find a new full HPA* path in an attempt to resolve the issue. You can handle these in your own custom system if desired.</p>
-<p><code>RerouteFailed</code> is added to the component when all attempts to resolve collision pathing issues have failed and means that there's no viable path at all to the entities desired goal. At this point you will need to handle the issue in your own custom system. Whether this is looking for a new goal or waiting a set amount of time before attempting pathing is up to you. Remove the <code>RerouteFailed</code> component from the entity when the entity is ready to attempt pathfinding again.</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn handle_reroute_failed(
-    mut commands: Commands,
-    mut query: Query&lt;(Entity, &amp;Pathfind), With&lt;&amp;RerouteFailed&gt;&gt;,
-) {
-    for (entity, pathfind) {
-        let some_new_goal = UVec3::new(3, 30, 0); // Just some random new goal
-        commands
-            .entity(entity)
-            .insert(Pathfind::new(some_new_goal)
-            .remove::&lt;RerouteFailed&gt;();
-    }
-}
-<span class="boring">}
-</span></code></pre></pre>
-<h1 id="manual-pathfinding"><a class="header" href="#manual-pathfinding">Manual Pathfinding</a></h1>
-<p>You don't need to use the pathfinding systems in the <code>NorthstarPlugin</code> in order to take advantage of this crate. </p>
-<p>You can use both, or choose to not add the <code>NorthstarPlugin</code> and call the pathfinding functions completely manually.</p>
-<p>If you don't use <code>NorthstarPlugin</code> you'll need to maintain your own <code>BlockingMap</code> or <code>HashMap&lt;UVec3, Entity&gt;</code> to pass to the <code>pathfind</code> function to provide it a list of blocked positions.</p>
-<p>All of the pathfinding calls can be done on the <code>Grid</code> component.</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn manual_pathfind(
-    mut commands: Commands,
-    player: Single&lt;(Entity, &amp;GridPos, &amp;MoveAction), With&lt;Player&gt;&gt;,
-    grid: Single&lt;&amp;CardinalGrid&gt;,
-    // If using collision you can use the BlockingMap resource to track blockers.
-    blocking: Res&lt;BlockingMap&gt;,
-) {
-    let grid = grid.into_inner();
-    let (player, grid_pos, move_action) = player.into_inner();
-
-    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, true);
-
-    // Setting use_partial to true will allow the pathfinding to return a partial path if a complete path isn't found.
-
-    // If you're not using collision you can pass an empty hashmap for the blocking map.
-    let path = grid.pathfind(grid_pos.0, move_action.0, HashMap::new(), true);
-}
-<span class="boring">}
-</span></code></pre></pre>
+<h1 id="gridsettingsbuilder-configuration-breakdown"><a class="header" href="#gridsettingsbuilder-configuration-breakdown">GridSettingsBuilder Configuration Breakdown</a></h1>
+<h2 id="constructors"><a class="header" href="#constructors">Constructors</a></h2>
+<h3 id="new_2dwidth-height"><a class="header" href="#new_2dwidth-height"><code>new_2d(width, height)</code></a></h3>
+<p>Request a 2d grid. The grid always uses UVec3 in the background so this is just a helper constructor to ignore Z.
+<code>width</code> and <code>height</code> are the dimensions of the grid, not pixel size.</p>
+<h3 id="new_3dwidth-height-depth"><a class="header" href="#new_3dwidth-height-depth"><code>new_3d(width, height, depth)</code></a></h3>
+<p>Request a 3d grid. <code>depth</code> being the z dimension.</p>
+<h2 id="chunk-settings"><a class="header" href="#chunk-settings">Chunk Settings</a></h2>
+<h3 id="chunk_sizesize"><a class="header" href="#chunk_sizesize"><code>chunk_size(size)</code></a></h3>
+<p><code>Default: 16</code></p>
+<p>The grid is divided down into regions called chunks. You can configure the size of these regions with <code>chunk_size(size)</code>. Larger chunks will reduce build time and pathfinding time, while smaller chunks will create more optimal paths.</p>
+<h3 id="chunk_depthsize"><a class="header" href="#chunk_depthsize"><code>chunk_depth(size)</code></a></h3>
+<p><code>Default: 1</code></p>
+<p>Ignore if your game is fully 2d. The chunk regions depth is determined separately. 1 is fine for fake 3d maps like isometric maps with a few height layers.</p>
+<h3 id="enable_diagonal_connections"><a class="header" href="#enable_diagonal_connections"><code>enable_diagonal_connections()</code></a></h3>
+<p>By default the entrances to chunks only look for other chunks that are cardinally adjacent. Enabling diagonal connections will create entrances in corners where diagonally adjacent chunks are accessible.</p>
+<p>Enabling this will increase build and pathfinding time but can result in better paths if you have a noisy map.</p>
+<h2 id="default-navigation-settings"><a class="header" href="#default-navigation-settings">Default Navigation Settings</a></h2>
+<h3 id="default_movement_costcost"><a class="header" href="#default_movement_costcost"><code>default_movement_cost(cost)</code></a></h3>
+<p><code>Default: 1</code></p>
+<p>Initializes each grid cell with the set cost.</p>
+<h3 id="default_impassable"><a class="header" href="#default_impassable"><code>default_impassable()</code></a></h3>
+<p><code>Default: Passable</code></p>
+<p>Initializes each grid cell as <code>Nav::Impassable</code>. Useful if you're procedurally generating your map and can speed up setting cells by only digging out what's needed.</p>
+<h2 id="collision-settings"><a class="header" href="#collision-settings">Collision Settings</a></h2>
+<h3 id="enable_collision"><a class="header" href="#enable_collision"><code>enable_collision()</code></a></h3>
+<p><code>Default: Collision disabled</code></p>
+<p>Enables the built-in pathfinding systems to use collision avoidance so entities with the <code>Blocking</code> component will never occupy the same position.</p>
+<h3 id="avoidance_distancedistance"><a class="header" href="#avoidance_distancedistance"><code>avoidance_distance(distance)</code></a></h3>
+<p><code>Default: 4</code></p>
+<p>The collision avoidance system will look ahead in the path to see if any upcoming path positions might be blocked and will re-route to avoid the collision. This will set how far the system looks ahead. Longer distances will affect CPU performance.</p>
+<h2 id="neighbor-settings"><a class="header" href="#neighbor-settings">Neighbor Settings</a></h2>
+<h3 id="add_neighbor_filterfilter"><a class="header" href="#add_neighbor_filterfilter"><code>add_neighbor_filter(filter)</code></a></h3>
+<p>Pass a <code>NeighborFilter</code> that will be applied to viable neighbors when they are precalculated. See <a href="./neighborhood/02_filters.html">Filters</a>.</p>
 
                     </main>
 
@@ -271,7 +205,7 @@
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="pathfinding/01_plugin.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -285,7 +219,7 @@
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="pathfinding/01_plugin.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Configuration - bevy_northstar Documentation</title>
+        <title>Neighborhoods - bevy_northstar Documentation</title>
                 
 
         <!-- Custom HTML head -->
@@ -14,21 +14,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-                <link rel="icon" href="favicon.svg">
-                        <link rel="shortcut icon" href="favicon.png">
-                <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-                <link rel="stylesheet" href="css/print.css" media="print">
+                <link rel="icon" href="../favicon.svg">
+                        <link rel="shortcut icon" href="../favicon.png">
+                <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+                <link rel="stylesheet" href="../css/print.css" media="print">
         
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-                <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="../fonts/fonts.css">
         
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
         
@@ -36,7 +36,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="pathfinding.html"><strong aria-hidden="true">2.</strong> Pathfinding</a></li><li class="chapter-item expanded "><a href="configuration.html" class="active"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">4.</strong> Debugging</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html" class="active"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -114,7 +114,7 @@
                     <h1 class="menu-title">bevy_northstar Documentation</h1>
 
                     <div class="right-buttons">
-                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                                                <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                                                                         
@@ -143,32 +143,36 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="configuration-guide"><a class="header" href="#configuration-guide">Configuration Guide</a></h1>
-<h2 id="gridsettings"><a class="header" href="#gridsettings">GridSettings</a></h2>
-<p><code>width</code>: Set this to tile count width of your tilemap.</p>
-<p><code>height</code>: The tile count height of your tilemap.</p>
-<p><code>depth</code>: Set to 1 for 2d tilemaps. If using a 3d tilemap set this to the height of your tilemap.</p>
-<p><code>chunk_size</code>: How many chunks to divide the tilemap into for HPA*. You'll want to find a good middle ground for this value depending on the size of your map. Larger chunks will assist with performance but provide less optimal paths, smaller chunks will give more optimal paths while hitting performance.</p>
-<p><code>chunk_ordinal</code>: If set to true, entrances will be added to the corners of chunks. This will make <code>Grid::build</code> take a significantly longer for large maps. In most cases this isn't necessary, but may be considered if your map is noisy with a lot of corners and you allow diagonal movement.</p>
-<p>For example a map where wall corners meet often with a diagonal gap.</p>
-<table><thead><tr><th></th><th></th></tr></thead><tbody>
-<tr><td>x</td><td>o</td></tr>
-<tr><td>o</td><td>x</td></tr>
-</tbody></table>
-<p><code>default_cost</code>: This sets default cost for every point of the grid. Set to 0 or 1 for cheap movement. Set to 255 if you want the cost to be the highest.</p>
-<p><code>default_wall</code>: Set to true if you want every point in the grid to a be a wall by default. </p>
-<p><code>collision</code>: Set to true to allow the plugins pathfinding systems to ensure entities aren't pathing through each other.</p>
-<p><code>avoidance_distance</code>: The plugin uses local collision avoidance mainly for performance purposes. This sets the lookahead distance in grid points to check for any possible blocking entity in it's path.</p>
+                        <h1 id="neighborhoods"><a class="header" href="#neighborhoods">Neighborhoods</a></h1>
+<h3 id="cardinalneighborhood"><a class="header" href="#cardinalneighborhood">CardinalNeighborhood</a></h3>
+<p>Allows movement in the four cardinal directions on a 2D plane: <strong>North, East, South, and West</strong>.</p>
+<p><img src="../images/cardinalneighborhood.png" alt="Cardinal Directions" /></p>
+<h3 id="cardinalneighborhood3d"><a class="header" href="#cardinalneighborhood3d">CardinalNeighborhood3d</a></h3>
+<p>Allows movement in all six cardinal directions in 3D space: <strong>North, East, South, West, Up, and Down</strong>.
+This 3D neighborhood is also well-suited for 2D tilemap games with height layers, such as isometric maps.</p>
+<p><img src="../images/cardinalneighborhood3d.png" alt="Cardinal3d Directions" /></p>
+<h3 id="ordinalneighborhood"><a class="header" href="#ordinalneighborhood">OrdinalNeighborhood</a></h3>
+<p>Extends cardinal movement by allowing diagonal movement in addition to the standard directions.</p>
+<p><img src="../images/ordinalneighborhood.png" alt="Ordinal Directions" /></p>
+<h3 id="ordinalneighborhood3d"><a class="header" href="#ordinalneighborhood3d">OrdinalNeighborhood3d</a></h3>
+<p>Extends <code>CardinalNeighborhood3d</code> by allowing diagonal movement in all three dimensions—e.g., North-East-Up—for a total of 26 possible directions.</p>
+<p>Like <code>CardinalNeighborhood3d</code>, this is also useful for 2D tilemap games with height layers, such as isometric maps.</p>
+<p>A <code>NeighborFilter</code> is available to restrict diagonal movement to only within the same depth level, reducing the number of directions from 26 to 14. See <a href="./02_filters.html">Filters</a> for more details.</p>
+<h2 id="implementing-the-neighborhood-trait"><a class="header" href="#implementing-the-neighborhood-trait">Implementing the Neighborhood Trait</a></h2>
+<p>While you <em>can</em> implement your own Neighborhood, it is not currently recommended.</p>
+<p>To support neighbor caching, each grid cell stores its neighbors in a u32 bitmask, which limits the system to 26 directions. The provided built-in neighborhoods already cover all of these directions.</p>
+<p>Switching to a per-cell <code>Vec</code> or <code>HashMap</code> of neighbors would drastically increase memory usage—potentially several gigabytes on large maps (e.g., 1024×1024x4 grids).</p>
+<p>Before implementing a custom Neighborhood, check whether a built-in <a href="./02_filters.html">Filter</a> already provides the neighbor generation behavior you need, or consult the documentation for creating a custom filter.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="pathfinding.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="../pathfinding/03_manual_pathfinding.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="debugging.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="../neighborhood/02_filters.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -178,11 +182,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="pathfinding.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="../pathfinding/03_manual_pathfinding.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="debugging.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="../neighborhood/02_filters.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>
@@ -197,13 +201,13 @@
         </script>
         
         
-                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+                <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
         
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
 
         <!-- Custom JS scripts -->
         

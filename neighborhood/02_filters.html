@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Introduction - bevy_northstar Documentation</title>
+        <title>Filters - bevy_northstar Documentation</title>
                 
 
         <!-- Custom HTML head -->
@@ -14,21 +14,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-                <link rel="icon" href="favicon.svg">
-                        <link rel="shortcut icon" href="favicon.png">
-                <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-                <link rel="stylesheet" href="css/print.css" media="print">
+                <link rel="icon" href="../favicon.svg">
+                        <link rel="shortcut icon" href="../favicon.png">
+                <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+                <link rel="stylesheet" href="../css/print.css" media="print">
         
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-                <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="../fonts/fonts.css">
         
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
         
@@ -36,7 +36,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html" class="active"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -114,7 +114,7 @@
                     <h1 class="menu-title">bevy_northstar Documentation</h1>
 
                     <div class="right-buttons">
-                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                                                <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                                                                         
@@ -143,53 +143,44 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
-<p><a href="https://github.com/jtothethree/bevy_northstar"><code>bevy_northstar</code></a> is a <a href="https://alexene.dev/2019/06/02/Hierarchical-pathfinding.html"><code>Hierarchical Pathfinding</code></a> plugin for <a href="https://bevy.org/">Bevy</a>.</p>
-<p>The crate provides:</p>
-<ul>
-<li>
-<p>Pathfinding Grids: A grid defines the navigable area and stores precalculated neighbors, chunks, entrances, and internal paths used for pathfinding.</p>
-</li>
-<li>
-<p>Pathfinding Systems: Bevy systems to handle pathfinding and collision avoidance for you.</p>
-</li>
-<li>
-<p>Pathfinding Algorithms: You can call the pathfinding functions directly if you desire to handle the pathfinding logic in your own systems or just want to do a one off call.</p>
-</li>
-<li>
-<p>Debugging Tools: Easily visualize the grid and calculated paths to troubleshoot any tilemap and pathfinding issues.</p>
-</li>
-</ul>
-<p>The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with <a href="https://github.com/StarArawn/bevy_ecs_tilemap"><code>bevy_ecs_tilemap</code></a> and any related crates such as <a href="https://github.com/adrien-bon/bevy_ecs_tiled"><code>bevy_ecs_tiled</code></a> and <a href="https://github.com/Trouv/bevy_ecs_ldtk"><code>bevy_ecs_ldtk</code></a>.</p>
-<h1 id="who-this-crate-is-for"><a class="header" href="#who-this-crate-is-for">Who This Crate Is For</a></h1>
-<p>The current target for this crate is for games with large tile based maps and designed to support large sim games like Dwarf Fortress or Rimworld, RPGs with grid like movement like Fallout 1/2, and Roguelikes. </p>
-<p>It does not support Flowfield pathfinding which is better suited in RTS games where many agents are often pathfinding to the single goal. HPA* is better suited for many agents with their own unique goals.</p>
-<p>Nav meshes are not supported yet but are planned; they’re better suited for games with freeform movement, think Zelda-style movement, rather than grid-constrained paths. You can certainly abstract the grid-based paths to freeform movement though.</p>
-<p>Other crates that might fit those projects better:</p>
-<h4 id="flowfield"><a class="header" href="#flowfield">Flowfield</a></h4>
-<ul>
-<li><a href="https://crates.io/crates/bevy_pathfinding">bevy_pathfinding</a></li>
-<li><a href="https://crates.io/crates/bevy_flowfield_tiles_plugin">bevy_flowfield_tiles_plugin</a></li>
-</ul>
-<h4 id="navmesh"><a class="header" href="#navmesh">NavMesh</a></h4>
-<ul>
-<li><a href="https://crates.io/crates/vleue_navigator">vleue_navigator</a></li>
-<li><a href="https://crates.io/crates/bevy_landmass">bevy_landmass</a></li>
-</ul>
-<h4 id="diy-a"><a class="header" href="#diy-a">DIY A*</a></h4>
-<ul>
-<li><a href="https://crates.io/crates/pathfinding">pathfinding</a>: The general pathfinding crate is a good place to start if you just want to implement simple A*.</li>
-</ul>
-<h1 id="3d-why-and-when"><a class="header" href="#3d-why-and-when">3D: Why and When</a></h1>
-<p>Even if your game is technically 2D, many 2D tilemap games feature 3D movement. Isometric games are a great example, but even top-down games like Zelda often include a concept of depth. There are also fully 3D games that use grid-based movement in three dimensions, such as X-COM.</p>
-<p>If your 2D game allows regular movement between floors or terrain levels, you’ll likely want to use a 3D grid.</p>
+                        <h1 id="filters"><a class="header" href="#filters">Filters</a></h1>
+<p><code>NeighborFilter</code>s can be applied during the stage when neighbors are calculated and cached. There are a few built-in ones but you can also implement the <code>NeighborFilter</code> trait yourself to create new ones.</p>
+<p>Filters can be chained and they will be applied in the order that they are added to <code>GridSettingsBuilder</code>.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let grid_settings = GridSettingsBuilder::new_3d(64, 64, 4)
+    .chunk_size(4)
+    .add_neighbor_filter(filter::NoCornerClipping)
+    .add_neighbor_filter(filter::DisallowZDiagonalMovement)
+    .build();
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
+<p>Prevents diagonal movement from clipping through impassable (wall) corners.
+Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
+<p><img src="../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
+<h2 id="nocornercutting"><a class="header" href="#nocornercutting">NoCornerCutting</a></h2>
+<p>Forces cardinal movement around impassable (wall) cells by preventing diagonal movement around ANY adjacent impassable (wall) cell.
+Don't use with <code>NoCornerClipping</code> as this filter already covers clipping through corners.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerCutting)</code>.</p>
+<p><img src="../images/nocornercutting.png" alt="NoCornerCutting" /></p>
+<h2 id="disallowzdiagonalmovement"><a class="header" href="#disallowzdiagonalmovement">DisallowZDiagonalMovement</a></h2>
+<p>The <code>OrdinalNeighborhood3d</code> neighborhood allows diagonal movement along the Z axis.
+If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. This is a good filter &quot;3D&quot; isometric map movement.</p>
+<h1 id="implementing-your-own-filter"><a class="header" href="#implementing-your-own-filter">Implementing Your Own Filter</a></h1>
+<p>TODO, for now please see <code>filters.rs</code> in the source.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="../neighborhood/01_neighborhoods.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
                         
-                                                    <a rel="next" href="getting_started.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="../debugging.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -199,8 +190,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="../neighborhood/01_neighborhoods.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
                 
-                                    <a rel="next" href="getting_started.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="../debugging.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>
@@ -215,13 +209,13 @@
         </script>
         
         
-                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+                <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
         
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
 
         <!-- Custom JS scripts -->
         

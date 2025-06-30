@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="pathfinding.html"><strong aria-hidden="true">2.</strong> Pathfinding</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">4.</strong> Debugging</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -149,63 +149,79 @@
 <p>The crate provides:</p>
 <ul>
 <li>
-<p>Pathfinding Grids: A grid represents the walkable space used for the pathfinding alogrithsm and also precalculated chunks, entrances, and internal paths used for HPA*.</p>
+<p>Pathfinding Grids: A grid defines the navigable area and stores precalculated neighbors, chunks, entrances, and internal paths used for pathfinding.</p>
 </li>
 <li>
-<p>Pathfinding Systems: Bevy systems to handle pathfinding and collision for you. They are not required to use HPA* or other pathfinding algorithms.</p>
+<p>Pathfinding Systems: Bevy systems to handle pathfinding and collision avoidance for you.</p>
 </li>
 <li>
-<p>Pathfinding Algorithms: You can call the pathfinding functions easily if you desire to handle the pathfinding logic in your own systems.</p>
+<p>Pathfinding Algorithms: You can call the pathfinding functions directly if you desire to handle the pathfinding logic in your own systems or just want to do a one off call.</p>
 </li>
 <li>
 <p>Debugging Tools: Easily visualize the grid and calculated paths to troubleshoot any tilemap and pathfinding issues.</p>
 </li>
 </ul>
 <p>The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with <a href="https://github.com/StarArawn/bevy_ecs_tilemap"><code>bevy_ecs_tilemap</code></a> and any related crates such as <a href="https://github.com/adrien-bon/bevy_ecs_tiled"><code>bevy_ecs_tiled</code></a> and <a href="https://github.com/Trouv/bevy_ecs_ldtk"><code>bevy_ecs_ldtk</code></a>.</p>
-<h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<h1 id="who-this-crate-is-for"><a class="header" href="#who-this-crate-is-for">Who This Crate Is For</a></h1>
+<p>The current target for this crate is for games with large tile based maps and designed to support large sim games like Dwarf Fortress or Rimworld, RPGs with grid like movement like Fallout 1/2, and Roguelikes. </p>
+<p>It does not support Flowfield pathfinding which is better suited in RTS games where many agents are often pathfinding to the single goal. HPA* is better suited for many agents with their own unique goals.</p>
+<p>Nav meshes are not supported yet but are planned; they’re better suited for games with freeform movement, think Zelda-style movement, rather than grid-constrained paths. You can certainly abstract the grid-based paths to freeform movement though.</p>
+<p>Other crates that might fit those projects better:</p>
+<h4 id="flowfield"><a class="header" href="#flowfield">Flowfield</a></h4>
+<ul>
+<li><a href="https://crates.io/crates/bevy_pathfinding">bevy_pathfinding</a></li>
+<li><a href="https://crates.io/crates/bevy_flowfield_tiles_plugin">bevy_flowfield_tiles_plugin</a></li>
+</ul>
+<h4 id="navmesh"><a class="header" href="#navmesh">NavMesh</a></h4>
+<ul>
+<li><a href="https://crates.io/crates/vleue_navigator">vleue_navigator</a></li>
+<li><a href="https://crates.io/crates/bevy_landmass">bevy_landmass</a></li>
+</ul>
+<h4 id="diy-a"><a class="header" href="#diy-a">DIY A*</a></h4>
+<ul>
+<li><a href="https://crates.io/crates/pathfinding">pathfinding</a>: The general pathfinding crate is a good place to start if you just want to implement simple A*.</li>
+</ul>
+<h1 id="3d-why-and-when"><a class="header" href="#3d-why-and-when">3D: Why and When</a></h1>
+<p>Even if your game is technically 2D, many 2D tilemap games feature 3D movement. Isometric games are a great example, but even top-down games like Zelda often include a concept of depth. There are also fully 3D games that use grid-based movement in three dimensions, such as X-COM.</p>
+<p>If your 2D game allows regular movement between floors or terrain levels, you’ll likely want to use a 3D grid.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
 <p>Add required dependencies to your <code>Cargo.toml</code> file:</p>
 <pre><code class="language-toml">[dependencies]
 bevy = &quot;0.16&quot;
-bevy_northstar = &quot;0.2&quot;
+bevy_northstar = &quot;0.3&quot;
 </code></pre>
-<p>The basic requirements to use the crate are to spawn an entity with a <code>Grid</code> component, adjust the points, and then call <code>Grid::build()</code> so the chunk entrances and internal paths can be calculated. </p>
-<p>To use the built-in pathfinding systems for the crate, insert the NorthstarPlugin specifying the <code>Neighborhood</code> to use.</p>
-<p>The built-in neighborhoods are:</p>
-<ul>
-<li><code>CardinalNeighborhood</code> 4 directions allowing no diagonal movement.</li>
-<li><code>CardinalNeighborhood3d</code> 6 directions, including up and down, allowing no diagonal movement.</li>
-<li><code>OrdinalNeighborhood</code> 8 directions allowing for diagonal movement.</li>
-<li><code>OrdinalNeighborhood3d</code> 26 directions which includes the base ordinal movements and their up/down directions.</li>
-</ul>
+<p>The basic requirements to use the crate are to spawn an entity with a <code>Grid</code> component, adjust the navigation data, and then call <code>Grid::build()</code> so the chunk entrances and internal paths can be calculated. </p>
+<p>To use the built-in pathfinding systems for the crate, add the <code>NorthstarPlugin</code> specifying the <code>Neighborhood</code> to use.</p>
+<p><code>CardinalNeighborhood</code> (North, East, South, West) is a good neighborhood to start with. See <a href="./neighborhood/01_neighborhoods.html">Neighborhoods</a> for the full list and details.</p>
 <pre><pre class="playground"><code class="language-rust no_run">use bevy::prelude::*;
 use bevy_northstar::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Add the Northstar Plugin with a selected neighborhood to use the built in pathfinding systems
+        // Add the Northstar Plugin with a selected neighborhood to use the built-in pathfinding systems
         .add_plugins(NorthstarPlugin::&lt;CardinalNeighborhood&gt;::default())
         .add_systems(Startup, (startup, build_grid.after(startup)))
         .run();
 }
 
 fn startup(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    // Configure the grid
+    let grid_settings = GridSettingsBuilder::new_2d(64, 48).chunk_size(16).build();
 
     // Spawn the grid used for pathfinding.
-    commands.spawn(Grid&lt;CardinalNeighborhood&gt;::new(&amp;GridSettings {
-        width: 16,
-        height: 16,
-        chunk_size: 4,
-        ..Default::default()
-    }));
+    commands.spawn(Grid::&lt;CardinalNeighborhood&gt;::new(&amp;grid_settings));
 }
 
 fn build_grid(grid: Single&lt;&amp;mut Grid&lt;CardinalNeighborhood&gt;&gt;) {
     let mut grid = grid.into_inner();
 
     // Let's set the position 8, 8 to a wall
-    grid.set_point(UVec3::new(8, 8, 0), Point::new(u32::MAX, true));
+    grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
+
+    // The default settings set every position as passable but for demonstration let's set one
+    // Nav::Passable takes a movement cost which determines how expensive it is to move to that position.
+    grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(1));
 
     info!(&quot;Building the grid...&quot;);
 
@@ -226,65 +242,176 @@ fn build_grid(grid: Single&lt;&amp;mut Grid&lt;CardinalNeighborhood&gt;&gt;) {
 </ul>
 <p>Rather than <code>Grid&lt;CardinalNeighborhood&gt;::new</code> you can use <code>CardinalGrid::new</code>.
 Rather than querying <code>Single&lt;&amp;mut Grid&lt;CardinalNeighborhood&gt;&gt;</code> you can query <code>Single&lt;&amp;mut CardinalGrid&gt;</code></p>
+<h2 id="quick-northstarplugin-pathfinding-system-usage"><a class="header" href="#quick-northstarplugin-pathfinding-system-usage">Quick NorthstarPlugin Pathfinding System Usage</a></h2>
+<p>Using the example above we can create a system to look for entities without a path and give them a goal.</p>
+<p>If you're not interested in using the built-in systems, see <a href="./pathfinding.html">Pathfinding</a> for examples.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use bevy::prelude::*;
+use bevy_northstar::prelude::*;
+
+fn spawn(mut commands: Commands) {
+    let grid_settings = GridSettingsBuilder::new_2d(64, 48).chunk_size(16).build();
+    // Store the spawned entity to relate entities to this grid.
+    let grid_entity = commands.spawn(CardinalGrid::new(&amp;grid_settings));
+
+    // Let's spawn a pathfinding Player agent
+    commands.spawn((
+        Name::new(&quot;Player&quot;),
+        // AgentPos is required to position your entity in the grid.
+        AgentPos(UVec3::new(4, 4, 0)),
+        // Here we relate this agent to the grid we created.
+        AgentOfGrid(grid_entity),
+    ));
+}
+
+fn pathfind_agents(
+    // The Pathfind component acts as a request to pathfind to a goal.
+    query: Query&lt;Entity, Without&lt;Pathfind&gt;&gt;,
+    mut commands: Commands,
+) {
+    for entity in &amp;query {
+        // Let's request to pathfind to 7,7.
+        commands.entity(entity).insert(Pathfind::new(UVec3::new(7, 7, 0)));
+    }
+}
+
+fn move_player(
+    mut query: Query&lt;(Entity, &amp;mut AgentPos, &amp;NextPos)&gt;
+    mut commands: Commands,
+) {
+    for (entity, mut agent_pos, next_pos) in &amp;mut query {
+        // NextPos contains the next valid position in the path.
+        // Here we update just the AgentPos to keep it aligned with the grid,
+        // but for real usage you would also likely update the transform for world positioning.
+        agent_pos.0 = next_pos.0;
+
+        // Remove the NextPos component and the pathfinding system will insert a new NextPos with the next position in the path.
+        commands.entity(entity).remove::&lt;NextPos&gt;();
+        // Once the agent reaches its goal, Pathfind will be removed.
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
 <h2 id="grid-as-a-component"><a class="header" href="#grid-as-a-component">Grid as a Component</a></h2>
 <p>Currently the plugin Pathfinding and Debug systems expect there to be only a single copy of the Grid component which means you can't currently use them if you want to support multiple grids in your project. </p>
 <p>Normally it would make sense for this to be Bevy <code>Resource</code> but this decision was made so the plugin can update to support multiple grids in the future without making breaking API changes. If your project needs to support multiple pathfinding grids you can avoid using the NorthstarPlugin and NorthstarDebugPlugin and call the pathfinding functions directly on the <code>Grid</code> components for the time being.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuring-the-grid-with-gridsettingsbuilder"><a class="header" href="#configuring-the-grid-with-gridsettingsbuilder">Configuring the Grid with GridSettingsBuilder</a></h1>
+<p>Use <code>GridSettingsBuilder</code> to generate <code>GridSettings</code> to pass to the <code>Grid</code> constructor.
+You will need to call <code>build()</code> to get the returned settings to pass to <code>Grid</code>.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use bevy_northstar::prelude::*;
+
+let grid_settings = GridSettingsBuilder::new_2d(128, 128)
+    .chunk_size(16)
+    .default_impassable()
+    .add_neighbor_filter(filter::NoCornerClipping)
+    .enable_collision()
+    .avoidance_distance(5)
+    .build();
+
+let grid: Grid&lt;OrdinalNeighborhood&gt; = Grid::new(&amp;grid_settings);
+<span class="boring">}
+</span></code></pre></pre>
+<h1 id="gridsettingsbuilder-configuration-breakdown"><a class="header" href="#gridsettingsbuilder-configuration-breakdown">GridSettingsBuilder Configuration Breakdown</a></h1>
+<h2 id="constructors"><a class="header" href="#constructors">Constructors</a></h2>
+<h3 id="new_2dwidth-height"><a class="header" href="#new_2dwidth-height"><code>new_2d(width, height)</code></a></h3>
+<p>Request a 2d grid. The grid always uses UVec3 in the background so this is just a helper constructor to ignore Z.
+<code>width</code> and <code>height</code> are the dimensions of the grid, not pixel size.</p>
+<h3 id="new_3dwidth-height-depth"><a class="header" href="#new_3dwidth-height-depth"><code>new_3d(width, height, depth)</code></a></h3>
+<p>Request a 3d grid. <code>depth</code> being the z dimension.</p>
+<h2 id="chunk-settings"><a class="header" href="#chunk-settings">Chunk Settings</a></h2>
+<h3 id="chunk_sizesize"><a class="header" href="#chunk_sizesize"><code>chunk_size(size)</code></a></h3>
+<p><code>Default: 16</code></p>
+<p>The grid is divided down into regions called chunks. You can configure the size of these regions with <code>chunk_size(size)</code>. Larger chunks will reduce build time and pathfinding time, while smaller chunks will create more optimal paths.</p>
+<h3 id="chunk_depthsize"><a class="header" href="#chunk_depthsize"><code>chunk_depth(size)</code></a></h3>
+<p><code>Default: 1</code></p>
+<p>Ignore if your game is fully 2d. The chunk regions depth is determined separately. 1 is fine for fake 3d maps like isometric maps with a few height layers.</p>
+<h3 id="enable_diagonal_connections"><a class="header" href="#enable_diagonal_connections"><code>enable_diagonal_connections()</code></a></h3>
+<p>By default the entrances to chunks only look for other chunks that are cardinally adjacent. Enabling diagonal connections will create entrances in corners where diagonally adjacent chunks are accessible.</p>
+<p>Enabling this will increase build and pathfinding time but can result in better paths if you have a noisy map.</p>
+<h2 id="default-navigation-settings"><a class="header" href="#default-navigation-settings">Default Navigation Settings</a></h2>
+<h3 id="default_movement_costcost"><a class="header" href="#default_movement_costcost"><code>default_movement_cost(cost)</code></a></h3>
+<p><code>Default: 1</code></p>
+<p>Initializes each grid cell with the set cost.</p>
+<h3 id="default_impassable"><a class="header" href="#default_impassable"><code>default_impassable()</code></a></h3>
+<p><code>Default: Passable</code></p>
+<p>Initializes each grid cell as <code>Nav::Impassable</code>. Useful if you're procedurally generating your map and can speed up setting cells by only digging out what's needed.</p>
+<h2 id="collision-settings"><a class="header" href="#collision-settings">Collision Settings</a></h2>
+<h3 id="enable_collision"><a class="header" href="#enable_collision"><code>enable_collision()</code></a></h3>
+<p><code>Default: Collision disabled</code></p>
+<p>Enables the built-in pathfinding systems to use collision avoidance so entities with the <code>Blocking</code> component will never occupy the same position.</p>
+<h3 id="avoidance_distancedistance"><a class="header" href="#avoidance_distancedistance"><code>avoidance_distance(distance)</code></a></h3>
+<p><code>Default: 4</code></p>
+<p>The collision avoidance system will look ahead in the path to see if any upcoming path positions might be blocked and will re-route to avoid the collision. This will set how far the system looks ahead. Longer distances will affect CPU performance.</p>
+<h2 id="neighbor-settings"><a class="header" href="#neighbor-settings">Neighbor Settings</a></h2>
+<h3 id="add_neighbor_filterfilter"><a class="header" href="#add_neighbor_filterfilter"><code>add_neighbor_filter(filter)</code></a></h3>
+<p>Pass a <code>NeighborFilter</code> that will be applied to viable neighbors when they are precalculated. See <a href="./neighborhood/02_filters.html">Filters</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="pathfinding-with-built-in-systems"><a class="header" href="#pathfinding-with-built-in-systems">Pathfinding With Built-In Systems</a></h1>
-<h2 id="pathfind-and-gridpos-components"><a class="header" href="#pathfind-and-gridpos-components">Pathfind and GridPos Components</a></h2>
-<p>To use the <code>NorthstarPlugin</code> pathfinding systems, insert a <code>Pathfind</code> and <code>GridPos</code> component.</p>
-<p>The <code>GridPos</code> you will need to maintain as the current GridPos of the entity.</p>
+<h2 id="pathfind-and-agentpos-components"><a class="header" href="#pathfind-and-agentpos-components">Pathfind and AgentPos Components</a></h2>
+<p>To use the <code>NorthstarPlugin</code> pathfinding systems, insert a <code>Pathfind</code> and <code>AgentPos</code> on the entity you want to pathfind.
+You will need to maintain the grid position in <code>AgentPos</code>.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>commands
     .spawn((
         Name::new(&quot;Player&quot;),
-        Pathfind {
-            goal: UVec3::new(12, 12, 0),
-            // you can set use_astar to true to bypass HPA* and use the traditional A* pathfinding algorithm if desired.
-            use_astar: false,
-        },
-        GridPos(UVec3::new(1, 1, 0)),
-        Blocking, // Insert the Blocking component if using collision and this entity should block.
+        // Request a path to 8,8
+        Pathfind::new(UVec3::new(8, 8, 0)),
+        // The entities current position in the grid
+        AgentPos(UVec3::new(4, 4, 0))
+        Blocking, // Insert the Blocking component if using collision and this entity should block others.
     ));
 <span class="boring">}
 </span></code></pre></pre>
-<p>There are also shortened functions for creating a new component using HPA* or A*</p>
+<p>There are also shorthand constructors for creating <code>Pathfind</code>.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>commands
-    .spawn((
-        Name::new(&quot;Player&quot;),
-        // new will default to HPA*.
-        Pathfind::new(UVec3::new(12, 12, 0)),
-        GridPos(UVec3::new(1, 1, 0)),
-        Blocking, // Insert the Blocking component if using collision and this entity should block.
-    ))
-    .spawn((
-        Name::new(&quot;Npc&quot;),
-        // new_astar will default to using A*.
-        Pathfind::new_astar(UVec3::new(14, 14, 0)),
-        GridPos(UVec3::new(2, 2, 0)),
-        Blocking,
-    ));
+</span>// If you're on a 2d grid you can use `new_2d()` without having to create a new UVec3. 
+Pathfind::new_2d(8, 8)
+// Same with 3d
+Pathfind::new_3d(8, 8, 4)
 <span class="boring">}
 </span></code></pre></pre>
+<h3 id="pathfind-configuration"><a class="header" href="#pathfind-configuration">Pathfind Configuration</a></h3>
+<p>Pathfind has configuration options you can set by chaining.</p>
+<h4 id="modemode"><a class="header" href="#modemode"><code>mode(mode)</code></a></h4>
+<p><code>Default: PathfindMode::Refined</code> </p>
+<p>Use this to set the desired algorithm to find the goal. Ex: <code>Pathfind::new_2d(8, 8).mode(PathfindMode::AStar)</code>.
+See below for a list of <code>PathfindMode</code>s and their description.</p>
+<h4 id="partial"><a class="header" href="#partial"><code>partial()</code></a></h4>
+<p><code>Default: Not enabled</code></p>
+<p>Apply <code>.partial()</code> to request an incomplete path if the goal is not reachable. Ex: <code>Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()</code>.</p>
+<h3 id="pathfindmode"><a class="header" href="#pathfindmode">PathfindMode</a></h3>
+<p>The pathfinding algorithm enum. Current options are:</p>
+<h4 id="pathfindmoderefined"><a class="header" href="#pathfindmoderefined"><code>PathfindMode::Refined</code></a></h4>
+<h5 id="this-is-the-default-algorithm"><a class="header" href="#this-is-the-default-algorithm">This is the default algorithm</a></h5>
+<p>Gets a high level path to the goal at the chunk level. If a path is found, the path is iterated over with a line of sight / tracing algorithm to attempt to create the shortest path to the goal. The refinement is more expensive than the HPA* algorithm but not nearly as expensive as using A*.</p>
+<h4 id="pathfindmodecoarse"><a class="header" href="#pathfindmodecoarse"><code>PathfindMode::Coarse</code></a></h4>
+<p>Returns the unrefined HPA* path pulled from the cached entrance paths. This will not return the path with the least steps to the goal but is extremely fast to generate. It's great for natural paths NPCs might use to move around a building for example.</p>
+<h4 id="pathfindmodeastar"><a class="header" href="#pathfindmodeastar"><code>PathfindMode::AStar</code></a></h4>
+<p>This is standard A* pathfinding. It's very expensive for long distance goals on large maps but is still useful for very short distances or when you're concerned with the absolute shortest path. A good use would be movement where action points are subtracted based on number of moves.</p>
 <h2 id="nextpos"><a class="header" href="#nextpos">NextPos</a></h2>
-<p>The <code>pathfind</code> system looks for any entity with a <code>Changed</code> <code>Pathfind</code> component. It then runs the pathfinding algorithm and when a valid path is found it will insert the next position in the path as a <code>NextPos</code> component.</p>
-<p>Consume the <code>NextPos</code> component by handling the movement and then remove the <code>NextPos</code> component. The <code>next_position</code> system will insert a new <code>NextPos</code> component in a later frame. </p>
-<p>If collision is enabled the <code>next_position</code> system will also handle local collision avoidance and adjust the entities path if there is a blocking entity in the path in the <code>avoidance_distance</code> look ahead set in <code>GridSettings</code>.</p>
+<p>The pathfind system detects entities with a changed <code>Pathfind</code> component. It then runs the pathfinding algorithm and, if a valid path is found, inserts the next step as a <code>NextPos</code> component.</p>
+<p>You should consume the <code>NextPos</code> component by moving the entity accordingly and then removing the component afterward. In a subsequent frame, the next_position system will insert the next <code>NextPos</code> if the path is not yet complete.</p>
+<p>If collision avoidance is enabled, the next_position system will also handle local avoidance. It may adjust the path if another entity is blocking the current path within the configured avoidance_distance (as set in <code>GridSettingsBuilder</code>).</p>
+<p>See <a href="pathfinding/./grid_settings.html">Grid Settings</a> for more information on enabling and configuring collision.</p>
 <p>Example movement system:</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn movement(
     mut commands: Commands,
-    mut query: Query&lt;(Entity, &amp;mut GridPos, &amp;NextPos)&gt;,
+    mut query: Query&lt;(Entity, &amp;mut AgentPos, &amp;NextPos)&gt;,
 ) {
-    for (entity, mut grid_pos, next_pos) in query.iter_mut() {
+    for (entity, mut agent_pos, next_pos) in &amp;mut query {
         // Set the entities GridPos to the NextPos UVec3.
-        grid_pos.0 = next_pos.0;
+        agent_pos.0 = next_pos.0;
 
         // Update the entities translation
         let translation = Vec3::new(
@@ -301,27 +428,92 @@ Rather than querying <code>Single&lt;&amp;mut Grid&lt;CardinalNeighborhood&gt;&g
 <span class="boring">}
 </span></code></pre></pre>
 <h2 id="pathfindingcollision-marker-components"><a class="header" href="#pathfindingcollision-marker-components">Pathfinding/Collision Marker Components</a></h2>
-<p><code>PathfindingFailed</code> will inserted into the entity if a path is not found for the desired goal. You can create your own system to handle these failures, or let the built-in system attempt another pathfind for the goal on the next frame.</p>
-<p><code>AvoidanceFailed</code> will be inserted when collision is enabled and the entity is not able to path around a local blocking entity. The <code>reroute_path</code> system will attempt to find a new full HPA* path in an attempt to resolve the issue. You can handle these in your own custom system if desired.</p>
-<p><code>RerouteFailed</code> is added to the component when all attempts to resolve collision pathing issues have failed and means that there's no viable path at all to the entities desired goal. At this point you will need to handle the issue in your own custom system. Whether this is looking for a new goal or waiting a set amount of time before attempting pathing is up to you. Remove the <code>RerouteFailed</code> component from the entity when the entity is ready to attempt pathfinding again.</p>
+<h3 id="pathfindingfailed"><a class="header" href="#pathfindingfailed"><code>PathfindingFailed</code></a></h3>
+<p>This component is inserted into an entity if a path to the desired goal cannot be found.
+You will want to create a system that determines how to handle the failure in a way unique to your game.</p>
+<h3 id="avoidancefailed"><a class="header" href="#avoidancefailed"><code>AvoidanceFailed</code></a></h3>
+<p>This component is inserted when collision avoidance is enabled and the entity cannot find a path around a local <code>Blocking</code> entity.</p>
+<p>The <code>reroute_path</code> system will automatically attempt to compute a new full HPA* path to resolve the issue in the next frame. You may also choose to handle this yourself in a custom system.</p>
+<h3 id="reroutefailed"><a class="header" href="#reroutefailed"><code>RerouteFailed</code></a></h3>
+<p>This component is added when all attempts to resolve a collision-related pathing issue have failed, meaning no viable path to the goal exists at the moment or the entity is stuck.</p>
+<p>You must handle this case in your own system — for example, by:</p>
+<ul>
+<li>Selecting a new goal</li>
+<li>Waiting and retrying after a delay</li>
+<li>Alerting the player/user</li>
+</ul>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn handle_reroute_failed(
+</span>fn handle_pathfind_failed(
     mut commands: Commands,
-    mut query: Query&lt;(Entity, &amp;Pathfind), With&lt;&amp;RerouteFailed&gt;&gt;,
+    mut query: Query&lt;(Entity, &amp;Name, &amp;Pathfind), With&lt;PathfindingFailed&gt;&gt;,
 ) {
-    for (entity, pathfind) {
-        let some_new_goal = UVec3::new(3, 30, 0); // Just some random new goal
+    for (entity, name, path) in &amp;mut query {
+        log::warn!(&quot;{} cannot find a route to {}!&quot;, name, path.goal);
+
+        let new_goal = locate_new_cheese();
+
         commands
             .entity(entity)
-            .insert(Pathfind::new(some_new_goal)
+            .insert(Pathfind::new(new_goal))
+            .remove::&lt;PathfindingFailed&gt;();
+    }
+}
+
+fn handle_reroute_failed(
+    mut commands: Commands,
+    mut query: Query&lt;Entity, With&lt;RerouteFailed&gt;&gt;,
+) {
+    for entity in &amp;mut query {
+        let some_new_goal = UVec3::new(3, 30, 0); // Just some random new goal
+
+        commands
+            .entity(entity)
+            .insert(Pathfind::new(some_new_goal))
             .remove::&lt;RerouteFailed&gt;();
     }
 }
 <span class="boring">}
 </span></code></pre></pre>
-<h1 id="manual-pathfinding"><a class="header" href="#manual-pathfinding">Manual Pathfinding</a></h1>
+<h2 id="pathingset"><a class="header" href="#pathingset">PathingSet</a></h2>
+<p>The <code>NorthstarPlugin</code> pathfinding systems run in their own system set named <code>PathingSet</code>.</p>
+<p>You can use the set to ensure that your systems dealing with pathfinding and entity movement happen before or after the pathing systems.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>app.add_systems(Update, move_pathfinders.before(PathingSet));
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="staggering-pathfinding-in-the-northstarplugin-systems"><a class="header" href="#staggering-pathfinding-in-the-northstarplugin-systems">Staggering Pathfinding in the <code>NorthstarPlugin</code> Systems</a></h2>
+<p>The systems provided by <code>NorthstarPlugin</code> are designed to stagger how many agents can process pathfinding and collision avoidance in a single frame.</p>
+<p>By default, both limits are set to <code>128</code> agents per frame. This may be too high if you actually have that many active agents. On the other hand, setting it too low can cause noticeable delays, with agents appearing to sit idle. You’ll want to tune these values based on your game’s performance needs.</p>
+<p>Currently the <code>reroute_path</code> system that attempts to reroute agents that have a failed path that local collision avoidance is unable to resolve can still cause stutter. In a future update it will be moved into any async call.</p>
+<p>To override the default settings, insert the <code>NorthstarPluginSettings</code> resource into your app:</p>
+<pre><pre class="playground"><code class="language-rust no-run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>App::new()
+    .insert_resource(NorthstarPluginSettings {
+        max_pathfinding_agents_per_frame: 16,
+        max_collision_avoidance_agents_per_frame: 16,
+    })
+<span class="boring">}
+</span></code></pre></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="path"><a class="header" href="#path">Path</a></h1>
+<p>The <code>Path</code> component will be inserted to an entity when after a path is found. It is also returned when calling the manual pathfinding methods on <code>Grid</code>.</p>
+<p>You can use it draw paths in your game, for example when highlighting tiles for a path in a turn based game.</p>
+<p>There are a few notable methods on <code>Path</code>.</p>
+<h3 id="path---uvec3"><a class="header" href="#path---uvec3"><code>path() -&gt; &amp;[UVec3]</code></a></h3>
+<p>Returns an array of all positions in the path.</p>
+<h3 id="cost---u32"><a class="header" href="#cost---u32"><code>cost() -&gt; u32</code></a></h3>
+<p>The full cost of the path. It is the sum of all movement costs for each cell in the grid that the path crosses over.</p>
+<h3 id="len---usize"><a class="header" href="#len---usize"><code>len() -&gt; usize</code></a></h3>
+<p>The total number of positions <strong>currently</strong> in the path.</p>
+<h3 id="pop---optionuvec3"><a class="header" href="#pop---optionuvec3"><code>pop() -&gt; Option&lt;UVec3&gt;</code></a></h3>
+<p>Removes and returns the first position of the path.</p>
+<h4 id="see-the-crate-docs-for-more-a-couple-of-notable-ones-are-reverse-and-translate_byoffset"><a class="header" href="#see-the-crate-docs-for-more-a-couple-of-notable-ones-are-reverse-and-translate_byoffset">See the crate docs for more. A couple of notable ones are <code>reverse()</code> and <code>translate_by(offset)</code></a></h4>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="manual-pathfinding"><a class="header" href="#manual-pathfinding">Manual Pathfinding</a></h1>
 <p>You don't need to use the pathfinding systems in the <code>NorthstarPlugin</code> in order to take advantage of this crate. </p>
 <p>You can use both, or choose to not add the <code>NorthstarPlugin</code> and call the pathfinding functions completely manually.</p>
 <p>If you don't use <code>NorthstarPlugin</code> you'll need to maintain your own <code>BlockingMap</code> or <code>HashMap&lt;UVec3, Entity&gt;</code> to pass to the <code>pathfind</code> function to provide it a list of blocked positions.</p>
@@ -331,51 +523,88 @@ Rather than querying <code>Single&lt;&amp;mut Grid&lt;CardinalNeighborhood&gt;&g
 </span><span class="boring">fn main() {
 </span>fn manual_pathfind(
     mut commands: Commands,
-    player: Single&lt;(Entity, &amp;GridPos, &amp;MoveAction), With&lt;Player&gt;&gt;,
+    player: Single&lt;(Entity, &amp;AgentPos, &amp;MoveAction), With&lt;Player&gt;&gt;,
     grid: Single&lt;&amp;CardinalGrid&gt;,
-    // If using collision you can use the BlockingMap resource to track blockers.
+    // If using the plugin you can use the BlockingMap resource for an auto-updated blocking list.
     blocking: Res&lt;BlockingMap&gt;,
 ) {
     let grid = grid.into_inner();
     let (player, grid_pos, move_action) = player.into_inner();
 
-    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, true);
+    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, false);
 
     // Setting use_partial to true will allow the pathfinding to return a partial path if a complete path isn't found.
 
     // If you're not using collision you can pass an empty hashmap for the blocking map.
     let path = grid.pathfind(grid_pos.0, move_action.0, HashMap::new(), true);
+
+    // There are also Coarse and AStar methods
+    let path = grid.pathfind_coarse(grid_pos.0, move_action.0, blocking, false);
+    let path = grid.pathfind_astar(grid_pos.0, move_action.0, blocking, false);
 }
 <span class="boring">}
 </span></code></pre></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-guide"><a class="header" href="#configuration-guide">Configuration Guide</a></h1>
-<h2 id="gridsettings"><a class="header" href="#gridsettings">GridSettings</a></h2>
-<p><code>width</code>: Set this to tile count width of your tilemap.</p>
-<p><code>height</code>: The tile count height of your tilemap.</p>
-<p><code>depth</code>: Set to 1 for 2d tilemaps. If using a 3d tilemap set this to the height of your tilemap.</p>
-<p><code>chunk_size</code>: How many chunks to divide the tilemap into for HPA*. You'll want to find a good middle ground for this value depending on the size of your map. Larger chunks will assist with performance but provide less optimal paths, smaller chunks will give more optimal paths while hitting performance.</p>
-<p><code>chunk_ordinal</code>: If set to true, entrances will be added to the corners of chunks. This will make <code>Grid::build</code> take a significantly longer for large maps. In most cases this isn't necessary, but may be considered if your map is noisy with a lot of corners and you allow diagonal movement.</p>
-<p>For example a map where wall corners meet often with a diagonal gap.</p>
-<table><thead><tr><th></th><th></th></tr></thead><tbody>
-<tr><td>x</td><td>o</td></tr>
-<tr><td>o</td><td>x</td></tr>
-</tbody></table>
-<p><code>default_cost</code>: This sets default cost for every point of the grid. Set to 0 or 1 for cheap movement. Set to 255 if you want the cost to be the highest.</p>
-<p><code>default_wall</code>: Set to true if you want every point in the grid to a be a wall by default. </p>
-<p><code>collision</code>: Set to true to allow the plugins pathfinding systems to ensure entities aren't pathing through each other.</p>
-<p><code>avoidance_distance</code>: The plugin uses local collision avoidance mainly for performance purposes. This sets the lookahead distance in grid points to check for any possible blocking entity in it's path.</p>
+<p>The <code>Grid</code> pathfinding methods return an <code>Option&lt;Path&gt;</code>. <code>None</code> will be returned if no viable path is found.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="neighborhoods"><a class="header" href="#neighborhoods">Neighborhoods</a></h1>
+<h3 id="cardinalneighborhood"><a class="header" href="#cardinalneighborhood">CardinalNeighborhood</a></h3>
+<p>Allows movement in the four cardinal directions on a 2D plane: <strong>North, East, South, and West</strong>.</p>
+<p><img src="neighborhood/../images/cardinalneighborhood.png" alt="Cardinal Directions" /></p>
+<h3 id="cardinalneighborhood3d"><a class="header" href="#cardinalneighborhood3d">CardinalNeighborhood3d</a></h3>
+<p>Allows movement in all six cardinal directions in 3D space: <strong>North, East, South, West, Up, and Down</strong>.
+This 3D neighborhood is also well-suited for 2D tilemap games with height layers, such as isometric maps.</p>
+<p><img src="neighborhood/../images/cardinalneighborhood3d.png" alt="Cardinal3d Directions" /></p>
+<h3 id="ordinalneighborhood"><a class="header" href="#ordinalneighborhood">OrdinalNeighborhood</a></h3>
+<p>Extends cardinal movement by allowing diagonal movement in addition to the standard directions.</p>
+<p><img src="neighborhood/../images/ordinalneighborhood.png" alt="Ordinal Directions" /></p>
+<h3 id="ordinalneighborhood3d"><a class="header" href="#ordinalneighborhood3d">OrdinalNeighborhood3d</a></h3>
+<p>Extends <code>CardinalNeighborhood3d</code> by allowing diagonal movement in all three dimensions—e.g., North-East-Up—for a total of 26 possible directions.</p>
+<p>Like <code>CardinalNeighborhood3d</code>, this is also useful for 2D tilemap games with height layers, such as isometric maps.</p>
+<p>A <code>NeighborFilter</code> is available to restrict diagonal movement to only within the same depth level, reducing the number of directions from 26 to 14. See <a href="neighborhood/./02_filters.html">Filters</a> for more details.</p>
+<h2 id="implementing-the-neighborhood-trait"><a class="header" href="#implementing-the-neighborhood-trait">Implementing the Neighborhood Trait</a></h2>
+<p>While you <em>can</em> implement your own Neighborhood, it is not currently recommended.</p>
+<p>To support neighbor caching, each grid cell stores its neighbors in a u32 bitmask, which limits the system to 26 directions. The provided built-in neighborhoods already cover all of these directions.</p>
+<p>Switching to a per-cell <code>Vec</code> or <code>HashMap</code> of neighbors would drastically increase memory usage—potentially several gigabytes on large maps (e.g., 1024×1024x4 grids).</p>
+<p>Before implementing a custom Neighborhood, check whether a built-in <a href="neighborhood/./02_filters.html">Filter</a> already provides the neighbor generation behavior you need, or consult the documentation for creating a custom filter.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="filters"><a class="header" href="#filters">Filters</a></h1>
+<p><code>NeighborFilter</code>s can be applied during the stage when neighbors are calculated and cached. There are a few built-in ones but you can also implement the <code>NeighborFilter</code> trait yourself to create new ones.</p>
+<p>Filters can be chained and they will be applied in the order that they are added to <code>GridSettingsBuilder</code>.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let grid_settings = GridSettingsBuilder::new_3d(64, 64, 4)
+    .chunk_size(4)
+    .add_neighbor_filter(filter::NoCornerClipping)
+    .add_neighbor_filter(filter::DisallowZDiagonalMovement)
+    .build();
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
+<p>Prevents diagonal movement from clipping through impassable (wall) corners.
+Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
+<p><img src="neighborhood/../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
+<h2 id="nocornercutting"><a class="header" href="#nocornercutting">NoCornerCutting</a></h2>
+<p>Forces cardinal movement around impassable (wall) cells by preventing diagonal movement around ANY adjacent impassable (wall) cell.
+Don't use with <code>NoCornerClipping</code> as this filter already covers clipping through corners.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerCutting)</code>.</p>
+<p><img src="neighborhood/../images/nocornercutting.png" alt="NoCornerCutting" /></p>
+<h2 id="disallowzdiagonalmovement"><a class="header" href="#disallowzdiagonalmovement">DisallowZDiagonalMovement</a></h2>
+<p>The <code>OrdinalNeighborhood3d</code> neighborhood allows diagonal movement along the Z axis.
+If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. This is a good filter &quot;3D&quot; isometric map movement.</p>
+<h1 id="implementing-your-own-filter"><a class="header" href="#implementing-your-own-filter">Implementing Your Own Filter</a></h1>
+<p>TODO, for now please see <code>filters.rs</code> in the source.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="debugging-the-grid-component"><a class="header" href="#debugging-the-grid-component">Debugging the Grid component</a></h1>
 <p>The <code>NorthstarDebugPlugin</code> adds systems that can be enabled to draw gizmos to display the following:</p>
 <ul>
 <li>Chunk grid: Grid outline of where the chunks are</li>
 <li>Entrances: Calculated entrances at the boundaries of the chunks</li>
 <li>Cached internal paths: Cached paths inside the chunk between its own entrances.</li>
-<li>Points: Each individual point on the grid and it's walkable status</li>
+<li>Cells: Each individual cell on the grid and its passable status</li>
 <li>Paths: Draws the current calculated path components</li>
 </ul>
 <p>First, add the <code>NorthstarDebugPlugin</code> to your app.</p>
-<p>Second, you will likely want to set the transform offset to align it with your tilemap. In this example we'll be using components from bevy_ecs_tilemap to assist with determining our offset.</p>
-<p>Third, insert the <code>DebugMap</code> component to the same entity as your <code>Grid</code>. Currently doing this won't change anything, but in the future the Plugin will likely use that to match up <code>DebugMap</code> with it's <code>Grid</code> when multiple <code>Grid</code>s are supported.</p>
+<p>Then insert the <code>DebugGrid</code> component a child of the entity that the <code>Grid</code> you want to debug is attached to. </p>
+<p>You will likely also want to add a <code>DebugOffset</code> component to the same entity as <code>DebugGrid</code> to align the gizmos with your world tilemap position. In this example we'll be using components from bevy_ecs_tilemap to assist with determining our offset.</p>
 <pre><pre class="playground"><code class="language-rust no_run">use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
@@ -396,7 +625,7 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     let anchor = TilemapAnchor::Center;
 
     // Query or create your bevy_ecs_tilemap TilemapSize, TilemapGridSize, and TilemapTileSize. They are required for calculating the anchor offset.
-    let tilemap_size = TilemapSize { x: 128, y: 128 };
+    let tilemap_size = TilemapSize { x: 64, y: 64 };
     let tilemap_gridsize = TilemapGridSize { x: 8.0, y: 8.0 };
     let tilemap_tilesize = TilemapTileSize { x: 8.0, y: 8.0 };
 
@@ -411,29 +640,37 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     // Let's pretend we loaded a tilemap asset and stored it in a handle and now we're spawning the entity for it.
     let mut map_entity = commands.spawn(anchor);
 
+    // Call `build()` to return the component.
+    let debug_grid = DebugGridBuilder::new(64, 64)
+        .enable_chunks()
+        .enable_entrances()
+        .build();
+
+
     // Spawn an entity with the Grid and DebugMap component as a child of the map entity.
-    map_entity.with_child(
-        CardinalGrid::new(&amp;GridSettings {
-            width: 128,
-            height: 128,
-            ..default::Default()
-        }),
-        DebugMap {
-            tile_width: 8,
-            tile_height: 8,
-            map_type: DebugMapType::Square,
-            draw_chunks: true,
-            draw_points: false,
-            draw_entrances: true,
-            draw_cached_paths: false,
-        },
-        // Use our offset calculated from the bevy_ecs_tilemap anchor to set the transform of the DebugMap entity.
-        Transform::from_translation(offset.extend(0.0))
-    )
+    let grid_entity = map_entity.with_child(
+        CardinalGrid::new(&amp;GridSettingsBuilder::new_2d(64, 64).build())
+    );
+
+    grid_entity.with_child((
+        debug_grid,
+        DebugOffset(offset)
+    ));
 }
 </code></pre></pre>
+<h2 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h2>
+<h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
+<p>Sets the debug gizmos to draw in isometric perspective.</p>
+<h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
+<p>Outline the grid chunk regions.</p>
+<h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
+<p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
+<h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
+<p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
+<h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
+<p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
 <h1 id="debugging-paths"><a class="header" href="#debugging-paths">Debugging Paths</a></h1>
-<p>Debugging calculated paths for an entity requires you to add a <code>DebugPath</code> component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.</p>
+<p>Debugging paths for an entity requires you to add a <code>DebugPath</code> component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.</p>
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
@@ -443,21 +680,13 @@ use bevy_northstar::prelude::*;
 
 commands.spawn((
     Name::new(&quot;Player&quot;),
-    DebugPath {
-        // Width of the tilemap tiles
-        tile_width: 8,
-        // Height of the tilemap tiles
-        tile_height: 8,
-        // Map Type (Square or Isometric)
-        map_type: DebugMapType::Square,
-        // Color of the path gizmos
-        color: Color::srgb(1.0, 0.0, 0.0)
-    },
-))
+    DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
+));
 <span class="boring">}
 </span></code></pre></pre>
+<p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
 <h1 id="stats"><a class="header" href="#stats">Stats</a></h1>
-<p>Enabling the <code>stats</code> feature on the crate will allow the <code>NorthstarPlugin</code> pathfinding systems to calculate how much time is spent per frame on pathfinding and collison.</p>
+<p>Enabling the <code>stats</code> feature on the crate will allow the <code>NorthstarPlugin</code> pathfinding systems to calculate the average time spent on pathfinding and collision calls.</p>
 <pre><code class="language-toml">[dependencies]
 bevy_northstar = { version = &quot;0.2.0&quot;, features = [&quot;stats&quot;]}
 </code></pre>
@@ -469,6 +698,148 @@ bevy_northstar = { version = &quot;0.2.0&quot;, features = [&quot;stats&quot;]}
     debug!(&quot;Collision Stats: {:?}&quot;, stats.collision);
     debug!(&quot;Pathfinding Stats: {:?}&quot;, stats.pathfinding);
 }
+<span class="boring">}
+</span></code></pre></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-v02x-to-v03x"><a class="header" href="#migrating-from-v02x-to-v03x">Migrating From v0.2.X to v0.3.X</a></h1>
+<h2 id="gridsettings--gridsettingsbuilder"><a class="header" href="#gridsettings--gridsettingsbuilder">GridSettings → GridSettingsBuilder</a></h2>
+<p><code>GridSettings</code> has been replaced with <code>GridSettingsBuilder</code>.</p>
+<p>Replace</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let grid_settings = GridSettings {
+    width: 16,
+    height: 16,
+    chunk_size: 4,
+    collision: true,
+    ..Default::default()
+}
+
+let grid = CardinalGrid::new(&amp;grid_settings);
+<span class="boring">}
+</span></code></pre></pre>
+<p>with</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let grid_settings = GridSettingsBuilder::new_2d(16, 16)
+    .chunk_size(4)
+    .enable_collision()
+    .build()
+
+let grid = CardinalGrid::new(&amp;grid_settings);
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="gridpos--agentpos"><a class="header" href="#gridpos--agentpos">GridPos → AgentPos</a></h2>
+<p><code>GridPos</code> has been renamed to <code>AgentPos</code>. This is just a simple rename for clarity.</p>
+<h2 id="point--navcell-nav--wall---passable-impassable"><a class="header" href="#point--navcell-nav--wall---passable-impassable">Point → NavCell, Nav | Wall -&gt; Passable, Impassable</a></h2>
+<p><code>Point</code> has been reworked for clarity. <code>Point</code> has been renamed to <code>NavCell</code> but the API has been updated to remove user's need to interact with <code>NavCell</code> for normal use.</p>
+<p><code>Grid</code> functions now take the <code>Nav</code> enum to definite mobility and movement cost for a <code>Grid</code> cell.</p>
+<p>Replace</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Creates a wall at grid cell 8,8,0
+grid.set_point(UVec3::new(8, 8, 0), Point::new(u32::MAX, true));
+// Set the cost for a passable grid cell
+grid.set_point(UVec3::new(4, 4, 0), Point::new(4, false));
+<span class="boring">}
+</span></code></pre></pre>
+<p>with</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
+grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="pathfind-component-rework-new-pathfindmode"><a class="header" href="#pathfind-component-rework-new-pathfindmode">Pathfind Component Rework, New PathfindMode</a></h2>
+<p>The <code>Pathfind</code> component has been reworked with chaining setup functions to ensure configuration can be added in the future without breaking changes.</p>
+<p><code>PathfindMode</code> enum was added set which pathfinding method is desired.</p>
+<p>Before</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// You may have forced an A* path like this before
+.insert(Pathfind {
+    goal: UVec3::new(8, 8, 0),
+    use_astar: true,
+})
+// or the shorthand for regular HPA*
+.insert(Pathfind::new(UVec3::new(8, 8, 0)))
+// shorthand A*
+.insert(Pathfind::new_astar(UVec3::new(8, 8, 4)))
+<span class="boring">}
+</span></code></pre></pre>
+<p>Is now</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>.insert(Pathfind::new(UVec3::(8, 8, 0).mode(PathfindMode::AStar)))
+
+// You can use the new_2d and new_3d constructors without creating a UVec as well
+.insert(Pathfind::new_2d(8, 8))
+.insert(Pathfind::new_3d(8, 8, 4).mode(PathfindMode::AStar))
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="debugmap--debuggrid-debuggridbuilder--debugoffset"><a class="header" href="#debugmap--debuggrid-debuggridbuilder--debugoffset">DebugMap → DebugGrid, DebugGridBuilder, &amp; DebugOffset</a></h2>
+<p><code>DebugMap</code> has been renamed to <code>DebugGrid</code> for clarity and a builder pattern has been added to make it cleaner to configure.</p>
+<p>It was recommended before to put <code>DebugMap</code> as the child of your <code>Grid</code> entity, but it is now <strong>required</strong>.</p>
+<p>Change</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>grid_entity.with_child((
+    DebugMap {
+        tile_width: 8,
+        tile_height: 8,
+        map_type: DebugMapType::Square,
+        draw_chunks: true,
+        draw_points: false,
+        draw_entrances: true,
+        draw_cached_paths: false,
+    },
+    Transform::from_translation(offset.extend(0.0)),
+));
+<span class="boring">}
+</span></code></pre></pre>
+<p>to</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>grid_entity.with_child((
+    DebugGridBuilder::new(8, 8)
+        .enable_chunks()
+        .enable_entrances()
+        .build(),
+    // Add the offset to the debug gizmo so that it aligns with your tilemap.
+    DebugOffset(Vec2::new(-360.0, -500.0)),
+));
+<span class="boring">}
+</span></code></pre></pre>
+<p><code>DebugMapType</code> has been renamed to <code>DebugTilemapType</code>. You only need to set it if you're using isometric. <code>DebugGridBuilder::new(8, 8).isometric().build()</code>.</p>
+<h2 id="debugpath"><a class="header" href="#debugpath">DebugPath</a></h2>
+<p><code>tile_width</code>, <code>tile_height</code>, and <code>map_type</code> has been removed from the <code>DebugPath</code> component.</p>
+<p>These fields are now determined by getting the attached <code>DebugGrid</code> based on the entities relationship to the <code>Grid</code> component. Ensure that you add the <code>AgentOfGrid</code> relationship to your pathfinding (player/npc etc) entities.</p>
+<p>Replace</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>.insert(DebugPath {
+    tile_width: 8,
+    tile_height: 8,
+    map_type: DebugMapType::Square,
+    color,
+    draw_unrefined: false,
+})
+<span class="boring">}
+</span></code></pre></pre>
+<p>with</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>.insert(DebugPath::new(color))
+.insert(AgentOfGrid(grid_entity))
 <span class="boring">}
 </span></code></pre></pre>
 
