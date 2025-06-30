@@ -5,15 +5,14 @@ use ndarray::ArrayView3;
 
 use crate::{
     astar::{astar_graph, astar_grid},
+    chunk::Chunk,
     dijkstra::dijkstra_grid,
-    dir::get_movement_type,
-    grid::{Grid, Point},
+    grid::Grid,
+    nav::NavCell,
+    node::Node,
     path::Path,
     prelude::Neighborhood,
-    raycast::{
-        bresenham_path, generate_path_segment_cardinal, generate_path_segment_ordinal,
-        line_of_sight,
-    },
+    raycast::{bresenham_path, bresenham_path_filtered, path_line_trace},
 };
 
 /// AStar pathfinding
@@ -24,22 +23,37 @@ use crate::{
 ///
 /// # Arguments
 /// * `neighborhood` - The [`Neighborhood`] to use for the pathfinding.
-/// * `grid` - The [`ArrayView3`] of [`Point`]s to use for the pathfinding.
+/// * `grid` - The [`ArrayView3`] of [`NavCell`]s to use for the pathfinding.
 /// * `start` - The starting position.
 /// * `goal` - The goal position.
 /// * `blocking` - A hashmap of blocked positions for dynamic obstacles.
 /// * `partial` - If true, the pathfinding will return a partial path if the goal is blocked.
 #[inline(always)]
-pub fn pathfind_astar<N: Neighborhood>(
+// This has to be moved internally since the base A* and Djikstra algorithms use precomputed neighbors now.
+pub(crate) fn pathfind_astar<N: Neighborhood>(
     neighborhood: &N,
-    grid: &ArrayView3<Point>,
+    grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     partial: bool,
 ) -> Option<Path> {
-    if grid[[start.x as usize, start.y as usize, start.z as usize]].wall
-        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].wall
+    // Ensure the goal is within bounds of the grid
+    let shape = grid.shape();
+    if start.x as usize >= shape[0] || start.y as usize >= shape[1] || start.z as usize >= shape[2]
+    {
+        log::warn!("Start is out of bounds: {:?}", start);
+        return None;
+    }
+
+    if goal.x as usize >= shape[0] || goal.y as usize >= shape[1] || goal.z as usize >= shape[2] {
+        log::warn!("Goal is out of bounds: {:?}", goal);
+        return None;
+    }
+
+    // If the goal is impassibe and partial isn't set, return none
+    if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
+        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !partial
     {
         return None;
     }
@@ -72,18 +86,21 @@ pub(crate) fn pathfind<N: Neighborhood>(
     partial: bool,
     refined: bool,
 ) -> Option<Path> {
-    // Test if start and goal are in grid bounds
     if !grid.in_bounds(start) {
-        log::error!("Start position {:?} is out of bounds", start);
-        return None;
-    }
-    if !grid.in_bounds(goal) {
-        log::error!("Goal position {:?} is out of bounds", goal);
+        log::warn!("Start is out of bounds: {:?}", start);
         return None;
     }
 
-    if grid.view()[[start.x as usize, start.y as usize, start.z as usize]].wall
-        || grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].wall
+    // Make sure the goal is in grid bounds
+    if !grid.in_bounds(goal) {
+        log::warn!("Goal is out of bounds: {:?}", goal);
+        return None;
+    }
+
+    // If the goal is impassable and partial isn't set, return none
+    if grid.view()[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
+        || grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable()
+            && !partial
     {
         return None;
     }
@@ -91,6 +108,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let start_chunk = grid.chunk_at_position(start)?;
     let goal_chunk = grid.chunk_at_position(goal)?;
 
+    // If the start and goal are in the same chunk, use AStar directly
     if start_chunk == goal_chunk {
         let path = astar_grid(
             &grid.neighborhood,
@@ -110,141 +128,17 @@ pub(crate) fn pathfind<N: Neighborhood>(
         }
     }
 
-    // Get all nodes in the start chunk
-    let start_nodes = grid.graph().nodes_in_chunk(start_chunk.clone());
-
-    // Build a new blocking map that's adjusted to the start chunk
-    let start_blocking = blocking
-        .iter()
-        .map(|(pos, entity)| {
-            let adjusted_pos = UVec3::new(
-                pos.x.saturating_sub(start_chunk.min().x),
-                pos.y.saturating_sub(start_chunk.min().y),
-                pos.z.saturating_sub(start_chunk.min().z),
-            );
-            (adjusted_pos, *entity)
-        })
-        .collect::<HashMap<_, _>>();
-
-    // Get the djikstra paths to all starting nodes, ruling any that don't have paths
-    let start_paths = dijkstra_grid(
-        &grid.neighborhood,
-        &grid.chunk_view(start_chunk),
-        start - start_chunk.min(),
-        &start_nodes
-            .iter()
-            .map(|node| node.pos - start_chunk.min())
-            .collect::<Vec<_>>(),
-        false,
-        100,
-        &start_blocking,
-    );
-
-    // Rule out any start_nodes that don't have paths
-    let start_nodes = start_nodes
-        .iter()
-        .filter(|node| start_paths.contains_key(&(node.pos - start_chunk.min())))
-        .collect::<Vec<_>>();
-
-    if start_nodes.is_empty() {
-        return None;
-    }
-
-    // Sort start nodes by distance to the goal and the starting point
-    let mut start_nodes = start_nodes
-        .iter()
-        .map(|node| {
-            let distance_to_goal = (node.pos.x as i32 - goal.x as i32).abs()
-                + (node.pos.y as i32 - goal.y as i32).abs()
-                + (node.pos.z as i32 - goal.z as i32).abs();
-
-            let distance_to_start = (node.pos.x as i32 - start.x as i32).abs()
-                + (node.pos.y as i32 - start.y as i32).abs()
-                + (node.pos.z as i32 - start.z as i32).abs();
-
-            (node, distance_to_goal + distance_to_start)
-        })
-        .collect::<Vec<_>>();
-
-    // Starting with the node shortest to the goal, find a path to the goal
-    start_nodes.sort_by_key(|(_, distance)| *distance);
-
-    // Get all nodes in the goal chunk
-    let goal_nodes = grid.graph().nodes_in_chunk(goal_chunk.clone());
-
-    // Build a new blocking map that's adjusted for the goal chunk
-    /*let goal_blocking = blocking.clone()
-    .iter()
-    .map(|(pos, entity)| {
-        let adjusted_pos = UVec3::new(
-            pos.x.saturating_sub(goal_chunk.min.x),
-            pos.y.saturating_sub(goal_chunk.min.y),
-            pos.z.saturating_sub(goal_chunk.min.z),
-        );
-        (adjusted_pos, *entity)
-    })
-    .collect::<HashMap<_, _>>();*/
-
-    let goal_paths = dijkstra_grid(
-        &grid.neighborhood,
-        &grid.chunk_view(goal_chunk),
-        goal - goal_chunk.min(),
-        &goal_nodes
-            .iter()
-            .map(|node| node.pos - goal_chunk.min())
-            .collect::<Vec<_>>(),
-        false,
-        100,
-        &HashMap::new(), //&goal_blocking,
-    );
-
-    let goal_nodes = goal_nodes
-        .iter()
-        .filter(|node| goal_paths.contains_key(&(node.pos - goal_chunk.min())))
-        .collect::<Vec<_>>();
-
-    let mut goal_nodes = goal_nodes
-        .iter()
-        .map(|node| {
-            // Calculate the distance from the start to the node and from the node to the goal
-            let distance_to_start = (node.pos.x as i32 - start.x as i32).abs()
-                + (node.pos.y as i32 - start.y as i32).abs()
-                + (node.pos.z as i32 - start.z as i32).abs();
-            let distance_to_goal = (node.pos.x as i32 - goal.x as i32).abs()
-                + (node.pos.y as i32 - goal.y as i32).abs()
-                + (node.pos.z as i32 - goal.z as i32).abs();
-
-            // Calculate the total distance as the sum of the distances to the start and goal
-            let total_distance = distance_to_start + distance_to_goal;
-
-            (node, total_distance)
-        })
-        .collect::<Vec<_>>();
-
-    goal_nodes.sort_by_key(|(_, distance)| *distance);
-
-    // Calculate the distance from the start to the goal
-    let start_distance = (start.x as i32 - goal.x as i32).abs()
-        + (start.y as i32 - goal.y as i32).abs()
-        + (start.z as i32 - goal.z as i32).abs();
-
-    // Move goal_nodes that are farther from the goal in the direction of the starting point to the end of the list
-    goal_nodes.sort_by_key(|(_, distance)| {
-        let distance = *distance - start_distance;
-        if distance < 0 {
-            distance.abs()
-        } else {
-            distance
-        }
-    });
+    // Find viable nodes in the start and goal chunks
+    let (start_nodes, start_paths) =
+        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, blocking)?;
+    let (goal_nodes, goal_paths) =
+        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, blocking)?;
 
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
 
-    // Here is the problem. If the starting position can't get to the start node then this whole thing fails. Need to fix it.
-
-    for (start_node, _) in start_nodes {
-        for (goal_node, _) in goal_nodes.clone() {
+    for start_node in start_nodes {
+        for goal_node in goal_nodes.clone() {
             let node_path = astar_graph(
                 &grid.neighborhood,
                 grid.graph(),
@@ -287,9 +181,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 }
 
                 if !refined {
-                    // If we're not refining the path, return it as is
+                    // If we're not refining, return the path as is
                     let mut path = Path::new(path, cost);
-                    path.graph_path = node_path.path.clone();
+                    path.graph_path = node_path.path;
                     return Some(path);
                 }
 
@@ -297,10 +191,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
                     &grid.neighborhood,
                     &grid.view(),
                     &Path::from_slice(&path, cost),
-                    grid.neighborhood.is_ordinal(),
                 );
 
-                // remove the start point from the refined path
+                // remove the starting position from the refined path
                 refined_path.path.pop_front();
 
                 // add the graph path to the refined path
@@ -328,197 +221,147 @@ pub(crate) fn pathfind<N: Neighborhood>(
 /// * `ordinal` - If true, use ordinal movement. If false, use cardinal movement.
 ///
 #[inline(always)]
-pub fn optimize_path<N: Neighborhood>(
+pub(crate) fn optimize_path<N: Neighborhood>(
     neighborhood: &N,
-    grid: &ArrayView3<Point>,
+    grid: &ArrayView3<NavCell>,
     path: &Path,
-    ordinal: bool,
 ) -> Path {
     if path.is_empty() {
         return path.clone();
     }
 
-    let goal = *path.path.back().unwrap();
+    let filtered = !neighborhood.filters().is_empty();
 
-    let mut refined_path = Vec::new();
+    let goal = *path.path.back().unwrap();
+    let mut refined_path = Vec::with_capacity(path.len());
     let mut i = 0;
-    let mut prev_movement_type = None;
 
     refined_path.push(path.path[i]); // Always keep the first node
 
     while i < path.len() {
-        // Check if we can go directly to the goal
-        let path_to_goal = bresenham_path(grid, path.path[i], goal, neighborhood.is_ordinal());
+        // Try to shortcut directly to goal first
+        /*if let Some(direct_path) = bresenham_path(
+            grid,
+            path.path[i],
+            goal,
+            neighborhood.is_ordinal(),
+            allow_corner_clipping,
+        ) {
+            refined_path.extend(direct_path.into_iter().skip(1));
+            break;
+        }*/
 
-        if let Some(path_to_goal) = path_to_goal {
-            refined_path.extend(path_to_goal.into_iter().skip(1)); // Add intermediate points
-            break; // We're done
+        if let Some(direct_path) = path_line_trace(grid, path.path[i], goal) {
+            // If we can reach the goal directly, add it and break
+            refined_path.extend(direct_path.into_iter().skip(1));
+            break;
         }
 
-        let mut best_farthest = i + 1;
-        let mut best_farthest_path = None;
-        let mut best_score = f32::NEG_INFINITY;
-
-        for farthest in (i + 1)..path.len() {
-            let path_to_farthest = bresenham_path(
+        // Try to find the farthest reachable waypoint from i (greedy)
+        let mut shortcut_taken = false;
+        for farthest in (i + 1..path.len()).rev() {
+            if !filtered {
+                if let Some(shortcut) = bresenham_path(
+                    grid,
+                    path.path[i],
+                    path.path[farthest],
+                    neighborhood.is_ordinal(),
+                ) {
+                    refined_path.extend(shortcut.into_iter().skip(1));
+                    i = farthest;
+                    shortcut_taken = true;
+                    break;
+                }
+            } else if let Some(shortcut) = bresenham_path_filtered(
                 grid,
                 path.path[i],
                 path.path[farthest],
                 neighborhood.is_ordinal(),
-            );
-
-            if let Some(path_to_farthest) = path_to_farthest {
-                let shortcut_length = farthest - i; // Reward longer shortcuts
-                let goal_proximity = neighborhood.heuristic(path.path[farthest], goal) as f32; // Reward shortcuts closer to the goal
-
-                // Base score: encourage longer shortcuts
-                let mut score = shortcut_length as f32 - goal_proximity * 4.0;
-
-                // Apply penalty if switching movement types
-                if ordinal {
-                    let movement_type =
-                        get_movement_type(path.path[i].as_vec3(), path.path[farthest].as_vec3());
-
-                    if let Some(prev) = prev_movement_type {
-                        if prev != movement_type {
-                            score -= 4.0; // Penalize changing movement types
-                        }
-                    }
-                }
-
-                // Pick the best shortcut that maximizes the score
-                if score > best_score {
-                    best_farthest = farthest;
-                    best_farthest_path = Some(path_to_farthest);
-                    best_score = score;
-                }
+            ) {
+                refined_path.extend(shortcut.into_iter().skip(1));
+                i = farthest;
+                shortcut_taken = true;
+                break;
             }
         }
 
-        if let Some(path_to_farthest) = best_farthest_path {
-            refined_path.extend(path_to_farthest.into_iter().skip(1)); // Avoid duplicate start points
+        if !shortcut_taken {
+            // No shortcut found — advance by one
+            i += 1;
+            if i < path.len() {
+                refined_path.push(path.path[i]);
+            }
         }
-        prev_movement_type = Some(get_movement_type(
-            path.path[i].as_vec3(),
-            path.path[best_farthest].as_vec3(),
-        ));
-        i = best_farthest; // Move to the best shortcut
     }
 
-    // Calculate the cost of the refined path
-    let mut cost = 0;
-    for pos in refined_path.iter() {
-        cost += grid[[pos.x as usize, pos.y as usize, pos.z as usize]].cost;
-    }
+    // Recompute cost of new path
+    let cost = refined_path
+        .iter()
+        .map(|pos| grid[[pos.x as usize, pos.y as usize, pos.z as usize]].cost)
+        .sum();
 
-    let mut path = Path::new(refined_path.to_vec(), cost);
-    path.graph_path = path.path.clone();
+    let mut path = Path::new(refined_path.clone(), cost);
+    path.graph_path = refined_path.into();
     path
 }
 
-/// Optimize a path by using line of sight checks to skip waypoints.
-///
-/// This is used to optimize paths generated by the HPA* algorithms.
-/// [`Grid::pathfind`] uses this internally so this is only needed if you want to
-/// optimize a path that was generated by a different method.
-///
-/// # Arguments
-///
-/// * `neighborhood` - The [`Neighborhood`] to use for the pathfinding.
-/// * `grid` - The [`ArrayView3`] of the grid.
-/// * `path` - The [`Path`] to optimize.
-/// * `ordinal` - If true, use ordinal movement. If false, use cardinal movement.
-///
+// Filters and ranks nodes within a chunk based on reachability and proximity.
 #[inline(always)]
-pub fn optimize_path_old<N: Neighborhood>(
-    neighborhood: &N,
-    grid: &ArrayView3<Point>,
-    path: &Path,
-    ordinal: bool,
-) -> Path {
-    if path.is_empty() {
-        return path.clone();
+fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
+    grid: &'a Grid<N>,
+    chunk: &Chunk,
+    source: UVec3,
+    target: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
+) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
+    let nodes = grid.graph().nodes_in_chunk(chunk.clone());
+
+    // Adjust the blocking map to the local chunk coordinates
+    let adjusted_blocking = blocking
+        .iter()
+        .map(|(pos, entity)| (chunk.to_local(pos), *entity))
+        .collect::<HashMap<_, _>>();
+
+    // Get paths from source to all nodes in this chunk
+    let paths = dijkstra_grid(
+        &grid.chunk_view(chunk),
+        source - chunk.min(),
+        &nodes
+            .iter()
+            .map(|node| node.pos - chunk.min())
+            .collect::<Vec<_>>(),
+        false,
+        100,
+        &adjusted_blocking,
+    );
+
+    let filtered_nodes = nodes
+        .iter()
+        .filter(|node| paths.contains_key(&(node.pos - chunk.min())))
+        .collect::<Vec<_>>();
+
+    if filtered_nodes.is_empty() {
+        return None;
     }
 
-    let goal = *path.path.back().unwrap();
+    let mut ranked_nodes = filtered_nodes
+        .iter()
+        .map(|node| {
+            let d_start = manhattan_distance(node.pos, source);
+            let d_goal = manhattan_distance(node.pos, target);
+            (*node, d_start + d_goal)
+        })
+        .collect::<Vec<_>>();
 
-    let mut refined_path = Vec::new();
-    let mut i = 0;
-    let mut prev_movement_type = None;
+    ranked_nodes.sort_by_key(|(_, dist)| *dist);
+    Some((ranked_nodes.into_iter().map(|(n, _)| *n).collect(), paths))
+}
 
-    refined_path.push(path.path[i]); // Always keep the first node
-
-    while i < path.len() {
-        // Check if we can go directly to the goal
-        if line_of_sight(grid, path.path[i], goal) {
-            let segment = if ordinal {
-                generate_path_segment_ordinal(path.path[i], goal)
-            } else {
-                generate_path_segment_cardinal(path.path[i], goal)
-            };
-
-            refined_path.extend(segment.into_iter().skip(1)); // Add intermediate points
-            break; // We're done
-        }
-
-        let mut best_farthest = i + 1;
-        let mut best_score = f32::NEG_INFINITY;
-
-        for farthest in (i + 1)..path.len() {
-            if line_of_sight(grid, path.path[i], path.path[farthest]) {
-                let shortcut_length = farthest - i; // Reward longer shortcuts
-                let goal_proximity = neighborhood.heuristic(path.path[farthest], goal) as f32; // Reward shortcuts closer to the goal
-
-                // Base score: encourage longer shortcuts
-                let mut score = shortcut_length as f32 - goal_proximity * 4.0;
-
-                // Apply penalty if switching movement types
-                if ordinal {
-                    let movement_type =
-                        get_movement_type(path.path[i].as_vec3(), path.path[farthest].as_vec3());
-
-                    if let Some(prev) = prev_movement_type {
-                        if prev != movement_type {
-                            score -= 4.0; // Penalize changing movement types
-                        }
-                    }
-                }
-
-                // Pick the best shortcut that maximizes the score
-                if score > best_score {
-                    best_farthest = farthest;
-                    best_score = score;
-                }
-            }
-        }
-
-        let segment = if ordinal {
-            generate_path_segment_ordinal(path.path[i], path.path[best_farthest])
-        } else {
-            generate_path_segment_cardinal(path.path[i], path.path[best_farthest])
-        };
-
-        refined_path.extend(segment.into_iter().skip(1)); // Avoid duplicate start points
-
-        prev_movement_type = Some(get_movement_type(
-            path.path[i].as_vec3(),
-            path.path[best_farthest].as_vec3(),
-        ));
-
-        i = best_farthest; // Move to the best shortcut
-    }
-
-    // Calculate the cost of the refined path
-    let mut cost = 0;
-
-    for pos in refined_path.iter() {
-        cost += grid[[pos.x as usize, pos.y as usize, pos.z as usize]].cost;
-    }
-
-    let mut path = Path::new(refined_path.to_vec(), cost);
-    path.graph_path = path.path.clone();
-
-    path
+#[inline(always)]
+fn manhattan_distance(a: UVec3, b: UVec3) -> i32 {
+    (a.x as i32 - b.x as i32).abs()
+        + (a.y as i32 - b.y as i32).abs()
+        + (a.z as i32 - b.z as i32).abs()
 }
 
 /// Recursively reroutes a path by astar pathing to further chunks until a path can be found.
@@ -535,10 +378,21 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     start: UVec3,
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
+    refined: bool,
 ) -> Option<Path> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path
     // recursively until it can find a path out.
     // If it can't find a path out, it will return None.
+
+    if !grid.in_bounds(start) {
+        log::warn!("Start is out of bounds: {:?}", start);
+        return None;
+    }
+
+    if !grid.in_bounds(goal) {
+        log::warn!("Goal is out of bounds: {:?}", goal);
+        return None;
+    }
 
     if path.graph_path.is_empty() {
         // Our only option here is to astar path to the goal
@@ -578,7 +432,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *new_path.path().last().unwrap();
 
-        let hpa = pathfind(grid, last_pos, goal, blocking, false, true);
+        let hpa = pathfind(grid, last_pos, goal, blocking, false, refined);
 
         if let Some(hpa) = hpa {
             for pos in hpa.path() {

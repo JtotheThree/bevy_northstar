@@ -183,28 +183,3 @@ impl Dir {
         )
     }
 }
-
-/// Enum that represents the type of movement between two points in 3D space.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub(crate) enum MovementType {
-    Cardinal,   // (x+1, y, z) or (x, y+1, z) etc.
-    Diagonal2D, // (x+1, y+1, z) or (x+1, y, z+1) etc.
-    Diagonal3D, // (x+1, y+1, z+1)
-    None,       // Should never happen in normal cases
-}
-
-/// Function to determine the type of movement between two points in 3D space.
-pub(crate) fn get_movement_type(a: Vec3, b: Vec3) -> MovementType {
-    let dx = (b.x as isize - a.x as isize).abs();
-    let dy = (b.y as isize - a.y as isize).abs();
-    let dz = (b.z as isize - a.z as isize).abs();
-
-    let num_changes = (dx > 0) as u8 + (dy > 0) as u8 + (dz > 0) as u8;
-
-    match num_changes {
-        1 => MovementType::Cardinal,   // Moving along one axis (x, y, or z)
-        2 => MovementType::Diagonal2D, // Moving along two axes (XY, XZ, YZ)
-        3 => MovementType::Diagonal3D, // Moving along all three axes (XYZ)
-        _ => MovementType::None,       // No movement (shouldn't happen in valid paths)
-    }
-}

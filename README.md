@@ -7,24 +7,21 @@
 
 ## A 2d/3d hierarchical pathfinding crate for Bevy. 
 
-`bevy_northstar` works by dividing the map into chunks and then calculates nodes based on the entrances between chunks. The nodes are used in pathfinding to get a higher level path that is significantly faster to calculate over long distances. Once the high level path is determined between a start and goal point it's refined to get a more accurate path.
+`bevy_northstar` works by dividing the map into chunks and then calculates nodes based on the entrances between chunks. The nodes are used in pathfinding to get a higher level path that is significantly faster to calculate over long distances. Once the high level path is determined between a start and goal position it's refined to get a more accurate path.
 The crate provides:
 
-## Features  
-- **Supports 2D and 3D Tilemaps** – Supports 2d and 3d tilemaps.  
+## Features
+- **Pathfinding Options** - Choose between optimized HPA* algorithms or traditional A* per call. You can retrieve paths directly even when using the plugin systems.
+- **Supports 2D and 3D Tilemaps** – Works with both 2D and 3D tilemaps.
+- **Neighbor Filtering and Caching** - Precomputed, optionally filtered neighbors are cached to avoid redundant processing.
+- **Memory Efficient** - Neighbors are stored in compact bitmasks, reduced memory on large maps.
+- **Gizmo Debug View** – Visualize the HPA* grid and entity paths using debug components.
+- **Dynamic Collision & Avoidance** – Optional collision avoidance system. Just the add the `Blocking` component to flag blockers.
+- **Bevy Integration** – Systems and components for pathfinding and collision avoidance. Pathfindng systems are able to stagger agents across multiple frames.
 
-- **Optimized Performance** – Algorithms are heavily benchmarked for efficiency.  
-
-- **Gizmo Debug View** – Debug visuals for verifying the built HPA graph. Pathing debug components to visualize an entities path.  
-
-- **Stress Tests** – 128x128 map with 128 entities to stress test HPA vs A* and collision. A collision example is provided to stress test narrow pathing.
-
-- **Dynamic Collision & Avoidance** – For moving colliders attaching a simple Blocking marker component is all that's needed. If you use the built in systems the pathing will do a configurable look ahead to see if it can do a fast local A* reroute.
-
-- **Bevy Systems Integration** – Bevy systems and components for pathfinding as well as collision markers when avoidance paths fail.
 
 ## Demo
-cargo run --example demo --features stats --release
+`cargo run --example demo --features stats --release`
 
 Press P to switch between HPA* and traditional A*
 Press C to disable/enable collision
@@ -49,10 +46,10 @@ Add required dependencies to your `Cargo.toml` file:
 ```toml
 [dependencies]
 bevy = "0.16"
-bevy_northstar = "0.2"
+bevy_northstar = "0.3"
 ```
 
-The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the points, and then call `Grid::build()` so the chunk entrances and internal paths can be calculated. 
+The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the grid cells, and then call `Grid::build()` so the neighbors, chunk entrances, and internal paths can be calculated. 
 
 To use the built-in pathfinding systems for the crate, insert the NorthstarPlugin specifying the `Neighborhood` to use.
 
@@ -78,24 +75,24 @@ fn main() {
 fn startup(mut commands: Commands) {
     commands.spawn(Camera2d::default());
 
-    // Spawn the grid used for pathfinding.
-    commands.spawn(Grid::<CardinalNeighborhood>::new(&GridSettings {
-        width: 16,
-        height: 16,
-        chunk_size: 4,
-        ..Default::default()
-    }));
+    // Build the grid settings.
+    let grid_settings = GridSettingsBuilder::new_2d(16, 16)
+        .chunk_size(4)
+        .build();
+
+    // Spawn the grid component
+    commands.spawn(CardinalGrid::new(&grid_settings));
 }
 
-fn build_grid(grid: Single<&mut Grid<CardinalNeighborhood>>) {
+fn build_grid(grid: Single<&mut CardinalGrid>) {
     let mut grid = grid.into_inner();
 
     // Let's set the position 8, 8 to a wall
-    grid.set_point(UVec3::new(8, 8, 0), Point::new(u32::MAX, true));
+    grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
 
     info!("Building the grid...");
 
-    // The grid needs to be built after setting the points.
+    // The grid needs to be built after setting the cells nav data.
     // Building the grid will calculate the chunk entrances and cache internal paths.
     grid.build();
 
@@ -107,11 +104,11 @@ fn build_grid(grid: Single<&mut Grid<CardinalNeighborhood>>) {
 
 |bevy|bevy_northstar|
 |---|---|
-|0.16|0.2|
+|0.16|0.2/0.3|
 
 
 ## Roadmap / TODO
-- **Modify & Rebuild Grid Chunks Dynamically** – Support updates to the grid after it’s been built.    
+- **UP NEXT: Modify & Rebuild Grid Chunks Dynamically** – Support updating the grid after it’s been built by only rebuilding the sections required.    
 - **Pseudo-3D Tilemap Support** – Add support for features like stairs and ramps without full 3D calculations.  
 - **Parallelized Graph Building** – Speed up grid/graph construction using parallelism.  
 - **Add Support For Multiple HPA Levels** – Implement multiple hierarchical levels for improved efficiency.  

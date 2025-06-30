@@ -1,10 +1,29 @@
 //! Northstar Plugin. This plugin handles the pathfinding and collision avoidance systems.
+use std::collections::VecDeque;
 #[cfg(feature = "stats")]
 use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
 use crate::{prelude::*, WithoutPathingFailures};
+
+#[derive(Resource, Debug, Copy, Clone)]
+pub struct NorthstarPluginSettings {
+    /// The maximum number of agents that can be processed per frame.
+    /// This is useful to stagger the pathfinding and collision avoidance systems
+    /// to prevent stutters when too many agents are pathfinding at once.
+    pub max_pathfinding_agents_per_frame: usize,
+    pub max_collision_avoidance_agents_per_frame: usize,
+}
+
+impl Default for NorthstarPluginSettings {
+    fn default() -> Self {
+        Self {
+            max_pathfinding_agents_per_frame: 16,
+            max_collision_avoidance_agents_per_frame: 32,
+        }
+    }
+}
 
 /// NorthstarPlugin is the main plugin for the Northstar pathfinding and collision avoidance systems.
 ///
@@ -87,6 +106,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
         app.add_systems(
             Update,
             (
+                tag_pathfinding_requests,
                 update_blocking_map,
                 pathfind::<N>,
                 next_position::<N>,
@@ -95,10 +115,10 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
                 .chain()
                 .in_set(PathingSet),
         )
-        .insert_resource(BlockingMap::default());
-
-        app.insert_resource(Stats::default());
-        app.insert_resource(DirectionMap::default());
+        .insert_resource(NorthstarPluginSettings::default())
+        .insert_resource(BlockingMap::default())
+        .insert_resource(Stats::default())
+        .insert_resource(DirectionMap::default());
     }
 }
 
@@ -117,21 +137,41 @@ pub struct BlockingMap(pub HashMap<UVec3, Entity>);
 #[derive(Resource, Default)]
 pub struct DirectionMap(pub HashMap<Entity, Vec3>);
 
+#[derive(Component)]
+pub(crate) struct NeedsPathfinding;
+
+// Flags all the entities with a changed `Pathfind` component to request pathfinding.
+fn tag_pathfinding_requests(mut commands: Commands, query: Query<Entity, Changed<Pathfind>>) {
+    for entity in query.iter() {
+        commands.entity(entity).insert(NeedsPathfinding);
+    }
+}
+
 // The main pathfinding system. Queries for entities with the a changed `Pathfind` component.
 // It will pathfind to the goal position and insert a `Path` component with the path found.
 fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
-    mut query: Query<(Entity, &GridPos, &Pathfind), Changed<Pathfind>>,
+    mut query: Query<(Entity, &AgentPos, &Pathfind), With<NeedsPathfinding>>,
     blocking: Res<BlockingMap>,
+    settings: Res<NorthstarPluginSettings>,
+    //mut queue: Local<VecDeque<Entity>>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
 ) {
     let grid = grid.into_inner();
 
-    query.iter_mut().for_each(|(entity, start, pathfind)| {
+    // Limit the number of agents processed per frame to prevent stutters
+    let mut count = 0;
+
+    for (entity, start, pathfind) in &mut query {
+        if count >= settings.max_pathfinding_agents_per_frame {
+            return;
+        }
+
         if start.0 == pathfind.goal {
             commands.entity(entity).remove::<Pathfind>();
-            return;
+            commands.entity(entity).remove::<NeedsPathfinding>();
+            continue;
         }
 
         #[cfg(feature = "stats")]
@@ -143,10 +183,16 @@ fn pathfind<N: Neighborhood + 'static>(
             &HashMap::new()
         };
 
-        let path = if pathfind.use_astar {
-            grid.pathfind_astar(start.0, pathfind.goal, blocking, false)
-        } else {
-            grid.pathfind(start.0, pathfind.goal, blocking, false)
+        let path = match pathfind.mode {
+            PathfindMode::Refined => {
+                grid.pathfind(start.0, pathfind.goal, blocking, pathfind.partial)
+            }
+            PathfindMode::Coarse => {
+                grid.pathfind_coarse(start.0, pathfind.goal, blocking, pathfind.partial)
+            }
+            PathfindMode::AStar => {
+                grid.pathfind_astar(start.0, pathfind.goal, blocking, pathfind.partial)
+            }
         };
 
         #[cfg(feature = "stats")]
@@ -159,7 +205,8 @@ fn pathfind<N: Neighborhood + 'static>(
             commands
                 .entity(entity)
                 .insert(path)
-                .remove::<PathfindingFailed>();
+                .remove::<PathfindingFailed>()
+                .remove::<NeedsPathfinding>();
             // We remove PathfindingFailed even if it's not there.
         } else {
             #[cfg(feature = "stats")]
@@ -168,89 +215,96 @@ fn pathfind<N: Neighborhood + 'static>(
             commands
                 .entity(entity)
                 .insert(PathfindingFailed)
+                .remove::<NeedsPathfinding>()
                 .remove::<NextPos>(); // Just to be safe
         }
-    });
+
+        count += 1;
+    }
 }
 
 // The `next_position` system is responsible for popping the front of the path into a `NextPos` component.
 // If collision is enabled it will check for nearyby blocked paths and reroute the path if necessary.
+#[allow(clippy::too_many_arguments)]
 fn next_position<N: Neighborhood + 'static>(
-    mut query: Query<(Entity, &mut Path, &GridPos, &Pathfind), WithoutPathingFailures>,
-    //TODO: We probably need to do an optional single here if someone configures error handling
+    mut query: Query<(Entity, &mut Path, &AgentPos, &Pathfind), WithoutPathingFailures>,
     grid: Single<&Grid<N>>,
     mut blocking: ResMut<BlockingMap>,
     mut direction: ResMut<DirectionMap>,
     mut commands: Commands,
+    settings: Res<NorthstarPluginSettings>,
+    mut queue: Local<VecDeque<Entity>>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
 ) {
     let grid = grid.into_inner();
 
-    for (entity, mut path, position, pathfind) in &mut query {
-        if position.0 == pathfind.goal {
-            commands.entity(entity).remove::<Path>();
-            commands.entity(entity).remove::<Pathfind>();
-            continue;
+    // Initialize the queue with all candidates once
+    if queue.is_empty() {
+        for (entity, ..) in query.iter() {
+            queue.push_back(entity);
+        }
+    }
+
+    let mut processed = 0;
+
+    for _ in 0..queue.len() {
+        if processed >= settings.max_collision_avoidance_agents_per_frame {
+            break;
         }
 
-        let next = if grid.collision() {
-            #[cfg(feature = "stats")]
-            let start = Instant::now();
+        let entity = queue.pop_front().unwrap();
 
-            let success = avoidance(
-                grid,
-                entity,
-                &mut path,
-                pathfind,
-                position.0,
-                &blocking.0,
-                &direction.0,
-                grid.avoidance_distance() as usize,
-            );
-
-            if !success {
-                commands.entity(entity).insert(AvoidanceFailed);
+        // If the entity still exists and is valid
+        if let Ok((entity, mut path, position, pathfind)) = query.get_mut(entity) {
+            if position.0 == pathfind.goal {
+                commands.entity(entity).remove::<Path>();
+                commands.entity(entity).remove::<Pathfind>();
                 continue;
             }
 
-            #[cfg(feature = "stats")]
-            let elapsed = start.elapsed().as_secs_f64();
-            #[cfg(feature = "stats")]
-            stats.add_collision(elapsed, path.cost() as f64);
+            let next = if grid.collision() {
+                #[cfg(feature = "stats")]
+                let start = Instant::now();
 
-            let potential_next = path.path.front().unwrap();
-
-            if blocking.0.contains_key(potential_next) && blocking.0[potential_next] != entity {
-                log::info!("Blocking: {:?}", blocking.0);
-                log::error!(
-                    "Next position is blocked for entity: {:?}, other entity: {:?}",
+                let success = avoidance(
+                    grid,
                     entity,
-                    blocking.0[potential_next]
+                    &mut path,
+                    pathfind,
+                    position.0,
+                    &blocking.0,
+                    &direction.0,
+                    grid.avoidance_distance() as usize,
                 );
+
+                if !success {
+                    commands.entity(entity).insert(AvoidanceFailed);
+                    continue;
+                }
+
+                #[cfg(feature = "stats")]
+                let elapsed = start.elapsed().as_secs_f64();
+                #[cfg(feature = "stats")]
+                stats.add_collision(elapsed, path.cost() as f64);
+
+                processed += 1;
+                path.pop()
+            } else {
+                path.pop()
+            };
+
+            if let Some(next) = next {
+                direction
+                    .0
+                    .insert(entity, next.as_vec3() - position.0.as_vec3());
+
+                blocking.0.remove(&position.0);
+                blocking.0.insert(next, entity);
+                commands.entity(entity).insert(NextPos(next));
+
+                // Re-queue for next frame
+                queue.push_back(entity);
             }
-
-            path.pop()
-        } else {
-            path.pop()
-        };
-
-        if let Some(next) = next {
-            if blocking.0.contains_key(&next) && grid.collision() {
-                log::error!("Next position is blocked for entity, we should never get here but we did: {:?}", entity);
-                commands.entity(entity).insert(AvoidanceFailed);
-                continue;
-            }
-
-            // Calculate the dot product direction
-            direction
-                .0
-                .insert(entity, next.as_vec3() - position.0.as_vec3());
-
-            blocking.0.remove(&position.0);
-            blocking.0.insert(next, entity);
-            commands.entity(entity).insert(NextPos(next));
-        } else {
-            log::error!("No next position found for entity: {:?}", entity);
         }
     }
 }
@@ -330,7 +384,13 @@ fn avoidance<N: Neighborhood + 'static>(
 
         // If we have an avoidance goal, astar path to that
         if let Some(avoidance_goal) = avoidance_goal {
-            let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
+            // Calculate a good radius from the current position to the avoidance goal
+            let radius = position.as_vec3().distance(avoidance_goal.as_vec3()) as u32
+                + grid.avoidance_distance();
+
+            //let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
+            let new_path =
+                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking, false);
 
             // Replace the first few positions of path until the avoidance goal
             if let Some(new_path) = new_path {
@@ -391,26 +451,36 @@ fn avoidance<N: Neighborhood + 'static>(
 // If the reroute fails, it will insert a `RerouteFailed` component to the entity.
 // Once an entity has a reroute failure, no pathfinding will be attempted until the user handles reinserts the `Pathfind` component.
 fn reroute_path<N: Neighborhood + 'static>(
-    mut query: Query<(Entity, &GridPos, &Pathfind, &Path), With<AvoidanceFailed>>,
+    mut query: Query<(Entity, &AgentPos, &Pathfind, &Path), With<AvoidanceFailed>>,
     grid: Single<&Grid<N>>,
     blocking: Res<BlockingMap>,
     mut commands: Commands,
+    settings: Res<NorthstarPluginSettings>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
 ) {
     let grid = grid.into_inner();
 
-    for (entity, position, pathfind, path) in query.iter_mut() {
+    for (count, (entity, position, pathfind, path)) in query.iter_mut().enumerate() {
+        // TODO: This doesn't really tie in with the main pathfinding agent counts. This will stil help limit how many are rereouting for now.
+        // There's no point bridging it for the moment since this really needs to be reworked into an async system to really prevent stutters.
+        if count >= settings.max_pathfinding_agents_per_frame {
+            return;
+        }
+
         #[cfg(feature = "stats")]
         let start = Instant::now();
 
-        // Let's just try a repath
-        //let new_path = grid.get_path(position.0, pathfind.goal, &blocking.0, true);
-
         // Let's reroute the path
-        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking.0);
+        let refined = match pathfind.mode {
+            PathfindMode::Refined => true,
+            PathfindMode::Coarse => false,
+            PathfindMode::AStar => false, // A* is not supported for rerouting
+        };
+
+        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking.0, refined);
 
         if let Some(new_path) = new_path {
-            // if the last point in the path is not the goal...
+            // if the last position in the path is not the goal...
             if new_path.path().last().unwrap() != &pathfind.goal {
                 log::error!("WE HAVE A PARTIAL ROUTE ISSUE: {:?}", entity);
             }
@@ -436,7 +506,7 @@ fn reroute_path<N: Neighborhood + 'static>(
 
 fn update_blocking_map(
     mut blocking_set: ResMut<BlockingMap>,
-    query: Query<(Entity, &GridPos), With<Blocking>>,
+    query: Query<(Entity, &AgentPos), With<Blocking>>,
 ) {
     blocking_set.0.clear();
 

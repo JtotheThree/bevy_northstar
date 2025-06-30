@@ -1,6 +1,6 @@
 [package]
 name = "bevy_northstar"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 
 authors = ["John Mullins"]
@@ -23,7 +23,8 @@ indexmap = "2.9.0"
 ndarray = { version = "0.16.1", features=["rayon"] }
 rustc-hash = "2.1.1"
 strum = "0.27.1"
-slab = "0.4.9"
+slab = "0.4.10"
+smallvec = "1.15.1"
 
 [dependencies.bevy]
 version = "0.16.1"
@@ -33,7 +34,7 @@ features=["bevy_render", "bevy_gizmos", "bevy_log"]
 [dev-dependencies]
 bevy = { version = "0.16.1", features=["bevy_dev_tools"] }
 bevy_ecs_tilemap = { version = "0.16" }
-bevy_ecs_tiled = { version = "0.7" }
+bevy_ecs_tiled = { version = "0.7.2" }
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 criterion = { version = "0.6.0", features = ["html_reports"] }
@@ -46,13 +47,13 @@ rand = "0.9.1"
 name = "benches"
 harness = false
 
-[[examples]]
+[[example]]
 name = "demo"
 required-features = ["stats"]
 
-[[examples]]
+[[example]]
 name = "collision_testing"
 required-features = ["stats"]
 
-[[examples]]
+[[example]]
 name = "basic"

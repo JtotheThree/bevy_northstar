@@ -642,9 +642,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_ecs_tiled"
-version = "0.7.0"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "770434b61fb12e13a0b5c7fe96eeb08817cc698f721bd924f192033f5f726e72"
+checksum = "96f26f6163d06c3e5575ad864d89bdeb58642e19f238d9b3c3ae68a02d0a9043"
 dependencies = [
  "bevy",
  "bevy_ecs_tilemap",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_northstar"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "bevy",
  "bevy_ecs_tiled",
@@ -967,6 +967,7 @@ dependencies = [
  "rand 0.9.1",
  "rustc-hash 2.1.1",
  "slab",
+ "smallvec",
  "strum 0.27.1",
  "thiserror 2.0.12",
 ]
@@ -4261,12 +4262,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
-dependencies = [
- "autocfg",
-]
+checksum = "04dc19736151f35336d325007ac991178d504a119863a2fcb3758cdb5e52c50d"
 
 [[package]]
 name = "slotmap"
@@ -4279,9 +4277,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.13.2"
+version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "smol_str"

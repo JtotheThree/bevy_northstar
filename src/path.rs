@@ -3,10 +3,12 @@ use bevy::math::UVec3;
 use bevy::prelude::Component;
 use std::collections::VecDeque;
 
-/// The path component. This is inserted to an entity after the plugin
+/// The path struct and component containing the path result of a pathfinding operation.
+///
+/// This is returned by pathfinding functions.
+/// If using [`crate::plugin::NorthstarPlugin`] this is inserted as a component on an entity after the plugin
 /// systems have pathfound to the goal position.
 ///
-/// `Path` will also be returned if you manually call pathfinding functions.
 #[derive(Debug, Clone, Component)]
 pub struct Path {
     pub(crate) path: VecDeque<UVec3>,
@@ -16,6 +18,11 @@ pub struct Path {
 }
 
 impl Path {
+    /// Create a new path from a vector of `UVec3` positions
+    /// # Arguments
+    /// * `path` - A vector of `UVec3` positions
+    /// * `total_cost` - The total movement cost of the path
+    ///
     pub fn new(path: Vec<UVec3>, cost: u32) -> Self {
         let path = path.into_iter().collect();
 
@@ -28,6 +35,10 @@ impl Path {
     }
 
     /// Create a new path from a slice of `UVec3` positions
+    /// # Arguments
+    /// * `path` - A slice of `UVec3` positions
+    /// * `total_cost` - The total movement cost of the path
+    ///
     pub fn from_slice(path: &[UVec3], cost: u32) -> Self {
         let path = path.iter().cloned().collect();
 
@@ -60,7 +71,7 @@ impl Path {
         self.path.as_slices().0
     }
 
-    /// Returns the cost of the path
+    /// Returns the movement cost of the path
     pub fn cost(&self) -> u32 {
         self.cost
     }
@@ -85,6 +96,13 @@ impl Path {
     pub fn pop(&mut self) -> Option<UVec3> {
         // Remove the first element of the path
         self.path.pop_front()
+    }
+
+    /// Shifts all positions in the path by the given offset.
+    pub(crate) fn translate_by(&mut self, offset: UVec3) {
+        for pos in &mut self.path {
+            *pos += offset;
+        }
     }
 }
 

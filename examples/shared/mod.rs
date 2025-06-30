@@ -200,7 +200,7 @@ pub fn under_cursor(
     )>,
     troubleshooting: Query<(
         Entity,
-        &GridPos,
+        &AgentPos,
         Option<&Pathfind>,
         Option<&Path>,
         Option<&NextPos>,

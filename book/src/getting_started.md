@@ -1,19 +1,3 @@
-# Introduction
-
-[`bevy_northstar`](https://github.com/jtothethree/bevy_northstar) is a [`Hierarchical Pathfinding`](https://alexene.dev/2019/06/02/Hierarchical-pathfinding.html) plugin for [Bevy](https://bevy.org/).
-
-The crate provides:
-
-* Pathfinding Grids: A grid represents the walkable space used for the pathfinding alogrithsm and also precalculated chunks, entrances, and internal paths used for HPA*.
-
-* Pathfinding Systems: Bevy systems to handle pathfinding and collision for you. They are not required to use HPA* or other pathfinding algorithms.
-
-* Pathfinding Algorithms: You can call the pathfinding functions easily if you desire to handle the pathfinding logic in your own systems.
-
-* Debugging Tools: Easily visualize the grid and calculated paths to troubleshoot any tilemap and pathfinding issues.
-
-The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with [`bevy_ecs_tilemap`](https://github.com/StarArawn/bevy_ecs_tilemap) and any related crates such as [`bevy_ecs_tiled`](https://github.com/adrien-bon/bevy_ecs_tiled) and [`bevy_ecs_ldtk`](https://github.com/Trouv/bevy_ecs_ldtk).
-
 # Quick Start
 
 Add required dependencies to your `Cargo.toml` file:
@@ -21,18 +5,14 @@ Add required dependencies to your `Cargo.toml` file:
 ```toml
 [dependencies]
 bevy = "0.16"
-bevy_northstar = "0.2"
+bevy_northstar = "0.3"
 ```
 
-The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the points, and then call `Grid::build()` so the chunk entrances and internal paths can be calculated. 
+The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the navigation data, and then call `Grid::build()` so the chunk entrances and internal paths can be calculated. 
 
-To use the built-in pathfinding systems for the crate, insert the NorthstarPlugin specifying the `Neighborhood` to use.
+To use the built-in pathfinding systems for the crate, add the `NorthstarPlugin` specifying the `Neighborhood` to use.
 
-The built-in neighborhoods are:
-* `CardinalNeighborhood` 4 directions allowing no diagonal movement.
-* `CardinalNeighborhood3d` 6 directions, including up and down, allowing no diagonal movement.
-* `OrdinalNeighborhood` 8 directions allowing for diagonal movement.
-* `OrdinalNeighborhood3d` 26 directions which includes the base ordinal movements and their up/down directions.
+`CardinalNeighborhood` (North, East, South, West) is a good neighborhood to start with. See [Neighborhoods](./neighborhood/01_neighborhoods.md) for the full list and details.
 
 ```rust,no_run
 use bevy::prelude::*;
@@ -48,22 +28,22 @@ fn main() {
 }
 
 fn startup(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    // Configure the grid
+    let grid_settings = GridSettingsBuilder::new_2d(64, 48).chunk_size(16).build();
 
     // Spawn the grid used for pathfinding.
-    commands.spawn(Grid<CardinalNeighborhood>::new(&GridSettings {
-        width: 16,
-        height: 16,
-        chunk_size: 4,
-        ..Default::default()
-    }));
+    commands.spawn(Grid<CardinalNeighborhood>::new(&grid_settings));
 }
 
 fn build_grid(grid: Single<&mut Grid<CardinalNeighborhood>>) {
     let mut grid = grid.into_inner();
 
     // Let's set the position 8, 8 to a wall
-    grid.set_point(UVec3::new(8, 8, 0), Point::new(u32::MAX, true));
+    grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
+
+    // The default settings set every position as passable but for demonstration let's set one
+    // Nav::Passable takes a movement cost which determines how expensive it is to move to that position.
+    grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(1))
 
     info!("Building the grid...");
 
@@ -85,6 +65,58 @@ The following shorthand types are also available for constructing and referencin
 
 Rather than `Grid<CardinalNeighborhood>::new` you can use `CardinalGrid::new`.
 Rather than querying `Single<&mut Grid<CardinalNeighborhood>>` you can query `Single<&mut CardinalGrid>`
+
+## Quick NorthstarPlugin Pathfinding System Usage
+Using the example above we can create a system to look for entities without a path and give them a goal.
+
+If you're not interested in using the built-in systems, see [Pathfinding](./pathfinding.md) for examples.
+
+```rust,no_run
+use bevy::prelude::*;
+use bevy_northstar::prelude::*;
+
+fn spawn(mut commands: Commands) {
+    let grid_settings = GridSettingsBuilder::new_2d(64, 48).chunk_size(16).build();
+    // Store the spawned entity to relate entities to this grid.
+    let grid_entity = commands.spawn(CardinalGrid::new(&grid_settings));
+
+    // Let's spawn a pathfinding Player agent
+    commands.spawn((
+        Name::new("Player"),
+        // AgentPos is required to position your entity in the grid.
+        AgentPos(UVec3::new(4, 4, 0)),
+        // Here we relate this agent to the grid we created.
+        AgentOfGrid(grid_entity),
+    ));
+}
+
+fn pathfind_agents(
+    // The Pathfind component acts as a request to pathfind to a goal.
+    query: Query<Entity, Without<Pathfind>>,
+    mut commands: Commands,
+) {
+    for entity in &query {
+        // Let's request to pathfind to 7,7.
+        commands.entity(entity).insert(Pathfind::new(UVec3::new(7, 7, 0)));
+    }
+}
+
+fn move_player(
+    mut query: Query<(Entity, &mut AgentPos, &NextPos)>
+    mut commands: Commands,
+) {
+    for (entity, mut agent_pos, next_pos) in &mut query {
+        // NextPos contains the next valid position in the path.
+        // Here we update just the AgentPos to keep it aligned with the grid,
+        // but for real usage you would also likely update the transform for world positioning.
+        agent_pos.0 = next_pos.0
+
+        // Remove the NextPos component and the pathfinding system will insert a new NextPos with the next position in the path.
+        commands.entity(entity).remove::<NextPos>();
+        // Once the agent reaches its goal, Pathfind will be removed.
+    }
+}
+```
 
 ## Grid as a Component
 Currently the plugin Pathfinding and Debug systems expect there to be only a single copy of the Grid component which means you can't currently use them if you want to support multiple grids in your project. 

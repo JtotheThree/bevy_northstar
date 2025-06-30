@@ -2,7 +2,7 @@
 use bevy::math::UVec3;
 use ndarray::{s, Array3, ArrayView2, ArrayView3};
 
-use crate::{dir::Dir, grid::Point};
+use crate::{dir::Dir, nav::NavCell};
 
 /// A chunk is a 3D region of the grid.
 #[derive(Debug, Clone)]
@@ -35,8 +35,17 @@ impl Chunk {
         self.max
     }
 
-    /// Returns a 3D `ArrayView3`` of `Point`s of the chunk from the grid.
-    pub(crate) fn view<'a>(&self, grid: &'a Array3<Point>) -> ArrayView3<'a, Point> {
+    // Adjusts a position to the local coordinates of the chunk.
+    pub(crate) fn to_local(&self, pos: &UVec3) -> UVec3 {
+        UVec3::new(
+            pos.x.saturating_sub(self.min().x),
+            pos.y.saturating_sub(self.min().y),
+            pos.z.saturating_sub(self.min().z),
+        )
+    }
+
+    /// Returns a 3D `ArrayView3`` of `NavCell`s of the chunk from the grid.
+    pub(crate) fn view<'a>(&self, grid: &'a Array3<NavCell>) -> ArrayView3<'a, NavCell> {
         grid.slice(s![
             self.min.x as usize..self.max.x as usize + 1,
             self.min.y as usize..self.max.y as usize + 1,
@@ -45,7 +54,7 @@ impl Chunk {
     }
 
     /// Returns a 2D `ArrayView2`` of the edge of the chunk in the given direction.
-    pub(crate) fn edge<'a>(&self, grid: &'a Array3<Point>, dir: Dir) -> ArrayView2<'a, Point> {
+    pub(crate) fn edge<'a>(&self, grid: &'a Array3<NavCell>, dir: Dir) -> ArrayView2<'a, NavCell> {
         match dir {
             Dir::NORTH => grid.slice(s![
                 self.min.x as usize..self.max.x as usize + 1,
@@ -81,93 +90,81 @@ impl Chunk {
         }
     }
 
-    /// Returns the chunk corner `Point` for the given ordinal direction.
-    pub(crate) fn corner(&self, grid: &Array3<Point>, dir: Dir) -> Point {
+    /// Returns the chunk corner `NavCell` for the given ordinal direction.
+    pub(crate) fn corner(&self, grid: &Array3<NavCell>, dir: Dir) -> NavCell {
         match dir {
-            Dir::NORTHEAST => {
-                grid[[
-                    self.max.x as usize,
-                    self.max.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::SOUTHEAST => {
-                grid[[
-                    self.max.x as usize,
-                    self.min.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::SOUTHWEST => {
-                grid[[
-                    self.min.x as usize,
-                    self.min.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::NORTHWEST => {
-                grid[[
-                    self.min.x as usize,
-                    self.max.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::NORTHEASTUP => {
-                grid[[
-                    self.max.x as usize,
-                    self.max.y as usize,
-                    self.max.z as usize,
-                ]]
-            }
-            Dir::SOUTHEASTUP => {
-                grid[[
-                    self.max.x as usize,
-                    self.min.y as usize,
-                    self.max.z as usize,
-                ]]
-            }
-            Dir::SOUTHWESTUP => {
-                grid[[
-                    self.min.x as usize,
-                    self.min.y as usize,
-                    self.max.z as usize,
-                ]]
-            }
-            Dir::NORTHWESTUP => {
-                grid[[
-                    self.min.x as usize,
-                    self.max.y as usize,
-                    self.max.z as usize,
-                ]]
-            }
-            Dir::NORTHEASTDOWN => {
-                grid[[
-                    self.max.x as usize,
-                    self.max.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::SOUTHEASTDOWN => {
-                grid[[
-                    self.max.x as usize,
-                    self.min.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::SOUTHWESTDOWN => {
-                grid[[
-                    self.min.x as usize,
-                    self.min.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
-            Dir::NORTHWESTDOWN => {
-                grid[[
-                    self.min.x as usize,
-                    self.max.y as usize,
-                    self.min.z as usize,
-                ]]
-            }
+            Dir::NORTHEAST => grid[[
+                self.max.x as usize,
+                self.max.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHEAST => grid[[
+                self.max.x as usize,
+                self.min.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHWEST => grid[[
+                self.min.x as usize,
+                self.min.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::NORTHWEST => grid[[
+                self.min.x as usize,
+                self.max.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::NORTHEASTUP => grid[[
+                self.max.x as usize,
+                self.max.y as usize,
+                self.max.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHEASTUP => grid[[
+                self.max.x as usize,
+                self.min.y as usize,
+                self.max.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHWESTUP => grid[[
+                self.min.x as usize,
+                self.min.y as usize,
+                self.max.z as usize,
+            ]]
+            .clone(),
+            Dir::NORTHWESTUP => grid[[
+                self.min.x as usize,
+                self.max.y as usize,
+                self.max.z as usize,
+            ]]
+            .clone(),
+            Dir::NORTHEASTDOWN => grid[[
+                self.max.x as usize,
+                self.max.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHEASTDOWN => grid[[
+                self.max.x as usize,
+                self.min.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::SOUTHWESTDOWN => grid[[
+                self.min.x as usize,
+                self.min.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
+            Dir::NORTHWESTDOWN => grid[[
+                self.min.x as usize,
+                self.max.y as usize,
+                self.min.z as usize,
+            ]]
+            .clone(),
             _ => panic!("Cardinal directions have no corner."),
         }
     }
@@ -179,7 +176,7 @@ mod test {
 
     #[test]
     fn test_chunk_view() {
-        let grid = Array3::from_elem((10, 10, 10), Point::default());
+        let grid = Array3::from_elem((10, 10, 10), NavCell::default());
         let chunk = Chunk::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4));
         let view = chunk.view(&grid);
 
@@ -188,7 +185,7 @@ mod test {
 
     #[test]
     fn test_chunk_edge() {
-        let grid = Array3::from_elem((10, 10, 10), Point::default());
+        let grid = Array3::from_elem((10, 10, 10), NavCell::default());
         let chunk = Chunk::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4));
         let edge = chunk.edge(&grid, Dir::NORTH);
 
