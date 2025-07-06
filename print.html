@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">4.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">5.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">6.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">7.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">8.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">9.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">10.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">11.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -185,11 +185,32 @@
 <p>Even if your game is technically 2D, many 2D tilemap games feature 3D movement. Isometric games are a great example, but even top-down games like Zelda often include a concept of depth. There are also fully 3D games that use grid-based movement in three dimensions, such as X-COM.</p>
 <p>If your 2D game allows regular movement between floors or terrain levels, you’ll likely want to use a 3D grid.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<h2 id="cargo-setup"><a class="header" href="#cargo-setup">Cargo Setup</a></h2>
 <p>Add required dependencies to your <code>Cargo.toml</code> file:</p>
 <pre><code class="language-toml">[dependencies]
 bevy = &quot;0.16&quot;
 bevy_northstar = &quot;0.3&quot;
 </code></pre>
+<h3 id="features"><a class="header" href="#features">Features</a></h3>
+<h4 id="stats"><a class="header" href="#stats"><code>Stats</code></a></h4>
+<p>Enable statistics reporting, includes pathfinding, collision avoidance, and grid build time stats. Useful for diagnosing frame spikes. See <a href="./debugging.html">Debugging</a>.</p>
+<h4 id="parallel-enabled-by-default"><a class="header" href="#parallel-enabled-by-default"><code>Parallel</code> <em>(Enabled by default)</em></a></h4>
+<p>Uses <code>rayon</code> to build the navigation grid in parallel. This greatly speeds up grid rebuilds, but may cause issues in WASM builds.
+To disable parallelism (e.g. for WASM support), disable default features:</p>
+<pre><code class="language-toml">bevy_northstar = { version = &quot;0.3&quot;, default-features = false }
+</code></pre>
+<blockquote>
+<p><strong>⚠️ Warning</strong><br />
+If you disable <code>parallel</code>, rebuilding the grid during gameplay (e.g. mining, explosions, etc.) can be quite expensive. You will want to confine your updates in a single frame to the least amount of affected chunks.</p>
+</blockquote>
+<h3 id="debug-optimization"><a class="header" href="#debug-optimization">Debug Optimization</a></h3>
+<p>Pathfinding and grid algorithms involve a lot of branching, which can make debug builds significantly slower. You can set the optimization settings for this crate so you can still debug your game without the performance hit.</p>
+<p>Follow <a href="https://bevy.org/learn/quick-start/getting-started/setup/#cargo-workspaces">Bevy Quickstart Cargo Workspaces</a> to add <code>opt-level = 3</code> to your <code>Cargo.toml</code> dependencies.</p>
+<p>Or alternatively add the following to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[profile.dev.package.&quot;bevy_northstar&quot;]
+opt-level = 3
+</code></pre>
+<h2 id="crate-usage"><a class="header" href="#crate-usage">Crate Usage</a></h2>
 <p>The basic requirements to use the crate are to spawn an entity with a <code>Grid</code> component, adjust the navigation data, and then call <code>Grid::build()</code> so the chunk entrances and internal paths can be calculated. </p>
 <p>To use the built-in pathfinding systems for the crate, add the <code>NorthstarPlugin</code> specifying the <code>Neighborhood</code> to use.</p>
 <p><code>CardinalNeighborhood</code> (North, East, South, West) is a good neighborhood to start with. See <a href="./neighborhood/01_neighborhoods.html">Neighborhoods</a> for the full list and details.</p>
@@ -350,6 +371,57 @@ let grid: Grid&lt;OrdinalNeighborhood&gt; = Grid::new(&amp;grid_settings);
 <h2 id="neighbor-settings"><a class="header" href="#neighbor-settings">Neighbor Settings</a></h2>
 <h3 id="add_neighbor_filterfilter"><a class="header" href="#add_neighbor_filterfilter"><code>add_neighbor_filter(filter)</code></a></h3>
 <p>Pass a <code>NeighborFilter</code> that will be applied to viable neighbors when they are precalculated. See <a href="./neighborhood/02_filters.html">Filters</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="grid-updates"><a class="header" href="#grid-updates">Grid Updates</a></h1>
+<p>You can modify the navigation data of individual cells at runtime using <code>Grid::set_nav()</code>. 
+After making changes, you <strong>must</strong> call <code>Grid::build()</code> to update the internal state.</p>
+<p>When <code>Grid::set_nav()</code> is called, the affected chunk and its adjacent chunks are automatically marked as dirty. During the next <code>Grid::build()</code> call, only those dirty chunks are rebuilt. If the default parallel feature is enabled, chunk rebuilds are performed in parallel for better performance.</p>
+<p>Calling any of the <code>Grid</code> pathfinding methods on a dirty grid will log an error and return <code>None</code>.</p>
+<p>Example:</p>
+<pre><pre class="playground"><code class="language-rust no-run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>if input.just_pressed(MouseButton::Right) {
+    if let Some(position) = clicked_tile {
+        let mut grid = grid.into_inner();
+
+        if let Some(nav) = grid.nav(position) {
+            if !matches!(nav, Nav::Impassable) {
+                // If the cell is passable, we set it to impassable.
+                grid.set_nav(position, Nav::Impassable);
+            } else {
+                // If the cell is impassable, we set it to passable with a cost of 1.
+                grid.set_nav(position, Nav::Passable(1));
+            }
+        } else {
+            return;
+        }
+        // You must call `build` after modifying the grid to update the internal state.
+        grid.build();
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="performance-notes"><a class="header" href="#performance-notes">Performance Notes</a></h2>
+<p>Rebuilding a single chunk takes approximately <strong>0.2ms</strong> on modern systems. Note that updating a cell in a single chunk may require updating neighboring chunks if it touches an edge. If you enable <code>GridSettingsBuilder::diagonal_connections()</code> or use an ordinal <code>Neighborhood</code>, the number of adjacent chunks needing rebuilds may increase.</p>
+<ul>
+<li>
+<p>With the default <code>parallel</code> feature enabled, multiple dirty chunks can often be rebuilt in the same frame with a ~35% speedup.</p>
+</li>
+<li>
+<p>If <code>parallel</code> is disabled (e.g. for WASM), rebuilding a large number of chunks sequentially may exceed your frame budget. In that case, consider:</p>
+<ul>
+<li>
+<p>Limiting updates to small, localized areas per frame.</p>
+</li>
+<li>
+<p>Spreading updates across multiple frames.</p>
+</li>
+<li>
+<p>Adjusting chunk size to find the best performance fo your use case.</p>
+</li>
+</ul>
+</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="pathfinding-with-built-in-systems"><a class="header" href="#pathfinding-with-built-in-systems">Pathfinding With Built-In Systems</a></h1>
 <h2 id="pathfind-and-agentpos-components"><a class="header" href="#pathfind-and-agentpos-components">Pathfind and AgentPos Components</a></h2>
 <p>To use the <code>NorthstarPlugin</code> pathfinding systems, insert a <code>Pathfind</code> and <code>AgentPos</code> on the entity you want to pathfind.
@@ -685,8 +757,9 @@ commands.spawn((
 <span class="boring">}
 </span></code></pre></pre>
 <p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
-<h1 id="stats"><a class="header" href="#stats">Stats</a></h1>
+<h1 id="stats-1"><a class="header" href="#stats-1">Stats</a></h1>
 <p>Enabling the <code>stats</code> feature on the crate will allow the <code>NorthstarPlugin</code> pathfinding systems to calculate the average time spent on pathfinding and collision calls.</p>
+<p>It will also log debug level stats for <code>Grid::build()</code> times. Useful making sure your grid rebuilds are staying within your frame budget.</p>
 <pre><code class="language-toml">[dependencies]
 bevy_northstar = { version = &quot;0.2.0&quot;, features = [&quot;stats&quot;]}
 </code></pre>
@@ -700,6 +773,10 @@ bevy_northstar = { version = &quot;0.2.0&quot;, features = [&quot;stats&quot;]}
 }
 <span class="boring">}
 </span></code></pre></pre>
+<p>To get the <code>Grid::build()</code> timing stats dumped to your log you'll need to enable debug level logging for the crate.</p>
+<pre><code class="language-bash no-run">RUST_LOG=bevy_northstar=debug,bevy=info cargo run
+</code></pre>
+<p>Or alternatively configure it in code when setting up your Bevy logging.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-v02x-to-v03x"><a class="header" href="#migrating-from-v02x-to-v03x">Migrating From v0.2.X to v0.3.X</a></h1>
 <h2 id="gridsettings--gridsettingsbuilder"><a class="header" href="#gridsettings--gridsettingsbuilder">GridSettings → GridSettingsBuilder</a></h2>
 <p><code>GridSettings</code> has been replaced with <code>GridSettingsBuilder</code>.</p>

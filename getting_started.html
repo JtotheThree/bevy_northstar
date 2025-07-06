@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html" class="active"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">4.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">5.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">6.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">7.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">8.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">9.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">10.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html" class="active"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">4.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">5.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">6.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">7.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">8.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">9.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">10.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">11.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -144,11 +144,32 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<h2 id="cargo-setup"><a class="header" href="#cargo-setup">Cargo Setup</a></h2>
 <p>Add required dependencies to your <code>Cargo.toml</code> file:</p>
 <pre><code class="language-toml">[dependencies]
 bevy = &quot;0.16&quot;
 bevy_northstar = &quot;0.3&quot;
 </code></pre>
+<h3 id="features"><a class="header" href="#features">Features</a></h3>
+<h4 id="stats"><a class="header" href="#stats"><code>Stats</code></a></h4>
+<p>Enable statistics reporting, includes pathfinding, collision avoidance, and grid build time stats. Useful for diagnosing frame spikes. See <a href="./debugging.html">Debugging</a>.</p>
+<h4 id="parallel-enabled-by-default"><a class="header" href="#parallel-enabled-by-default"><code>Parallel</code> <em>(Enabled by default)</em></a></h4>
+<p>Uses <code>rayon</code> to build the navigation grid in parallel. This greatly speeds up grid rebuilds, but may cause issues in WASM builds.
+To disable parallelism (e.g. for WASM support), disable default features:</p>
+<pre><code class="language-toml">bevy_northstar = { version = &quot;0.3&quot;, default-features = false }
+</code></pre>
+<blockquote>
+<p><strong>⚠️ Warning</strong><br />
+If you disable <code>parallel</code>, rebuilding the grid during gameplay (e.g. mining, explosions, etc.) can be quite expensive. You will want to confine your updates in a single frame to the least amount of affected chunks.</p>
+</blockquote>
+<h3 id="debug-optimization"><a class="header" href="#debug-optimization">Debug Optimization</a></h3>
+<p>Pathfinding and grid algorithms involve a lot of branching, which can make debug builds significantly slower. You can set the optimization settings for this crate so you can still debug your game without the performance hit.</p>
+<p>Follow <a href="https://bevy.org/learn/quick-start/getting-started/setup/#cargo-workspaces">Bevy Quickstart Cargo Workspaces</a> to add <code>opt-level = 3</code> to your <code>Cargo.toml</code> dependencies.</p>
+<p>Or alternatively add the following to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[profile.dev.package.&quot;bevy_northstar&quot;]
+opt-level = 3
+</code></pre>
+<h2 id="crate-usage"><a class="header" href="#crate-usage">Crate Usage</a></h2>
 <p>The basic requirements to use the crate are to spawn an entity with a <code>Grid</code> component, adjust the navigation data, and then call <code>Grid::build()</code> so the chunk entrances and internal paths can be calculated. </p>
 <p>To use the built-in pathfinding systems for the crate, add the <code>NorthstarPlugin</code> specifying the <code>Neighborhood</code> to use.</p>
 <p><code>CardinalNeighborhood</code> (North, East, South, West) is a good neighborhood to start with. See <a href="./neighborhood/01_neighborhoods.html">Neighborhoods</a> for the full list and details.</p>
