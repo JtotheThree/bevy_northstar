@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">4.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">5.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_path.html"><strong aria-hidden="true">6.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">7.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">8.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html" class="active"><strong aria-hidden="true">9.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">10.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">11.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_path.html"><strong aria-hidden="true">7.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">8.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">9.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html" class="active"><strong aria-hidden="true">10.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">11.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">12.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -156,19 +156,23 @@
     .build();
 <span class="boring">}
 </span></code></pre></pre>
-<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
-<p>Prevents diagonal movement from clipping through impassable (wall) corners.
-Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
-<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
-<p><img src="../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
 <h2 id="nocornercutting"><a class="header" href="#nocornercutting">NoCornerCutting</a></h2>
 <p>Forces cardinal movement around impassable (wall) cells by preventing diagonal movement around ANY adjacent impassable (wall) cell.
 Don't use with <code>NoCornerClipping</code> as this filter already covers clipping through corners.</p>
 <p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerCutting)</code>.</p>
 <p><img src="../images/nocornercutting.png" alt="NoCornerCutting" /></p>
+<h2 id="nocornercuttingflat"><a class="header" href="#nocornercuttingflat">NoCornerCuttingFlat</a></h2>
+<p>Works the same as <code>NoCornerCutting</code> with the exception that paths can jump z depth diagonally around corners. <em>This is an ideal filter to use in 2.5D games</em>. You may want to disable agents from cutting diagonally around corners so your sprites don't clip through wall corners causing y sorting glitches, but retain the ability for your agents to jump to higher heights.</p>
+<p><img src="..//images/nocornercuttingflatnoz.png" alt="No corner cutting is allowed in the same depth" />
+<img src="..//images/nocornercuttingflatyesz.png" alt="Corner cutting is allowed to different depths" /></p>
+<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
+<p>Prevents diagonal movement from clipping through impassable (wall) corners.
+Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
+<p><img src="../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
 <h2 id="disallowzdiagonalmovement"><a class="header" href="#disallowzdiagonalmovement">DisallowZDiagonalMovement</a></h2>
 <p>The <code>OrdinalNeighborhood3d</code> neighborhood allows diagonal movement along the Z axis.
-If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. This is a good filter &quot;3D&quot; isometric map movement.</p>
+If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. </p>
 <h1 id="implementing-your-own-filter"><a class="header" href="#implementing-your-own-filter">Implementing Your Own Filter</a></h1>
 <p>TODO, for now please see <code>filters.rs</code> in the source.</p>
 

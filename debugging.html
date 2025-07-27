@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">4.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">5.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">6.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">7.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">8.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">9.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html" class="active"><strong aria-hidden="true">10.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">11.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">7.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">8.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">9.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">10.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html" class="active"><strong aria-hidden="true">11.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">12.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -208,17 +208,6 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     ));
 }
 </code></pre></pre>
-<h2 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h2>
-<h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
-<p>Sets the debug gizmos to draw in isometric perspective.</p>
-<h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
-<p>Outline the grid chunk regions.</p>
-<h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
-<p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
-<h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
-<p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
-<h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
-<p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
 <h1 id="debugging-paths"><a class="header" href="#debugging-paths">Debugging Paths</a></h1>
 <p>Debugging paths for an entity requires you to add a <code>DebugPath</code> component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.</p>
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
@@ -235,6 +224,67 @@ commands.spawn((
 <span class="boring">}
 </span></code></pre></pre>
 <p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
+<h1 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h1>
+<h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
+<p>Sets the debug gizmos to draw in isometric perspective.</p>
+<h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
+<p>Outline the grid chunk regions.</p>
+<img src="../images/debugchunk.png" width="300"/>
+<h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
+<p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
+<img src="../images/debugentrances.png" width="300"/>
+<h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
+<p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
+<img src="../images/debugcells.png" width="300"/>
+<h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
+<p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
+<img src="../images/debugcachedpaths.png" width="300"/>
+<h3 id="enable_show_connections_on_hover"><a class="header" href="#enable_show_connections_on_hover"><code>enable_show_connections_on_hover()</code></a></h3>
+<p>As you can see above, viewing all the connections at once is quite noisy. Enabling show_connections_on_hover will only draw chunk entrance cached connections when the <code>DebugCursor</code> position is over the node. Very useful for debugging possible failed node connections without all of the other connections overlapping.</p>
+<img src="../images/debugonlyonhover.png" width="300"/>
+<h1 id="debugcursor-component"><a class="header" href="#debugcursor-component"><code>DebugCursor</code> Component</a></h1>
+<p>In order for the debug plugin to determine which node your cursor is hovering over, you need to manually update the <code>DebugCursor</code> component. While tedious this is required because not every game will have the same windowing and camera setups. <code>DebugCursor</code> is inserted along with <code>DebugGrid</code> so there is no need to insert it manually.</p>
+<p>For most cases you can just dump the raw world cursor position in your input systems or just add a simple system to handle it:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn update_debug_cursor(
+    window: Single&lt;&amp;Window&gt;,
+    camera: Single&lt;(&amp;Camera, &amp;GlobalTransform)&gt;,
+    debug_cursor: Single&lt;&amp;mut DebugCursor&gt;,
+) {
+    let window = window.into_inner();
+    let (camera, camera_transform) = camera.into_inner();
+    let mut debug_cursor = debug_cursor.into_inner();
+
+    if let Some(cursor_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+    {
+        debug_cursor.0 = Some(cursor_position);
+    } else {
+        debug_cursor.0 = None;
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h1 id="25d-debugging"><a class="header" href="#25d-debugging">2.5D Debugging</a></h1>
+<p>Drawing all 3D grid debug gizmos over a 2d tilemap render would get pretty noisy so the debug drawing generally only draws information for one z depth at a time. The exception for this is that all entrance nodes will be drawn and y offsets for height will be applied.</p>
+<p>You can set the depth with an inspector or use <code>DebugGrid::set_depth(depth: u32)</code> to change the depth that is being drawn.</p>
+<p>In 2.5D maps each depth layer will generally have a Y offset applied so the tile appears higher to the player. The <code>DebugDepthYOffsets</code> component is used so the debugging systems know which offsets to apply when drawing at that z depth. <code>DebugDepthYOffsets</code> takes a <code>HashMap&lt;u32, f32&gt;</code> where the key is the z depth and the value is the offset.</p>
+<p>For example:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>DebugDepthYOffsets(
+    HashMap::from([
+        (0, 0.0),
+        (1, 16.0),
+        (2, 32.0),
+    ])
+)
+<span class="boring">}
+</span></code></pre></pre>
 <h1 id="stats"><a class="header" href="#stats">Stats</a></h1>
 <p>Enabling the <code>stats</code> feature on the crate will allow the <code>NorthstarPlugin</code> pathfinding systems to calculate the average time spent on pathfinding and collision calls.</p>
 <p>It will also log debug level stats for <code>Grid::build()</code> times. Useful making sure your grid rebuilds are staying within your frame budget.</p>

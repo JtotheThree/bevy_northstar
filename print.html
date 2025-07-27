@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">4.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">5.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">6.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">7.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">8.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">9.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">10.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">11.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">7.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">8.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">9.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">10.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">11.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">12.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -162,6 +162,13 @@
 </li>
 </ul>
 <p>The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with <a href="https://github.com/StarArawn/bevy_ecs_tilemap"><code>bevy_ecs_tilemap</code></a> and any related crates such as <a href="https://github.com/adrien-bon/bevy_ecs_tiled"><code>bevy_ecs_tiled</code></a> and <a href="https://github.com/Trouv/bevy_ecs_ldtk"><code>bevy_ecs_ldtk</code></a>.</p>
+<h1 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h1>
+<img src="../images/hpaoverview.png" width="80%"/>
+<p>Hierarchical pathfinding works by dividing the map into chunks and identifying viable connections between each chunk at their edges. This creates a network of high-level graph nodes across the map.</p>
+<p>Instead of searching the entire map at once, pathfinding can use these high-level nodes to run a simplified A* search over a much smaller set of positions, which significantly speeds up the process.</p>
+<p>Additionally, for each high-level node, paths through the local chunk to all other chunk nodes can be precomputed and stored. After the high-level search is complete, these precomputed paths are reused, so the algorithm doesn't need to search through every chunk individually.</p>
+<p>Once the high-level path is found, it is refined using a line tracing algorithm to make the path more optimal.</p>
+<p>In the picture above, the high-level path is shown in blue, and the red line shows the final refined path built from it.</p>
 <h1 id="who-this-crate-is-for"><a class="header" href="#who-this-crate-is-for">Who This Crate Is For</a></h1>
 <p>The current target for this crate is for games with large tile based maps and designed to support large sim games like Dwarf Fortress or Rimworld, RPGs with grid like movement like Fallout 1/2, and Roguelikes. </p>
 <p>It does not support Flowfield pathfinding which is better suited in RTS games where many agents are often pathfinding to the single goal. HPA* is better suited for many agents with their own unique goals.</p>
@@ -182,7 +189,7 @@
 <li><a href="https://crates.io/crates/pathfinding">pathfinding</a>: The general pathfinding crate is a good place to start if you just want to implement simple A*.</li>
 </ul>
 <h1 id="3d-why-and-when"><a class="header" href="#3d-why-and-when">3D: Why and When</a></h1>
-<p>Even if your game is technically 2D, many 2D tilemap games feature 3D movement. Isometric games are a great example, but even top-down games like Zelda often include a concept of depth. There are also fully 3D games that use grid-based movement in three dimensions, such as X-COM.</p>
+<p>Even if your game is technically 2D, many 2D tilemap games feature 3D movement often referred to as 2.5D. Isometric games are a great example, but even top-down games like Zelda often include a concept of depth. There are also fully 3D games that use grid-based movement in three dimensions, such as X-COM.</p>
 <p>If your 2D game allows regular movement between floors or terrain levels, you’ll likely want to use a 3D grid.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
 <h2 id="cargo-setup"><a class="header" href="#cargo-setup">Cargo Setup</a></h2>
@@ -371,6 +378,95 @@ let grid: Grid&lt;OrdinalNeighborhood&gt; = Grid::new(&amp;grid_settings);
 <h2 id="neighbor-settings"><a class="header" href="#neighbor-settings">Neighbor Settings</a></h2>
 <h3 id="add_neighbor_filterfilter"><a class="header" href="#add_neighbor_filterfilter"><code>add_neighbor_filter(filter)</code></a></h3>
 <p>Pass a <code>NeighborFilter</code> that will be applied to viable neighbors when they are precalculated. See <a href="./neighborhood/02_filters.html">Filters</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="cell-navigation-data"><a class="header" href="#cell-navigation-data">Cell Navigation Data</a></h1>
+<p>Each cell in the <code>Grid</code> contains navigation data that is used for pathfinding.</p>
+<p>The primary way for setting the nav data is using <code>Grid::set_nav()</code>, which takes a <code>Nav</code> enum.</p>
+<h3 id="cost"><a class="header" href="#cost">Cost</a></h3>
+<p>&quot;Cost&quot; is a common concept in pathfinding and is used throughout the crate. It represents how difficult it is for an agent to move through a given cell. All internal pathfinding systems use cost to find the lowest-cost path to a goal, rather than the absolute shortest one.</p>
+<p>You can use cost to discourage agents from entering certain areas. For example, moving through water might be allowed but is assigned a higher cost so that agents avoid that route unless necessary. Another use case would be movement budgets like action points. Each tile could represent a certain number of action points a move costs.</p>
+<h2 id="nav"><a class="header" href="#nav">Nav</a></h2>
+<p><code>Nav</code> is the enum used to set cell navigation data. You can set it with <code>Grid::set_nav()</code>. For example:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Set 1, 1, 1 to a wall
+grid.set_nav(UVec3::new(1, 1, 1), Nav::Impassable)
+// Set 2, 2, 2 as &quot;walkable&quot; with a cost of 4.
+grid.set_nav(UVec3::new(2, 2, 2), Nav::Passable(4))
+// Set 3, 3, 3 as a portal that warps the agent to 7, 7, 7 with a cost of 1,
+// one_way is set to true which means a reverse portal at the target will not be created.
+grid.set_nav(UVec3::new(3, 3, 3), Nav::Portal(Portal::to(UVec3::new(7, 7, 7), 1, true))) 
+<span class="boring">}
+</span></code></pre></pre>
+<h3 id="navimpassable"><a class="header" href="#navimpassable"><code>Nav::Impassable</code></a></h3>
+<p>Marks the cell as impassable (e.g., a wall). Paths will never include this position.
+You can default the entire grid to impassable using <code>GridSettingsBuilder::default_impassable</code>.</p>
+<h3 id="navpassablemovementcost"><a class="header" href="#navpassablemovementcost"><code>Nav::Passable(MovementCost)</code></a></h3>
+<p>Marks the cell as passable with a specified cost.
+By default, <code>GridSettingsBuilder</code> sets all cells to passable with a cost of <code>1</code>. You can override this with <code>GridSettingsBuilder::default_cost(u32)</code>.</p>
+<p>This is the main variant used for standard walkable terrain.</p>
+<h3 id="navportalportal"><a class="header" href="#navportalportal"><code>Nav::Portal(Portal)</code></a></h3>
+<p>Defines a &quot;portal&quot; that overrides normal neighborhood movement rules. See below for usage.</p>
+<h2 id="portal-rampsstairs-elevators-actual-portals"><a class="header" href="#portal-rampsstairs-elevators-actual-portals">Portal: Ramps/Stairs, Elevators, Actual Portals</a></h2>
+<p>Portals allow movement between positions that wouldn't normally be adjacent under standard neighborhood rules. They're often used in 2.5D tilemaps to represent elevation changes (e.g., ramps or stairs), but they can also be used for actual teleporters.</p>
+<h3 id="rampstairs"><a class="header" href="#rampstairs">Ramp/Stairs</a></h3>
+<p><img src="../images/rampsamecell.png" alt="Ramp" /></p>
+<p>In the image above, the ramp transitions the agent from Z = 0 to Z = 2, which isn’t normally allowed by OrdinalNeighborhood3d. You can create this behavior by setting a portal at the ramp tile:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Target destination for this portal, which in our case is the current tile x, y + to a height of 2.
+let target_pos = UVec3::new(tile_pos.x, tile_pos.y, 2);
+
+// Create the portal for the ramp
+grid.set_nav(
+    // The position of our ramp cell
+    UVec3::new(tile_pos.x, tile_pos.y, 0),
+    // You can set the destination to the same x,y position but change the z height
+    // We'll set the cost to 2, this is arbitrary.
+    Nav::Portal(Portal::to(target_pos, 2, false)),
+    // As one_way is set to false, we don't need to worry about creating a reverse portal at the target
+    // set_nav will handle that for you.
+);
+<span class="boring">}
+</span></code></pre></pre>
+<p>Alternatively, place the portals on tiles adjacent to the ramp:</p>
+<p><img src="../images/ramp.png" alt="RampAlternative" /></p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Have the bottom adjacent cell to the ramp portal to the top adjacent cell to the ramp.
+grid.set_nav(UVec3::new(0, 0, 0), Nav::Portal(Portal::to(2, 0, 2), 1, false))
+<span class="boring">}
+</span></code></pre></pre>
+<h3 id="teleporting"><a class="header" href="#teleporting">Teleporting</a></h3>
+<p>To create a teleporter, set the portal destination to any arbitrary map position. You can make it one-way by not adding a reverse portal:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Let's say the current_tile is at 5, 5, 4
+let current_tile = UVec3::new(5, 5, 4);
+
+grid.set_nav(
+    current_tile,
+    /// This cell can be used as a warp to 45, 45, 0 at a cost of 1.
+    Nav::Portal(Portal::to(UVec3::new(45, 45, 0), 1, true))
+)
+<span class="boring">}
+</span></code></pre></pre>
+<img src="../images/portal.png" width="500"/>
+<h3 id="animations-for-portals"><a class="header" href="#animations-for-portals">Animations For Portals</a></h3>
+<p>You'll likely want to animate transitions when agents use jumps, ramps, or portals.</p>
+<p>The <code>Path::next()</code> method is useful for this. It returns the next position in the path, which you can compare to the agent's current tile position. This lets you determine what kind of tile the agent is moving into such as a portal, a ramp. Or just test if the Z depth changes and trigger a jump animation.</p>
+<p>You can also get the agents current cell navigation data, for example, test if the agent is standing on a portal:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>if let Some(Nav::Portal(portal)) = grid.nav(position.0) {
+    // Trigger some warping particle fx.
+}
+<span class="boring">}
+</span></code></pre></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="grid-updates"><a class="header" href="#grid-updates">Grid Updates</a></h1>
 <p>You can modify the navigation data of individual cells at runtime using <code>Grid::set_nav()</code>. 
 After making changes, you <strong>must</strong> call <code>Grid::build()</code> to update the internal state.</p>
@@ -582,8 +678,10 @@ fn handle_reroute_failed(
 <p>The full cost of the path. It is the sum of all movement costs for each cell in the grid that the path crosses over.</p>
 <h3 id="len---usize"><a class="header" href="#len---usize"><code>len() -&gt; usize</code></a></h3>
 <p>The total number of positions <strong>currently</strong> in the path.</p>
+<h3 id="next---optionuvec3"><a class="header" href="#next---optionuvec3"><code>next() -&gt; Option&lt;UVec3&gt;</code></a></h3>
+<p>Returns the next position in the path without removing it. Very useful in animation systems to play a different animation based on tile transition for example, playing a jumping animation when the next position is a higher z depth.</p>
 <h3 id="pop---optionuvec3"><a class="header" href="#pop---optionuvec3"><code>pop() -&gt; Option&lt;UVec3&gt;</code></a></h3>
-<p>Removes and returns the first position of the path.</p>
+<p>Removes and returns the next position of the path.</p>
 <h4 id="see-the-crate-docs-for-more-a-couple-of-notable-ones-are-reverse-and-translate_byoffset"><a class="header" href="#see-the-crate-docs-for-more-a-couple-of-notable-ones-are-reverse-and-translate_byoffset">See the crate docs for more. A couple of notable ones are <code>reverse()</code> and <code>translate_by(offset)</code></a></h4>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="manual-pathfinding"><a class="header" href="#manual-pathfinding">Manual Pathfinding</a></h1>
 <p>You don't need to use the pathfinding systems in the <code>NorthstarPlugin</code> in order to take advantage of this crate. </p>
@@ -650,19 +748,23 @@ This 3D neighborhood is also well-suited for 2D tilemap games with height layers
     .build();
 <span class="boring">}
 </span></code></pre></pre>
-<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
-<p>Prevents diagonal movement from clipping through impassable (wall) corners.
-Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
-<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
-<p><img src="neighborhood/../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
 <h2 id="nocornercutting"><a class="header" href="#nocornercutting">NoCornerCutting</a></h2>
 <p>Forces cardinal movement around impassable (wall) cells by preventing diagonal movement around ANY adjacent impassable (wall) cell.
 Don't use with <code>NoCornerClipping</code> as this filter already covers clipping through corners.</p>
 <p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerCutting)</code>.</p>
 <p><img src="neighborhood/../images/nocornercutting.png" alt="NoCornerCutting" /></p>
+<h2 id="nocornercuttingflat"><a class="header" href="#nocornercuttingflat">NoCornerCuttingFlat</a></h2>
+<p>Works the same as <code>NoCornerCutting</code> with the exception that paths can jump z depth diagonally around corners. <em>This is an ideal filter to use in 2.5D games</em>. You may want to disable agents from cutting diagonally around corners so your sprites don't clip through wall corners causing y sorting glitches, but retain the ability for your agents to jump to higher heights.</p>
+<p><img src="neighborhood/..//images/nocornercuttingflatnoz.png" alt="No corner cutting is allowed in the same depth" />
+<img src="neighborhood/..//images/nocornercuttingflatyesz.png" alt="Corner cutting is allowed to different depths" /></p>
+<h2 id="nocornerclipping"><a class="header" href="#nocornerclipping">NoCornerClipping</a></h2>
+<p>Prevents diagonal movement from clipping through impassable (wall) corners.
+Don't use with <code>NoCornerCutting</code> as <code>NoCornerCutting</code> already handles this case.</p>
+<p>Apply to <code>GridSettingsBuilder</code> with <code>.add_neighbor_filter(filter::NoCornerClipping)</code>.</p>
+<p><img src="neighborhood/../images/nocornerclipping.png" alt="NoCornerClipping" /></p>
 <h2 id="disallowzdiagonalmovement"><a class="header" href="#disallowzdiagonalmovement">DisallowZDiagonalMovement</a></h2>
 <p>The <code>OrdinalNeighborhood3d</code> neighborhood allows diagonal movement along the Z axis.
-If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. This is a good filter &quot;3D&quot; isometric map movement.</p>
+If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> filter and it will limit diagonal movement to only cells on the same depth while still allowing Up and Down movement. </p>
 <h1 id="implementing-your-own-filter"><a class="header" href="#implementing-your-own-filter">Implementing Your Own Filter</a></h1>
 <p>TODO, for now please see <code>filters.rs</code> in the source.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="debugging-the-grid-component"><a class="header" href="#debugging-the-grid-component">Debugging the Grid component</a></h1>
@@ -730,17 +832,6 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     ));
 }
 </code></pre></pre>
-<h2 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h2>
-<h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
-<p>Sets the debug gizmos to draw in isometric perspective.</p>
-<h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
-<p>Outline the grid chunk regions.</p>
-<h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
-<p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
-<h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
-<p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
-<h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
-<p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
 <h1 id="debugging-paths"><a class="header" href="#debugging-paths">Debugging Paths</a></h1>
 <p>Debugging paths for an entity requires you to add a <code>DebugPath</code> component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.</p>
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
@@ -757,6 +848,67 @@ commands.spawn((
 <span class="boring">}
 </span></code></pre></pre>
 <p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
+<h1 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h1>
+<h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
+<p>Sets the debug gizmos to draw in isometric perspective.</p>
+<h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
+<p>Outline the grid chunk regions.</p>
+<img src="../images/debugchunk.png" width="300"/>
+<h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
+<p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
+<img src="../images/debugentrances.png" width="300"/>
+<h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
+<p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
+<img src="../images/debugcells.png" width="300"/>
+<h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
+<p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
+<img src="../images/debugcachedpaths.png" width="300"/>
+<h3 id="enable_show_connections_on_hover"><a class="header" href="#enable_show_connections_on_hover"><code>enable_show_connections_on_hover()</code></a></h3>
+<p>As you can see above, viewing all the connections at once is quite noisy. Enabling show_connections_on_hover will only draw chunk entrance cached connections when the <code>DebugCursor</code> position is over the node. Very useful for debugging possible failed node connections without all of the other connections overlapping.</p>
+<img src="../images/debugonlyonhover.png" width="300"/>
+<h1 id="debugcursor-component"><a class="header" href="#debugcursor-component"><code>DebugCursor</code> Component</a></h1>
+<p>In order for the debug plugin to determine which node your cursor is hovering over, you need to manually update the <code>DebugCursor</code> component. While tedious this is required because not every game will have the same windowing and camera setups. <code>DebugCursor</code> is inserted along with <code>DebugGrid</code> so there is no need to insert it manually.</p>
+<p>For most cases you can just dump the raw world cursor position in your input systems or just add a simple system to handle it:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn update_debug_cursor(
+    window: Single&lt;&amp;Window&gt;,
+    camera: Single&lt;(&amp;Camera, &amp;GlobalTransform)&gt;,
+    debug_cursor: Single&lt;&amp;mut DebugCursor&gt;,
+) {
+    let window = window.into_inner();
+    let (camera, camera_transform) = camera.into_inner();
+    let mut debug_cursor = debug_cursor.into_inner();
+
+    if let Some(cursor_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+    {
+        debug_cursor.0 = Some(cursor_position);
+    } else {
+        debug_cursor.0 = None;
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h1 id="25d-debugging"><a class="header" href="#25d-debugging">2.5D Debugging</a></h1>
+<p>Drawing all 3D grid debug gizmos over a 2d tilemap render would get pretty noisy so the debug drawing generally only draws information for one z depth at a time. The exception for this is that all entrance nodes will be drawn and y offsets for height will be applied.</p>
+<p>You can set the depth with an inspector or use <code>DebugGrid::set_depth(depth: u32)</code> to change the depth that is being drawn.</p>
+<p>In 2.5D maps each depth layer will generally have a Y offset applied so the tile appears higher to the player. The <code>DebugDepthYOffsets</code> component is used so the debugging systems know which offsets to apply when drawing at that z depth. <code>DebugDepthYOffsets</code> takes a <code>HashMap&lt;u32, f32&gt;</code> where the key is the z depth and the value is the offset.</p>
+<p>For example:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>DebugDepthYOffsets(
+    HashMap::from([
+        (0, 0.0),
+        (1, 16.0),
+        (2, 32.0),
+    ])
+)
+<span class="boring">}
+</span></code></pre></pre>
 <h1 id="stats-1"><a class="header" href="#stats-1">Stats</a></h1>
 <p>Enabling the <code>stats</code> feature on the crate will allow the <code>NorthstarPlugin</code> pathfinding systems to calculate the average time spent on pathfinding and collision calls.</p>
 <p>It will also log debug level stats for <code>Grid::build()</code> times. Useful making sure your grid rebuilds are staying within your frame budget.</p>
