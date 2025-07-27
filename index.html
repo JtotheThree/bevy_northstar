@@ -162,7 +162,7 @@
 </ul>
 <p>The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with <a href="https://github.com/StarArawn/bevy_ecs_tilemap"><code>bevy_ecs_tilemap</code></a> and any related crates such as <a href="https://github.com/adrien-bon/bevy_ecs_tiled"><code>bevy_ecs_tiled</code></a> and <a href="https://github.com/Trouv/bevy_ecs_ldtk"><code>bevy_ecs_ldtk</code></a>.</p>
 <h1 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h1>
-<img src="../images/hpaoverview.png" width="80%"/>
+<img src="../bevy_northstar/images/hpaoverview.png" width="80%"/>
 <p>Hierarchical pathfinding works by dividing the map into chunks and identifying viable connections between each chunk at their edges. This creates a network of high-level graph nodes across the map.</p>
 <p>Instead of searching the entire map at once, pathfinding can use these high-level nodes to run a simplified A* search over a much smaller set of positions, which significantly speeds up the process.</p>
 <p>Additionally, for each high-level node, paths through the local chunk to all other chunk nodes can be precomputed and stored. After the high-level search is complete, these precomputed paths are reused, so the algorithm doesn't need to search through every chunk individually.</p>

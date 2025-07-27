@@ -163,7 +163,7 @@
 </ul>
 <p>The crate is currently designed for use with 2d and 3d grid based tilemaps. It is not dependent on any specific tilemap Bevy crate, though it's been designed for ease of use with <a href="https://github.com/StarArawn/bevy_ecs_tilemap"><code>bevy_ecs_tilemap</code></a> and any related crates such as <a href="https://github.com/adrien-bon/bevy_ecs_tiled"><code>bevy_ecs_tiled</code></a> and <a href="https://github.com/Trouv/bevy_ecs_ldtk"><code>bevy_ecs_ldtk</code></a>.</p>
 <h1 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h1>
-<img src="../images/hpaoverview.png" width="80%"/>
+<img src="../bevy_northstar/images/hpaoverview.png" width="80%"/>
 <p>Hierarchical pathfinding works by dividing the map into chunks and identifying viable connections between each chunk at their edges. This creates a network of high-level graph nodes across the map.</p>
 <p>Instead of searching the entire map at once, pathfinding can use these high-level nodes to run a simplified A* search over a much smaller set of positions, which significantly speeds up the process.</p>
 <p>Additionally, for each high-level node, paths through the local chunk to all other chunk nodes can be precomputed and stored. After the high-level search is complete, these precomputed paths are reused, so the algorithm doesn't need to search through every chunk individually.</p>
@@ -853,19 +853,19 @@ commands.spawn((
 <p>Sets the debug gizmos to draw in isometric perspective.</p>
 <h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
 <p>Outline the grid chunk regions.</p>
-<img src="../images/debugchunk.png" width="300"/>
+<img src="../bevy_northstar/images/debugchunk.png" width="300"/>
 <h3 id="enable_entrances"><a class="header" href="#enable_entrances"><code>enable_entrances()</code></a></h3>
 <p>Highlights the entrances created between each chunk. Very useful for debugging HPA* issues.</p>
-<img src="../images/debugentrances.png" width="300"/>
+<img src="../bevy_northstar/images/debugentrances.png" width="300"/>
 <h3 id="enable_cells"><a class="header" href="#enable_cells"><code>enable_cells()</code></a></h3>
 <p>Overlay over each tile whether it's passable or impassable. Useful for debugging if you're calling <code>set_nav</code> correctly for your tilemap. </p>
-<img src="../images/debugcells.png" width="300"/>
+<img src="../bevy_northstar/images/debugcells.png" width="300"/>
 <h3 id="enable_cached_paths"><a class="header" href="#enable_cached_paths"><code>enable_cached_paths()</code></a></h3>
 <p><code>Grid</code> precaches paths between all entrances inside each chunk. Noisy, but can help debug HPA* pathing issues.</p>
-<img src="../images/debugcachedpaths.png" width="300"/>
+<img src="../bevy_northstar/images/debugcachedpaths.png" width="300"/>
 <h3 id="enable_show_connections_on_hover"><a class="header" href="#enable_show_connections_on_hover"><code>enable_show_connections_on_hover()</code></a></h3>
 <p>As you can see above, viewing all the connections at once is quite noisy. Enabling show_connections_on_hover will only draw chunk entrance cached connections when the <code>DebugCursor</code> position is over the node. Very useful for debugging possible failed node connections without all of the other connections overlapping.</p>
-<img src="../images/debugonlyonhover.png" width="300"/>
+<img src="../bevy_northstar/images/debugonlyonhover.png" width="300"/>
 <h1 id="debugcursor-component"><a class="header" href="#debugcursor-component"><code>DebugCursor</code> Component</a></h1>
 <p>In order for the debug plugin to determine which node your cursor is hovering over, you need to manually update the <code>DebugCursor</code> component. While tedious this is required because not every game will have the same windowing and camera setups. <code>DebugCursor</code> is inserted along with <code>DebugGrid</code> so there is no need to insert it manually.</p>
 <p>For most cases you can just dump the raw world cursor position in your input systems or just add a simple system to handle it:</p>
