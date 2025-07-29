@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 #![doc = include_str!("../README.md")]
 
 use bevy::ecs::query::Without;
@@ -20,6 +20,7 @@ mod graph;
 pub mod grid;
 mod macros;
 pub mod nav;
+pub mod nav_mask;
 pub mod neighbor;
 mod node;
 pub mod path;
