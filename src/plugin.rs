@@ -126,7 +126,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
                 .in_set(PathingSet),
         )
         .insert_resource(NorthstarPluginSettings::default())
-        .insert_resource(BlockingMap::default())
+        .insert_resource(BlockingMask::default())
         .insert_resource(Stats::default())
         .insert_resource(DirectionMap::default())
         .register_type::<Path>()
@@ -142,6 +142,9 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 /// You can use this set to schedule systems before or after the pathfinding systems.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PathingSet;
+
+#[derive(Resource, Default)]
+pub struct BlockingMask(pub NavMask);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -170,7 +173,7 @@ fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
     query: Query<(Entity, &AgentPos, &Pathfind), With<NeedsPathfinding>>,
-    blocking: Res<BlockingMap>,
+    blocking_mask: Res<BlockingMask>,
     settings: Res<NorthstarPluginSettings>,
     //mut queue: Local<VecDeque<Entity>>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -194,15 +197,15 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let blocking = if grid.collision() {
-            &blocking.0
+        let blocking_mask = if grid.collision() {
+            &blocking_mask.0
         } else {
-            &HashMap::new()
+            &NavMask::new()
         };
 
         let path = match pathfind.mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, block, pathfind.partial)
             }
             PathfindMode::Coarse => {
                 grid.pathfind_coarse(start.0, pathfind.goal, blocking, pathfind.partial)

@@ -14,6 +14,7 @@ use crate::{
     dijkstra::dijkstra_grid,
     grid::Grid,
     nav::NavCell,
+    nav_mask::{CompositeNavMask, CompositeNavMaskView, NavMask, NavMaskView},
     node::Node,
     path::Path,
     prelude::Neighborhood,
@@ -35,12 +36,12 @@ use crate::{
 /// * `partial` - If true, the pathfinding will return a partial path if the goal is blocked.
 #[inline(always)]
 // This has to be moved internally since the base A* and Djikstra algorithms use precomputed neighbors now.
-pub(crate) fn pathfind_astar<N: Neighborhood>(
+pub(crate) fn pathfind_astar<N: Neighborhood, M: NavMaskView>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &M,
     partial: bool,
 ) -> Option<Path> {
     // Ensure the goal is within bounds of the grid
@@ -63,13 +64,14 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
         return None;
     }
 
-    // if goal is in the blocking map, return None
-    if blocking.contains_key(&goal) && !partial {
-        //log::error!("Goal is in the blocking map");
-        return None;
+    // if goal is blocked in the nav mask return None
+    if let Some(nav_cell) = mask.nav(grid, goal) {
+        if nav_cell.is_impassable() && !partial {
+            return None;
+        }
     }
 
-    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
+    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, mask);
 
     if let Some(mut path) = path {
         path.path.pop_front();
@@ -87,7 +89,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &CompositeNavMask,
     partial: bool,
     refined: bool,
 ) -> Option<Path> {
@@ -122,7 +124,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
             goal,
             100,
             partial,
-            blocking,
+            mask,
         );
 
         if let Some(mut path) = path {
@@ -135,9 +137,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     // Find viable nodes in the start and goal chunks
     let (start_nodes, start_paths) =
-        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, blocking)?;
+        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
     let (goal_nodes, goal_paths) =
-        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, blocking)?;
+        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
 
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
@@ -495,15 +497,21 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     chunk: &Chunk,
     source: UVec3,
     target: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &CompositeNavMask,
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 
+    let min = chunk.min().as_ivec3();
+    let max = chunk.max().as_ivec3();
+
+    let mask_local = CompositeNavMaskView::new(mask, min, (min, max));
+
     // Adjust the blocking map to the local chunk coordinates
-    let adjusted_blocking = blocking
+    /*let adjusted_blocking = blocking
         .iter()
         .map(|(pos, entity)| (chunk.to_local(pos), *entity))
-        .collect::<HashMap<_, _>>();
+        .collect::<HashMap<_, _>>();*/
+
 
     // Get paths from source to all nodes in this chunk
     let paths = dijkstra_grid(
@@ -515,7 +523,7 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
             .collect::<Vec<_>>(),
         false,
         100,
-        &adjusted_blocking,
+        &mask_local,
     );
 
     let filtered_nodes = nodes
@@ -560,7 +568,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     path: &Path,
     start: UVec3,
     goal: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &CompositeNavMask,
     refined: bool,
 ) -> Option<Path> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path
@@ -584,7 +592,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
             &grid.view(),
             start,
             goal,
-            blocking,
+            mask,
             false,
         );
     }
@@ -595,7 +603,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
             &grid.view(),
             start,
             *pos,
-            blocking,
+            mask,
             false,
         );
         if new_path.is_some() && !new_path.as_ref().unwrap().is_empty() {
@@ -615,7 +623,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *new_path.path().last().unwrap();
 
-        let hpa = pathfind(grid, last_pos, goal, blocking, false, refined);
+        let hpa = pathfind(grid, last_pos, goal, mask, false, refined);
 
         if let Some(hpa) = hpa {
             for pos in hpa.path() {

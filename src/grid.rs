@@ -19,6 +19,7 @@ use crate::{
     flood_fill::flood_fill_bool_mask,
     graph::Graph,
     nav::{Nav, NavCell, Portal},
+    nav_mask::{CompositeNavMask, CompositeNavMaskView},
     neighbor::Neighborhood,
     node::Node,
     path::Path,
@@ -1259,7 +1260,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         .collect::<Vec<_>>();
 
                     let paths =
-                        dijkstra_grid(&chunk_grid, start, &goals, false, 100, &HashMap::new());
+                        dijkstra_grid(&chunk_grid, start, &goals, false, 100, &CompositeNavMask::new());
 
                     paths.into_iter().map(move |(goal_pos, path)| {
                         let world_start = node.pos;
@@ -1390,14 +1391,21 @@ impl<N: Neighborhood + Default> Grid<N> {
         path: &Path,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&CompositeNavMask>,
         refined: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
-        reroute_path(self, path, start, goal, blocking, refined)
+        let mask = if let Some(mask) = mask {
+            mask
+        } else {
+            &CompositeNavMask::new()
+        };
+
+
+        reroute_path(self, path, start, goal, mask, refined)
     }
 
     /// Checks if a path exists from `start` to `goal` using the fastest algorithm.
@@ -1414,7 +1422,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
-        pathfind(self, start, goal, &HashMap::new(), false, false).is_some()
+        pathfind(self, start, goal, &CompositeNavMask::new(), false, false).is_some()
     }
 
     /// Generate an HPA* path from `start` to `goal`.
@@ -1433,14 +1441,20 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&CompositeNavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
-        pathfind(self, start, goal, blocking, partial, true)
+        let mask = if let Some(mask) = mask {
+            mask
+        } else {
+            &CompositeNavMask::new()
+        };
+
+        pathfind(self, start, goal, mask, partial, true)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1461,14 +1475,20 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&CompositeNavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
-        pathfind(self, start, goal, blocking, partial, false)
+        let mask = if let Some(mask) = mask {
+            mask
+        } else {
+            &CompositeNavMask::new()
+        };
+
+        pathfind(self, start, goal, mask, partial, false)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.
@@ -1489,19 +1509,25 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&CompositeNavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
+        let mask = if let Some(mask) = mask {
+            mask
+        } else {
+            &CompositeNavMask::new()
+        };
+
         pathfind_astar(
             &self.neighborhood,
             &self.grid.view(),
             start,
             goal,
-            blocking,
+            mask,
             partial,
         )
     }
@@ -1526,12 +1552,18 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         radius: u32,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&CompositeNavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
+
+        let mask = if let Some(mask) = mask {
+            mask
+        } else {
+            &CompositeNavMask::new()
+        };
 
         let min = start.as_ivec3().saturating_sub(IVec3::splat(radius as i32));
         let max = start
@@ -1567,7 +1599,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let goal_local = (goal.as_ivec3() - min).as_uvec3();
 
         // Remap blocking positions into local view
-        let blocking_local: HashMap<UVec3, Entity> = blocking
+        /*let blocking_local: HashMap<UVec3, Entity> = blocking
             .iter()
             .filter_map(|(pos, &ent)| {
                 let pos_i = pos.as_ivec3();
@@ -1576,7 +1608,13 @@ impl<N: Neighborhood + Default> Grid<N> {
                 }
                 Some(((pos_i - min).as_uvec3(), ent))
             })
-            .collect();
+            .collect();*/
+
+        let mask_local = CompositeNavMaskView::new(
+            &mask,
+            min,
+            (max, min)
+        );
 
         // Run pathfinding on the subview
         let result = pathfind_astar(
@@ -1584,7 +1622,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &view,
             start_local,
             goal_local,
-            &blocking_local,
+            &mask_local,
             partial,
         );
 
@@ -1617,14 +1655,10 @@ mod tests {
     use bevy::{math::UVec3, platform::collections::HashMap};
 
     use crate::{
-        dir::Dir,
-        grid::{
+        dir::Dir, grid::{
             ChunkSettings, CollisionSettings, Grid, GridInternalSettings, GridSettings,
             GridSettingsBuilder, NavCell, NavSettings, NeighborhoodSettings,
-        },
-        nav::{Nav, Portal},
-        neighbor::OrdinalNeighborhood3d,
-        prelude::{CardinalNeighborhood, OrdinalNeighborhood},
+        }, nav::{Nav, Portal}, nav_mask::CompositeNavMask, neighbor::OrdinalNeighborhood3d, prelude::{CardinalNeighborhood, OrdinalNeighborhood}
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -1928,13 +1962,13 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(10, 10, 0),
             UVec3::new(4, 4, 0),
-            &HashMap::new(),
+            None,
             false,
         );
         let raw_path = grid.pathfind_astar(
             UVec3::new(10, 10, 0),
             UVec3::new(4, 4, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2048,7 +2082,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(7, 7, 0),
             UVec3::new(121, 121, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2069,7 +2103,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(31, 31, 3),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2085,7 +2119,7 @@ mod tests {
         let path = grid.pathfind_astar(
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2234,7 +2268,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
-            &HashMap::new(),
+            None,
             false,
         );
         assert!(path.is_some(), "Path should exist in empty grid");
@@ -2256,7 +2290,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2267,7 +2301,7 @@ mod tests {
         let _ = grid.pathfind_astar(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2279,7 +2313,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
-            &HashMap::new(),
+            None,
             false,
         );
         assert!(path.is_some(), "Path should exist after opening gap");
@@ -2304,7 +2338,7 @@ mod tests {
         let _ = grid.pathfind_astar(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
-            &HashMap::new(),
+            None,
             false,
         );
     }
@@ -2331,7 +2365,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2386,7 +2420,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(11, 11, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2442,7 +2476,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(0, 0, 0),
             UVec3::new(12, 4, 2),
-            &HashMap::new(),
+            None,
             false,
         );
 
@@ -2451,7 +2485,7 @@ mod tests {
         let path = grid.pathfind(
             UVec3::new(12, 4, 2),
             UVec3::new(0, 0, 0),
-            &HashMap::new(),
+            None,
             false,
         );
 
