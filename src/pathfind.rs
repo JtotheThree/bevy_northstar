@@ -14,7 +14,7 @@ use crate::{
     dijkstra::dijkstra_grid,
     grid::Grid,
     nav::NavCell,
-    nav_mask::{CompositeNavMask, CompositeNavMaskView, NavMask, NavMaskView},
+    nav_mask::NavMasks,
     node::Node,
     path::Path,
     prelude::Neighborhood,
@@ -36,12 +36,12 @@ use crate::{
 /// * `partial` - If true, the pathfinding will return a partial path if the goal is blocked.
 #[inline(always)]
 // This has to be moved internally since the base A* and Djikstra algorithms use precomputed neighbors now.
-pub(crate) fn pathfind_astar<N: Neighborhood, M: NavMaskView>(
+pub(crate) fn pathfind_astar<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    mask: &M,
+    masks: &NavMasks,
     partial: bool,
 ) -> Option<Path> {
     // Ensure the goal is within bounds of the grid
@@ -65,13 +65,13 @@ pub(crate) fn pathfind_astar<N: Neighborhood, M: NavMaskView>(
     }
 
     // if goal is blocked in the nav mask return None
-    if let Some(nav_cell) = mask.nav(grid, goal) {
+    if let Some(nav_cell) = masks.nav(grid, goal) {
         if nav_cell.is_impassable() && !partial {
             return None;
         }
     }
 
-    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, mask);
+    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, masks);
 
     if let Some(mut path) = path {
         path.path.pop_front();
@@ -89,7 +89,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    mask: &CompositeNavMask,
+    masks: &NavMasks,
     partial: bool,
     refined: bool,
 ) -> Option<Path> {
@@ -137,9 +137,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     // Find viable nodes in the start and goal chunks
     let (start_nodes, start_paths) =
-        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
+        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, masks)?;
     let (goal_nodes, goal_paths) =
-        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
+        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, masks)?;
 
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
@@ -497,7 +497,7 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     chunk: &Chunk,
     source: UVec3,
     target: UVec3,
-    mask: &CompositeNavMask,
+    masks: &NavMasks,
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 

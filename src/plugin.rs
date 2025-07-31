@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{prelude::*, WithoutPathingFailures};
+use crate::{nav_mask::{HashMapNavMask, NavMasks}, prelude::*, WithoutPathingFailures};
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
@@ -144,7 +144,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 pub struct PathingSet;
 
 #[derive(Resource, Default)]
-pub struct BlockingMask(pub NavMask);
+pub struct BlockingMask(pub HashMapNavMask);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -198,20 +198,28 @@ fn pathfind<N: Neighborhood + 'static>(
         let start_time = Instant::now();
 
         let blocking_mask = if grid.collision() {
-            &blocking_mask.0
+            blocking_mask.0
         } else {
-            &NavMask::new()
+            HashMapNavMask::new()
         };
+
+        let mask = if let Some(mask) = &pathfind.mask {
+            mask
+        } else {
+            &NavMasks::from_mask(blocking_mask)
+        };
+
+
 
         let path = match pathfind.mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, block, pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, mask, pathfind.partial)
             }
             PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind_coarse(start.0, pathfind.goal, mask, pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, mask, pathfind.partial)
             }
         };
 

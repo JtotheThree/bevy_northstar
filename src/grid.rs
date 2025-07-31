@@ -7,7 +7,7 @@ use bevy::{
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
-    prelude::{Component, Entity},
+    prelude::Component,
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -19,7 +19,7 @@ use crate::{
     flood_fill::flood_fill_bool_mask,
     graph::Graph,
     nav::{Nav, NavCell, Portal},
-    nav_mask::{CompositeNavMask, CompositeNavMaskView},
+    nav_mask::NavMasks,
     neighbor::Neighborhood,
     node::Node,
     path::Path,

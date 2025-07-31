@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{debug::DebugTilemapType, nav_mask::CompositeNavMask};
+use crate::{debug::DebugTilemapType, nav_mask::NavMasks};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -35,7 +35,7 @@ pub enum PathfindMode {
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Default, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -45,7 +45,8 @@ pub struct Pathfind {
     /// The [`PathfindMode`] to use for pathfinding.
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: PathfindMode,
-    pub mask: Option<&CompositeNavMask>,
+    #[reflect(ignore)]
+    pub mask: Option<NavMasks>,
 }
 
 impl Pathfind {
@@ -101,8 +102,8 @@ impl Pathfind {
         self
     }
 
-    pub fn mask(mut self, mask: &'a CompositeNavMask<'a>) -> Self {
-        self.mask = Some(mask);
+    pub fn masks(mut self, masks: NavMasks) -> Self {
+        self.mask = Some(masks);
         self
     }
 }

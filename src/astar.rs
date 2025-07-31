@@ -8,7 +8,7 @@ use crate::{
     graph::Graph,
     in_bounds_3d,
     nav::NavCell,
-    nav_mask::NavMaskView,
+    nav_mask::NavMasks,
     neighbor::Neighborhood,
     path::Path,
     FxIndexMap, SmallestCostHolder,
@@ -27,14 +27,14 @@ use crate::{
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
-pub(crate) fn astar_grid<N: Neighborhood, M: NavMaskView>(
+pub(crate) fn astar_grid<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
     size_hint: usize,
     partial: bool,
-    mask: &M,
+    masks: &NavMasks,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -106,7 +106,7 @@ pub(crate) fn astar_grid<N: Neighborhood, M: NavMaskView>(
                 continue;
             }
 
-            if let Some(nav_cell) = mask.nav(grid, neighbor) {
+            if let Some(nav_cell) = masks.nav(grid, neighbor) {
                 if nav_cell.is_impassable() {
                     continue;
                 }
@@ -269,7 +269,7 @@ mod tests {
     use crate::chunk::Chunk;
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
-    use crate::nav_mask::CompositeNavMask;
+    use crate::nav_mask::NavMasks;
     use crate::neighbor::OrdinalNeighborhood3d;
     use crate::node::Node;
 
@@ -292,7 +292,7 @@ mod tests {
             goal,
             64,
             false,
-            &CompositeNavMask::new(),
+            &NavMasks::new(),
         )
         .unwrap();
 
@@ -326,7 +326,7 @@ mod tests {
             goal,
             64,
             false,
-            &CompositeNavMask::new(),
+            &NavMasks::new(),
         )
         .unwrap();
 
@@ -386,7 +386,7 @@ mod tests {
             goal,
             64,
             false,
-            &CompositeNavMask::new(),
+            &NavMasks::new(),
         )
         .unwrap();
 
@@ -422,7 +422,7 @@ mod tests {
             goal,
             16,
             false,
-            &CompositeNavMask::new(),
+            &NavMasks::new(),
         )
         .unwrap();
 
