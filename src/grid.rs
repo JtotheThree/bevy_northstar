@@ -12,19 +12,7 @@ use bevy::{
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
 use crate::{
-    chunk::Chunk,
-    dijkstra::*,
-    dir::*,
-    filter::NeighborFilter,
-    flood_fill::flood_fill_bool_mask,
-    graph::Graph,
-    nav::{Nav, NavCell, Portal},
-    nav_mask::NavMasks,
-    neighbor::Neighborhood,
-    node::Node,
-    path::Path,
-    pathfind::{pathfind, pathfind_astar, reroute_path},
-    position_in_cubic_window, timed, MovementCost,
+    chunk::Chunk, dijkstra::*, dir::*, filter::NeighborFilter, flood_fill::flood_fill_bool_mask, graph::Graph, nav::{Nav, NavCell, Portal}, nav_mask::NavMask, neighbor::Neighborhood, node::Node, path::Path, pathfind::{pathfind, pathfind_astar, reroute_path}, position_in_cubic_window, timed, MovementCost
 };
 
 /// Settings for how the grid is divided into chunks.
@@ -1252,6 +1240,8 @@ impl<N: Neighborhood + Default> Grid<N> {
             let all_connections: Vec<_> = nodes
                 .par_iter()
                 .flat_map_iter(|node| {
+                    use crate::prelude::NavMask;
+
                     let start = node.pos - chunk.min();
                     let goals = nodes
                         .iter()
@@ -1260,7 +1250,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         .collect::<Vec<_>>();
 
                     let paths =
-                        dijkstra_grid(&chunk_grid, start, &goals, false, 100, &CompositeNavMask::new());
+                        dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMask::new());
 
                     paths.into_iter().map(move |(goal_pos, path)| {
                         let world_start = node.pos;
@@ -1391,7 +1381,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         path: &Path,
         start: UVec3,
         goal: UVec3,
-        mask: Option<&CompositeNavMask>,
+        mask: Option<&NavMask>,
         refined: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1401,7 +1391,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let mask = if let Some(mask) = mask {
             mask
         } else {
-            &CompositeNavMask::new()
+            &NavMask::new()
         };
 
 
@@ -1422,7 +1412,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
-        pathfind(self, start, goal, &CompositeNavMask::new(), false, false).is_some()
+        pathfind(self, start, goal, &NavMask::new(), false, false).is_some()
     }
 
     /// Generate an HPA* path from `start` to `goal`.
@@ -1441,7 +1431,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        mask: Option<&CompositeNavMask>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1451,7 +1441,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let mask = if let Some(mask) = mask {
             mask
         } else {
-            &CompositeNavMask::new()
+            &NavMask::new()
         };
 
         pathfind(self, start, goal, mask, partial, true)
@@ -1475,7 +1465,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        mask: Option<&CompositeNavMask>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1485,7 +1475,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let mask = if let Some(mask) = mask {
             mask
         } else {
-            &CompositeNavMask::new()
+            &NavMask::new()
         };
 
         pathfind(self, start, goal, mask, partial, false)
@@ -1509,7 +1499,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        mask: Option<&CompositeNavMask>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1519,7 +1509,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let mask = if let Some(mask) = mask {
             mask
         } else {
-            &CompositeNavMask::new()
+            &NavMask::new()
         };
 
         pathfind_astar(
@@ -1552,7 +1542,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         radius: u32,
-        mask: Option<&CompositeNavMask>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1562,7 +1552,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let mask = if let Some(mask) = mask {
             mask
         } else {
-            &CompositeNavMask::new()
+            &NavMask::new()
         };
 
         let min = start.as_ivec3().saturating_sub(IVec3::splat(radius as i32));
@@ -1610,11 +1600,8 @@ impl<N: Neighborhood + Default> Grid<N> {
             })
             .collect();*/
 
-        let mask_local = CompositeNavMaskView::new(
-            &mask,
-            min,
-            (max, min)
-        );
+        let mut mask_local = mask.clone();
+        mask_local.translate_by(-min);
 
         // Run pathfinding on the subview
         let result = pathfind_astar(
@@ -1652,13 +1639,13 @@ fn compute_cell_neighbors<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use bevy::{math::UVec3, platform::collections::HashMap};
+    use bevy::math::UVec3;
 
     use crate::{
         dir::Dir, grid::{
             ChunkSettings, CollisionSettings, Grid, GridInternalSettings, GridSettings,
             GridSettingsBuilder, NavCell, NavSettings, NeighborhoodSettings,
-        }, nav::{Nav, Portal}, nav_mask::CompositeNavMask, neighbor::OrdinalNeighborhood3d, prelude::{CardinalNeighborhood, OrdinalNeighborhood}
+        }, nav::{Nav, Portal}, neighbor::OrdinalNeighborhood3d, prelude::{CardinalNeighborhood, OrdinalNeighborhood}
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {

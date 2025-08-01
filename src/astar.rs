@@ -8,7 +8,7 @@ use crate::{
     graph::Graph,
     in_bounds_3d,
     nav::NavCell,
-    nav_mask::NavMasks,
+    nav_mask::NavMask,
     neighbor::Neighborhood,
     path::Path,
     FxIndexMap, SmallestCostHolder,
@@ -34,7 +34,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
-    masks: &NavMasks,
+    mask: &NavMask,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -102,7 +102,11 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            if neighbor_cell.is_impassable() {
+            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
+                continue;
+            }
+
+            /*if neighbor_cell.is_impassable() {
                 continue;
             }
 
@@ -110,7 +114,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 if nav_cell.is_impassable() {
                     continue;
                 }
-            }
+            }*/
 
             let new_cost = cost + neighbor_cell.cost;
             let h;
@@ -269,7 +273,7 @@ mod tests {
     use crate::chunk::Chunk;
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
-    use crate::nav_mask::NavMasks;
+    use crate::nav_mask::NavMask;
     use crate::neighbor::OrdinalNeighborhood3d;
     use crate::node::Node;
 
@@ -292,7 +296,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMasks::new(),
+            &NavMask::new(),
         )
         .unwrap();
 
@@ -326,7 +330,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMasks::new(),
+            &NavMask::new(),
         )
         .unwrap();
 
@@ -386,7 +390,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMasks::new(),
+            &NavMask::new(),
         )
         .unwrap();
 
@@ -422,7 +426,7 @@ mod tests {
             goal,
             16,
             false,
-            &NavMasks::new(),
+            &NavMask::new(),
         )
         .unwrap();
 

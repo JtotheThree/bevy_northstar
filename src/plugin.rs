@@ -1,11 +1,11 @@
 //! Northstar Plugin. This plugin handles the pathfinding and collision avoidance systems.
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 #[cfg(feature = "stats")]
 use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{nav_mask::{HashMapNavMask, NavMasks}, prelude::*, WithoutPathingFailures};
+use crate::{nav_mask::{NavMask, NavMaskLayer}, prelude::*, WithoutPathingFailures};
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
@@ -127,6 +127,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
         )
         .insert_resource(NorthstarPluginSettings::default())
         .insert_resource(BlockingMask::default())
+        .insert_resource(BlockingMap::default())
         .insert_resource(Stats::default())
         .insert_resource(DirectionMap::default())
         .register_type::<Path>()
@@ -144,7 +145,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 pub struct PathingSet;
 
 #[derive(Resource, Default)]
-pub struct BlockingMask(pub HashMapNavMask);
+struct BlockingMask(pub Arc<NavMaskLayer>);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -197,29 +198,25 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let blocking_mask = if grid.collision() {
-            blocking_mask.0
-        } else {
-            HashMapNavMask::new()
-        };
-
         let mask = if let Some(mask) = &pathfind.mask {
-            mask
+            if grid.collision() {
+                mask.with_additional_layer(blocking_mask.0.clone()) // Add the blocking mask layer
+            } else {
+                (**mask).clone()
+            }
         } else {
-            &NavMasks::from_mask(blocking_mask)
+            NavMask::new()
         };
-
-
 
         let path = match pathfind.mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, mask, pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
             PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, mask, pathfind.partial)
+                grid.pathfind_coarse(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, mask, pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
         };
 
@@ -356,7 +353,8 @@ fn avoidance<N: Neighborhood + 'static>(
     path: &mut Path,
     pathfind: &Pathfind,
     position: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    blocking_map: &HashMap<UVec3, Entity>,
+    blocking_mask: &BlockingMask,
     direction: &HashMap<Entity, Vec3>,
     avoidance_distance: usize,
 ) -> bool {
@@ -375,7 +373,7 @@ fn avoidance<N: Neighborhood + 'static>(
     // Precompute the dot product for the current position
     let next_position = path.path.front().unwrap();
 
-    if path.path.len() == 1 && blocking.contains_key(next_position) {
+    if path.path.len() == 1 && blocking_map.contains_key(next_position) {
         return false;
     }
 
@@ -386,7 +384,7 @@ fn avoidance<N: Neighborhood + 'static>(
         .iter()
         .take(count)
         .filter(|pos| {
-            if let Some(blocking_entity) = blocking.get(*pos) {
+            if let Some(blocking_entity) = blocking_map.get(*pos) {
                 // If the blocking entity is the same as the current entity, skip it
                 if *blocking_entity == entity {
                     return true;
@@ -421,7 +419,7 @@ fn avoidance<N: Neighborhood + 'static>(
             path.path
                 .iter()
                 .skip(count)
-                .find(|pos| !blocking.contains_key(&**pos))
+                .find(|pos| !blocking_map.contains_key(&**pos))
         };
 
         // If we have an avoidance goal, astar path to that
@@ -432,7 +430,7 @@ fn avoidance<N: Neighborhood + 'static>(
 
             //let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
             let new_path =
-                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking, false);
+                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking_map, false);
 
             // Replace the first few positions of path until the avoidance goal
             if let Some(new_path) = new_path {
@@ -471,11 +469,11 @@ fn avoidance<N: Neighborhood + 'static>(
     // We must have gotten to this point because of partial paths
     if path.path.is_empty() {
         // if goal is in blocking
-        if blocking.contains_key(&pathfind.goal) {
+        if blocking_map.contains_key(&pathfind.goal) {
             return false;
         }
 
-        let new_path = grid.pathfind(position, pathfind.goal, blocking, false);
+        let new_path = grid.pathfind(position, pathfind.goal, blocking_map, false);
 
         if let Some(new_path) = new_path {
             *path = new_path;
@@ -547,12 +545,17 @@ fn reroute_path<N: Neighborhood + 'static>(
 }
 
 fn update_blocking_map(
-    mut blocking_set: ResMut<BlockingMap>,
+    mut blocking_map: ResMut<BlockingMap>,
+    mut blocking_mask: ResMut<BlockingMask>,
     query: Query<(Entity, &AgentPos), With<Blocking>>,
 ) {
-    blocking_set.0.clear();
+    blocking_map.0.clear();
+    let mut mask_layer = NavMaskLayer::default();
 
     query.iter().for_each(|(entity, position)| {
-        blocking_set.0.insert(position.0, entity);
+        blocking_map.0.insert(position.0, entity);
+        mask_layer.insert_mask(position.0, NavCellMask::ImpassableOverride);
     });
+
+    blocking_mask.0 = Arc::new(mask_layer);
 }

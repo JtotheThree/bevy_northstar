@@ -1,4 +1,6 @@
 //! Components for pathfinding, collision, and debugging.
+use std::sync::Arc;
+
 use bevy::{
     color::palettes::css,
     ecs::entity::Entity,
@@ -9,7 +11,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{debug::DebugTilemapType, nav_mask::NavMasks};
+use crate::{debug::DebugTilemapType, nav_mask::NavMask};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -46,7 +48,7 @@ pub struct Pathfind {
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: PathfindMode,
     #[reflect(ignore)]
-    pub mask: Option<NavMasks>,
+    pub mask: Option<Arc<NavMask>>,
 }
 
 impl Pathfind {
@@ -102,8 +104,8 @@ impl Pathfind {
         self
     }
 
-    pub fn masks(mut self, masks: NavMasks) -> Self {
-        self.mask = Some(masks);
+    pub fn mask(mut self, mask: Arc<NavMask>) -> Self {
+        self.mask = Some(mask);
         self
     }
 }

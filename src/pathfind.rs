@@ -1,7 +1,8 @@
 //! This module defines pathfinding functions which can be called directly.
 
+use std::sync::Arc;
+
 use bevy::{
-    ecs::entity::Entity,
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
@@ -14,10 +15,10 @@ use crate::{
     dijkstra::dijkstra_grid,
     grid::Grid,
     nav::NavCell,
-    nav_mask::NavMasks,
+    nav_mask::NavMask,
     node::Node,
     path::Path,
-    prelude::Neighborhood,
+    neighbor::Neighborhood,
     raycast::{bresenham_path, bresenham_path_filtered},
 };
 
@@ -41,7 +42,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    masks: &NavMasks,
+    mask: &NavMask,
     partial: bool,
 ) -> Option<Path> {
     // Ensure the goal is within bounds of the grid
@@ -57,21 +58,16 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
         return None;
     }
 
-    // If the goal is impassibe and partial isn't set, return none
-    if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
-        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !partial
+    let start_cell = grid[[start.x as usize, start.y as usize, start.z as usize]].clone();
+    let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
+
+    if mask.get(start_cell, start).is_impassable()
+        || mask.get(goal_cell, goal).is_impassable() && !partial
     {
         return None;
     }
 
-    // if goal is blocked in the nav mask return None
-    if let Some(nav_cell) = masks.nav(grid, goal) {
-        if nav_cell.is_impassable() && !partial {
-            return None;
-        }
-    }
-
-    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, masks);
+    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, mask);
 
     if let Some(mut path) = path {
         path.path.pop_front();
@@ -89,7 +85,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    masks: &NavMasks,
+    mask: &NavMask,
     partial: bool,
     refined: bool,
 ) -> Option<Path> {
@@ -104,10 +100,12 @@ pub(crate) fn pathfind<N: Neighborhood>(
         return None;
     }
 
+    let start_cell = grid.view()[[start.x as usize, start.y as usize, start.z as usize]].clone();
+    let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
+
     // If the goal is impassable and partial isn't set, return none
-    if grid.view()[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
-        || grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable()
-            && !partial
+    if mask.get(start_cell, start).is_impassable()
+        || mask.get(goal_cell, goal).is_impassable() && !partial
     {
         return None;
     }
@@ -137,9 +135,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     // Find viable nodes in the start and goal chunks
     let (start_nodes, start_paths) =
-        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, masks)?;
+        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
     let (goal_nodes, goal_paths) =
-        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, masks)?;
+        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
 
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
@@ -497,14 +495,15 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     chunk: &Chunk,
     source: UVec3,
     target: UVec3,
-    masks: &NavMasks,
+    mask: &NavMask,
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 
     let min = chunk.min().as_ivec3();
     let max = chunk.max().as_ivec3();
 
-    let mask_local = CompositeNavMaskView::new(mask, min, (min, max));
+    let mut mask_local = mask.clone();
+    mask_local.translate_by(-min);
 
     // Adjust the blocking map to the local chunk coordinates
     /*let adjusted_blocking = blocking
@@ -568,7 +567,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     path: &Path,
     start: UVec3,
     goal: UVec3,
-    mask: &CompositeNavMask,
+    mask: &NavMask,
     refined: bool,
 ) -> Option<Path> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path

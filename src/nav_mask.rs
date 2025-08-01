@@ -1,7 +1,7 @@
 //! Navigation Masks for 
 use std::sync::Arc;
 
-use bevy::{math::UVec3, platform::collections::HashMap};
+use bevy::{math::{IVec3, UVec3}, platform::collections::HashMap};
 use ndarray::ArrayView3;
 
 use crate::{nav::{Nav, NavCell, Portal}, MovementCost};
@@ -15,14 +15,65 @@ pub enum NavCellMask {
     ModifyCost(i32),
 }
 
-pub trait NavMask: Send + Sync + 'static {
-    fn get(&self, pos: UVec3) -> Option<&NavCellMask>;
+#[derive(Clone)]
+pub struct NavMask {
+    layers: Vec<Arc<NavMaskLayer>>,
+    translation: IVec3,
+}
+
+impl NavMask {
+    pub fn new() -> Self {
+        let translation = IVec3::ZERO;
+
+        Self { layers: Vec::new(), translation }
+    }
+
+    pub fn from_layer(layer: Arc<NavMaskLayer>) -> Self {
+        let translation = IVec3::ZERO;
+
+        Self {
+            layers: vec![layer],
+            translation,
+        }
+    }
+
+    pub fn with_additional_layer(&self, layer: Arc<NavMaskLayer>) -> Self {
+        let mut cloned = self.clone();
+        cloned.add_layer(layer);
+        cloned
+    }
+
+    pub fn add_layer(&mut self, layer: Arc<NavMaskLayer>) -> &mut Self {
+        self.layers.push(layer);
+        self
+    }
+
+    pub fn clear(&mut self) {
+        self.layers.clear();
+    }
+
+    pub fn translate_by(&mut self, offset: IVec3) -> &mut Self {
+        self.translation += offset;
+        self
+    }
+
+    pub fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+        let pos = pos.as_ivec3() - self.translation;
+
+        if pos.x < 0 || pos.y < 0 || pos.z < 0 {
+            return prev; // Out of bounds
+        }
+
+        let pos = pos.as_uvec3();
+
+        self.layers.iter().fold(prev, |cell, layer| layer.get(cell, pos))
+    }
 }
 
 fn process_mask(
-    cell: &mut NavCell,
+    mut cell: NavCell,
     mask: &NavCellMask,
-) {
+) -> NavCell {
     match mask {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
@@ -42,125 +93,151 @@ fn process_mask(
             }
         }
     }
-}
-
-#[derive(Debug)]
-pub struct RegionNavMask {
-    region: Region3d,
-    masks: HashMap<UVec3, NavCellMask>,
-}
-
-impl RegionNavMask {
-    pub fn new(region: Region3d) -> Self {
-        Self {
-            region,
-            masks: HashMap::new(),
-        }
-    }
-
-    pub fn apply_mask(&mut self, pos: UVec3, mask: NavCellMask) {
-        if self.region.iter().any(|p| p == pos) {
-            self.masks.insert(pos, mask);
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.masks.clear();
-    }
-
-    pub fn in_bounds(&self, pos: UVec3) -> bool {
-        self.region.min.x <= pos.x && pos.x < self.region.max.x &&
-        self.region.min.y <= pos.y && pos.y < self.region.max.y &&
-        self.region.min.z <= pos.z && pos.z < self.region.max.z
-    }
-}
-
-impl NavMask for RegionNavMask {
-    fn get(&self, pos: UVec3) -> Option<&NavCellMask> {
-        if !self.in_bounds(pos) {
-            return None;
-        }
-
-        self.masks.get(&pos)
-    }
+    cell
 }
 
 #[derive(Debug, Default)]
-pub struct HashMapNavMask {
-    masks: HashMap<UVec3, NavCellMask>,
+pub struct NavMaskLayer {
+    mask: HashMap<UVec3, NavCellMask>,
 }
 
-impl HashMapNavMask {
+impl NavMaskLayer {
     pub fn new() -> Self {
         Self {
-            masks: HashMap::new(),
+            mask: HashMap::new(),
         }
     }
 
     pub fn insert_mask(&mut self, pos: UVec3, mask: NavCellMask) {
-        self.masks.insert(pos, mask);
+        self.mask.insert(pos, mask);
+    }
+
+    pub fn insert_region(
+        &mut self,
+        region: Region3d,
+        mask: NavCellMask,
+    ) {
+        for pos in region.iter() {
+            self.insert_mask(pos, mask.clone());
+        }
+    }
+
+    pub fn insert_hashmap(
+        &mut self,
+        masks: &HashMap<UVec3, NavCellMask>,
+    ) {
+        for (pos, mask) in masks {
+            self.insert_mask(*pos, mask.clone());
+        }
+    }
+
+    pub fn clear_mask(&mut self, pos: UVec3) {
+        self.mask.remove(&pos);
+    }
+
+    pub fn clear_region(&mut self, region: Region3d) {
+        for pos in region.iter() {
+            self.clear_mask(pos);
+        }
+    }
+
+    pub fn clear_hashmap(&mut self, masks: &HashMap<UVec3, NavCellMask>) {
+        for pos in masks.keys() {
+            self.clear_mask(*pos);
+        }
     }
 
     pub fn clear(&mut self) {
-        self.masks.clear();
-    }
-}
-
-impl NavMask for HashMapNavMask {
-    fn get(&self, pos: UVec3) -> Option<&NavCellMask> {
-        self.masks.get(&pos)
-    }
-}
-
-pub struct NavMasks {
-    masks: Vec<Arc<dyn NavMask + Send + Sync>>
-}
-
-impl NavMasks {
-    pub fn new() -> Self {
-        Self { masks: Vec::new() }
+        self.mask.clear();
     }
 
-    pub fn from_mask<M: NavMask + 'static>(mask: M) -> Self {
+    fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+        let mut cell = prev;
+
+        if let Some(mask) = self.mask.get(&pos) {
+            cell = process_mask(cell, mask);
+        }
+        
+        cell
+    }
+}
+/*
+pub struct TranslatedNavMask<'a> {
+    mask: &'a dyn NavMaskView,
+    offset: IVec3,
+    bounds: (IVec3, IVec3),
+}
+
+impl<'a> TranslatedNavMask<'a> {
+    /// Creates a new `TranslatedNavMask` that translates positions by the given offset.
+    ///
+    /// The `region` defines the bounds of the mask in world coordinates.
+    pub fn new(region: Region3d, mask: &'a dyn NavMaskView) -> Self {
+        let offset = region.min.as_ivec3();
+        let max = region.max.as_ivec3();
         Self {
-            masks: vec![Arc::new(mask)],
+            mask,
+            offset,
+            bounds: (offset, max),
         }
-    }
-
-    pub fn from_masks<M: NavMask + 'static>(masks: Vec<M>) -> Self {
-        Self {
-            masks: masks.into_iter().map(|m| Arc::new(m) as Arc<dyn NavMask + Send + Sync>).collect(),
-        }
-    }
-
-    pub fn with_other<M: NavMask + 'static>(masks: &Self, mask: M) -> Self {
-        let mut new_masks = masks.masks.clone();
-        new_masks.push(Arc::new(mask));
-        Self { masks: new_masks }
-    }
-
-    pub fn add_mask<M: NavMask + 'static>(&mut self, mask: M) {
-        self.masks.push(Arc::new(mask));
-    }
-
-    pub fn clear(&mut self) {
-        self.masks.clear();
-    }
-
-    pub fn nav(&self, grid: &ArrayView3<NavCell>, pos: UVec3) -> Option<NavCell> {
-        let mut cell = grid[(pos.x as usize, pos.y as usize, pos.z as usize)].clone();
-
-        for mask in &self.masks {
-            if let Some(mask_cell) = mask.get(pos) {
-                process_mask(&mut cell, mask_cell);
-            }
-        }
-
-        Some(cell)
     }
 }
 
+impl<'a> NavMaskView for TranslatedNavMask<'a> {
+    fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+        let world = pos.as_ivec3();
+        // Bounds check
+        if world.cmplt(self.bounds.0).any() || world.cmpge(self.bounds.1).any() {
+            return prev;
+        }
 
+        // Translate world → local
+        let local = (world - self.offset).as_uvec3();
+        self.mask.get(prev, local)
+    }
+
+    fn as_view(self) -> Option<Arc<dyn NavMaskView>> {
+        None
+    }
+}
+
+*/
+
+/*pub struct TranslatedNavMask {
+    inner: Arc<dyn NavMaskView>,
+    offset: IVec3,
+    bounds: (IVec3, IVec3),
+}
+
+impl TranslatedNavMask {
+    pub fn new(region: Region3d, inner: Arc<dyn NavMaskView>) -> Self {
+        let offset = region.min.as_ivec3();
+        let max = region.max.as_ivec3();
+        Self {
+            inner,
+            offset,
+            bounds: (offset, max),
+        }
+    }
+}
+
+impl NavMaskView for TranslatedNavMask {
+    fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+        let world = pos.as_ivec3();
+        // Bounds check
+        if world.cmplt(self.bounds.0).any() || world.cmpge(self.bounds.1).any() {
+            return prev;
+        }
+
+        // Translate world → local
+        let local = (world - self.offset).as_uvec3();
+        self.inner.get(prev, local)
+    }
+
+    fn as_view(self) -> Arc<dyn NavMaskView> {
+        Arc::new(self)
+    }
+}*/
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Region3d {
@@ -169,6 +246,19 @@ pub struct Region3d {
 }
 
 impl Region3d {
+    pub fn new(min: UVec3, max: UVec3) -> Self {
+        assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z, "Invalid region bounds");
+        Self { min, max }
+    }
+
+    pub fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
+        let shape = grid.shape();
+        Self {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
+        }
+    }
+
     pub fn iter(&self) -> Region3dIter {
         Region3dIter {
             region: *self,
