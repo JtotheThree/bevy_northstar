@@ -89,19 +89,29 @@ impl NavMask {
 
     pub fn add_layer(&self, layer: NavMaskLayer) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
-        data.add_layer(layer.data);
+        // Extract the inner NavMaskLayerData from the Arc<Mutex<NavMaskLayerData>>
+        let layer_data = Arc::new(
+            layer.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?.clone()
+        );
+        data.add_layer(layer_data);
         Ok(())
     }
 
     pub fn with_additional_layer(&self, layer: NavMaskLayer) -> Self {
         let original_data = self.data.lock().unwrap();
         let mut new_data = original_data.clone(); // Deep clone NavMaskData
-        new_data.add_layer(layer.data);
-        
+        // Extract the inner NavMaskLayerData from the Arc<Mutex<NavMaskLayerData>>
+        let layer_data = Arc::new(
+            layer.data.lock().unwrap().clone()
+        );
+        new_data.add_layer(layer_data);
+
         Self {
             data: Arc::new(Mutex::new(new_data))
         }
     }
+
+
     pub fn get(&self, prev: NavCell, pos: UVec3) -> Result<NavCell, String> {
         let data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
         Ok(data.get(prev, pos))
@@ -172,9 +182,34 @@ struct NavMaskLayerData {
     mask: HashMap<UVec3, NavCellMask>,
 }
 
-// Private implementation methods on the data structs
 impl NavMaskLayerData {
-    fn 
+    fn new() -> Self {
+        Self {
+            mask: HashMap::new(),
+        }
+    }
+
+    fn insert_mask(&mut self, pos: UVec3, mask: NavCellMask) {
+        self.mask.insert(pos, mask);
+    }
+
+    fn insert_region(&mut self, region: Region3d, mask: NavCellMask) {
+        for pos in region.iter() {
+            self.insert_mask(pos, mask.clone());
+        }
+    }
+
+    fn insert_hashmap(&mut self, masks: &HashMap<UVec3, NavCellMask>) {
+        for (pos, mask) in masks {
+            self.insert_mask(*pos, mask.clone());
+        }
+    }
+
+    fn insert_hashset(&mut self, cells: &HashSet<UVec3>, mask: NavCellMask) {
+        for pos in cells {
+            self.insert_mask(*pos, mask.clone());
+        }
+    }
 
     fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
         let mut cell = prev;
@@ -182,6 +217,10 @@ impl NavMaskLayerData {
             cell = process_mask(cell, mask);
         }
         cell
+    }
+
+    fn clear(&mut self) {
+        self.mask.clear();
     }
 }
 
