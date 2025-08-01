@@ -8,7 +8,7 @@ use crate::{
     graph::Graph,
     in_bounds_3d,
     nav::NavCell,
-    nav_mask::NavMask,
+    nav_mask::NavMaskData,
     neighbor::Neighborhood,
     path::Path,
     FxIndexMap, SmallestCostHolder,
@@ -34,7 +34,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
-    mask: &NavMask,
+    mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -273,7 +273,7 @@ mod tests {
     use crate::chunk::Chunk;
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
-    use crate::nav_mask::NavMask;
+    use crate::nav_mask::NavMaskData;
     use crate::neighbor::OrdinalNeighborhood3d;
     use crate::node::Node;
 
@@ -296,7 +296,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMask::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 
@@ -330,7 +330,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMask::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 
@@ -390,7 +390,7 @@ mod tests {
             goal,
             64,
             false,
-            &NavMask::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 
@@ -426,7 +426,7 @@ mod tests {
             goal,
             16,
             false,
-            &NavMask::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 

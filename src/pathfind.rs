@@ -1,7 +1,5 @@
 //! This module defines pathfinding functions which can be called directly.
 
-use std::sync::Arc;
-
 use bevy::{
     log,
     math::{IVec3, UVec3},
@@ -15,7 +13,7 @@ use crate::{
     dijkstra::dijkstra_grid,
     grid::Grid,
     nav::NavCell,
-    nav_mask::NavMask,
+    nav_mask::NavMaskData,
     node::Node,
     path::Path,
     neighbor::Neighborhood,
@@ -42,7 +40,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    mask: &NavMask,
+    mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
     // Ensure the goal is within bounds of the grid
@@ -85,7 +83,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    mask: &NavMask,
+    mask: &NavMaskData,
     partial: bool,
     refined: bool,
 ) -> Option<Path> {
@@ -495,15 +493,14 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     chunk: &Chunk,
     source: UVec3,
     target: UVec3,
-    mask: &NavMask,
+    mask: &NavMaskData,
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 
     let min = chunk.min().as_ivec3();
-    let max = chunk.max().as_ivec3();
+    //let max = chunk.max().as_ivec3();
 
-    let mut mask_local = mask.clone();
-    mask_local.translate_by(-min);
+    let mask_local = mask.translate_by(-min);
 
     // Adjust the blocking map to the local chunk coordinates
     /*let adjusted_blocking = blocking
@@ -567,7 +564,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     path: &Path,
     start: UVec3,
     goal: UVec3,
-    mask: &NavMask,
+    mask: &NavMaskData,
     refined: bool,
 ) -> Option<Path> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path

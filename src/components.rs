@@ -1,6 +1,4 @@
 //! Components for pathfinding, collision, and debugging.
-use std::sync::Arc;
-
 use bevy::{
     color::palettes::css,
     ecs::entity::Entity,
@@ -48,7 +46,7 @@ pub struct Pathfind {
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: PathfindMode,
     #[reflect(ignore)]
-    pub mask: Option<Arc<NavMask>>,
+    pub mask: Option<NavMask>,
 }
 
 impl Pathfind {
@@ -104,7 +102,7 @@ impl Pathfind {
         self
     }
 
-    pub fn mask(mut self, mask: Arc<NavMask>) -> Self {
+    pub fn mask(mut self, mask: NavMask) -> Self {
         self.mask = Some(mask);
         self
     }

@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{nav_mask::{NavMask, NavMaskLayer}, prelude::*, WithoutPathingFailures};
+use crate::{nav_mask::{NavMaskLayer, NavMaskLayerBuilder}, prelude::*, WithoutPathingFailures};
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
@@ -145,7 +145,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 pub struct PathingSet;
 
 #[derive(Resource, Default)]
-struct BlockingMask(pub Arc<NavMaskLayer>);
+struct BlockingMask(pub Option<NavMaskLayer>);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -198,15 +198,7 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let mask = if let Some(mask) = &pathfind.mask {
-            if grid.collision() {
-                mask.with_additional_layer(blocking_mask.0.clone()) // Add the blocking mask layer
-            } else {
-                (**mask).clone()
-            }
-        } else {
-            NavMask::new()
-        };
+        let mask = prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
         let path = match pathfind.mode {
             PathfindMode::Refined => {
@@ -493,7 +485,7 @@ fn avoidance<N: Neighborhood + 'static>(
 fn reroute_path<N: Neighborhood + 'static>(
     mut query: Query<(Entity, &AgentPos, &Pathfind, &Path), With<AvoidanceFailed>>,
     grid: Single<&Grid<N>>,
-    blocking: Res<BlockingMap>,
+    blocking_mask: Res<BlockingMask>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -550,12 +542,25 @@ fn update_blocking_map(
     query: Query<(Entity, &AgentPos), With<Blocking>>,
 ) {
     blocking_map.0.clear();
-    let mut mask_layer = NavMaskLayer::default();
+    let mut builder = NavMaskLayerBuilder::new();
 
-    query.iter().for_each(|(entity, position)| {
+    for (entity, position) in query.iter() {
         blocking_map.0.insert(position.0, entity);
-        mask_layer.insert_mask(position.0, NavCellMask::ImpassableOverride);
-    });
+        builder.add_mask(position.0, NavCellMask::ImpassableOverride);
+    }
 
-    blocking_mask.0 = Arc::new(mask_layer);
+    blocking_mask.0 = Some(builder.build());
+}
+
+fn prepare_navigation_mask(
+    user_mask: Option<&NavMask>,
+    blocking_mask: &BlockingMask,
+    collision_enabled: bool,
+) -> NavMask {
+    let base_mask = user_mask.cloned().unwrap_or_else(NavMask::new);
+    
+    match (collision_enabled, &blocking_mask.0) {
+        (true, Some(blocking_layer)) => base_mask.with_additional_layer(blocking_layer.clone()),
+        _ => base_mask,
+    }
 }
