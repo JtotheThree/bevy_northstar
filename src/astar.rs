@@ -5,13 +5,8 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    graph::Graph,
-    in_bounds_3d,
-    nav::NavCell,
-    nav_mask::NavMaskData,
-    neighbor::Neighborhood,
-    path::Path,
-    FxIndexMap, SmallestCostHolder,
+    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood,
+    path::Path, FxIndexMap, SmallestCostHolder,
 };
 
 /// A* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.

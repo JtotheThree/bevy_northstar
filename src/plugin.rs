@@ -5,7 +5,11 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{nav_mask::{NavMaskLayer, NavMaskLayerData}, prelude::*, WithoutPathingFailures};
+use crate::{
+    nav_mask::{NavMaskLayer, NavMaskLayerData},
+    prelude::*,
+    WithoutPathingFailures,
+};
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
@@ -145,7 +149,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 pub struct PathingSet;
 
 #[derive(Resource, Default)]
-struct BlockingMask(pub Option<NavMaskLayer>);
+struct BlockingMask(pub NavMaskLayer);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -198,7 +202,8 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let mask = prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
+        let mask =
+            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
         let path = match pathfind.mode {
             PathfindMode::Refined => {
@@ -251,7 +256,7 @@ fn next_position<N: Neighborhood + 'static>(
     >,
     grid: Single<&Grid<N>>,
     mut blocking_map: ResMut<BlockingMap>,
-    mut blocking_mask: ResMut<BlockingMask>,
+    blocking_mask: ResMut<BlockingMask>,
     mut direction: ResMut<DirectionMap>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
@@ -284,7 +289,8 @@ fn next_position<N: Neighborhood + 'static>(
                 continue;
             }
 
-            let mask = prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
+            let mask =
+                prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
             let next = if grid.collision() {
                 #[cfg(feature = "stats")]
@@ -329,15 +335,15 @@ fn next_position<N: Neighborhood + 'static>(
                 }
 
                 if grid.collision() {
-                    if let Some(blocking_mask) = blocking_mask.0.as_mut() {
-                        // If we have a blocking mask, insert the next position as impassable
-                        blocking_mask.insert_mask(next, NavCellMask::ImpassableOverride).unwrap();
-                        blocking_mask.remove_mask(position.0).unwrap();
-                    }
+                    // If we have a blocking mask, insert the next position as impassable
+                    blocking_mask
+                        .0
+                        .insert_mask(next, NavCellMask::ImpassableOverride)
+                        .unwrap();
+                    blocking_mask.0.remove_mask(position.0).unwrap();
 
                     blocking_map.0.remove(&position.0);
                     blocking_map.0.insert(next, entity);
-
                 }
                 // Get mutable reference to the blocking map
 
@@ -522,7 +528,8 @@ fn reroute_path<N: Neighborhood + 'static>(
             PathfindMode::AStar => false, // A* is not supported for rerouting
         };
 
-        let mask = prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
+        let mask =
+            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
         let new_path = grid.reroute_path(path, position.0, pathfind.goal, Some(&mask), refined);
 
@@ -564,7 +571,7 @@ fn update_blocking_map(
         new_layer.insert_mask(position.0, NavCellMask::ImpassableOverride);
     }
 
-    blocking_mask.0 = Some(new_layer.into());
+    blocking_mask.0 = new_layer.into();
 }
 
 fn prepare_navigation_mask(
@@ -573,9 +580,9 @@ fn prepare_navigation_mask(
     collision_enabled: bool,
 ) -> NavMask {
     let base_mask = user_mask.cloned().unwrap_or_else(NavMask::new);
-    
+
     match (collision_enabled, &blocking_mask.0) {
-        (true, Some(blocking_layer)) => base_mask.with_additional_layer(blocking_layer.clone()),
+        (true, blocking_layer) => base_mask.with_additional_layer(blocking_layer.clone()),
         _ => base_mask,
     }
 }

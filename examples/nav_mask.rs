@@ -1,4 +1,7 @@
-use bevy::{log::{self, LogPlugin}, prelude::*};
+use bevy::{
+    log::{self, LogPlugin},
+    prelude::*,
+};
 use bevy_northstar::{nav::NavCell, prelude::*};
 
 #[derive(Resource)]
@@ -17,16 +20,20 @@ fn main() {
 fn setup(nav_mask: ResMut<MyNavMask>) {
     let cost_layer = NavMaskLayer::new();
 
-    cost_layer.insert_region(
-        Region3d::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
-        NavCellMask::ModifyCost(5),
-    ).unwrap();
+    cost_layer
+        .insert_region(
+            Region3d::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
+            NavCellMask::ModifyCost(5),
+        )
+        .unwrap();
 
     let no_go_layer = NavMaskLayer::new();
-    no_go_layer.insert_region(
-        Region3d::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
-        NavCellMask::ImpassableOverride,
-    ).unwrap();
+    no_go_layer
+        .insert_region(
+            Region3d::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
+            NavCellMask::ImpassableOverride,
+        )
+        .unwrap();
 
     nav_mask.0.add_layer(cost_layer).unwrap();
     nav_mask.0.add_layer(no_go_layer).unwrap();
@@ -42,7 +49,11 @@ fn demo_modify_cost(nav_mask: Res<MyNavMask>) {
 
     assert_eq!(masked.nav(), Nav::Passable(6)); // Original cost 1 + mask cost 5
 
-    log::info!("Modify Cost - Original: {:?}, Masked: {:?}", original, masked);
+    log::info!(
+        "Modify Cost - Original: {:?}, Masked: {:?}",
+        original,
+        masked
+    );
 }
 
 fn demo_no_go(nav_mask: Res<MyNavMask>) {

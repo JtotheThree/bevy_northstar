@@ -1,10 +1,16 @@
-//! Navigation Masks for 
+//! Navigation Masks for
 use std::sync::{Arc, Mutex};
 
-use bevy::{math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}};
+use bevy::{
+    math::{IVec3, UVec3},
+    platform::collections::{HashMap, HashSet},
+};
 use ndarray::ArrayView3;
 
-use crate::{nav::{Nav, NavCell, Portal}, MovementCost};
+use crate::{
+    nav::{Nav, NavCell, Portal},
+    MovementCost,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum NavCellMask {
@@ -14,10 +20,7 @@ pub enum NavCellMask {
     ModifyCost(i32),
 }
 
-fn process_mask(
-    mut cell: NavCell,
-    mask: &NavCellMask,
-) -> NavCell {
+fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     match mask {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
@@ -45,7 +48,7 @@ fn process_mask(
     cell
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct NavMask {
     pub(crate) data: Arc<Mutex<NavMaskData>>,
 }
@@ -56,7 +59,7 @@ impl NavMask {
             data: Arc::new(Mutex::new(NavMaskData {
                 layers: Vec::new(),
                 translation: IVec3::ZERO,
-            }))
+            })),
         }
     }
 
@@ -68,18 +71,18 @@ impl NavMask {
 
     pub fn with_additional_layer(&self, layer: NavMaskLayer) -> Self {
         let new_mask = NavMask::new();
-        
+
         // Copy all existing layers
         {
             let original_data = self.data.lock().unwrap();
             let mut new_data = new_mask.data.lock().unwrap();
-            
+
             new_data.layers = original_data.layers.clone();
             new_data.translation = original_data.translation;
         }
-        
+
         new_mask.add_layer(layer).unwrap();
-        
+
         new_mask
     }
 
@@ -91,9 +94,9 @@ impl NavMask {
     pub fn translate_by(&self, offset: IVec3) -> Self {
         let original_data = self.data.lock().unwrap();
         let new_data = original_data.translate_by(offset); // Delegate to NavMaskData
-        
+
         Self {
-            data: Arc::new(Mutex::new(new_data))
+            data: Arc::new(Mutex::new(new_data)),
         }
     }
 
@@ -112,7 +115,7 @@ impl NavMask {
 
     pub fn flatten(&mut self) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
-        
+
         let mut merged_layer_data = NavMaskLayerData::new();
 
         for layer in &data.layers {
@@ -151,7 +154,7 @@ impl From<&NavMask> for NavMaskData {
 }
 
 // Update NavMaskData to work with NavMaskLayer directly
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskData {
     pub(crate) layers: Vec<NavMaskLayer>,
     translation: IVec3,
@@ -181,9 +184,9 @@ impl NavMaskData {
         let translated_pos = translated_pos.as_uvec3();
 
         // Apply all layers in sequence
-        self.layers.iter().fold(prev, |cell, layer| {
-            layer.get(cell, translated_pos)
-        })
+        self.layers
+            .iter()
+            .fold(prev, |cell, layer| layer.get(cell, translated_pos))
     }
 
     pub(crate) fn translate_by(&self, offset: IVec3) -> Self {
@@ -201,8 +204,7 @@ impl NavMaskData {
     }
 }
 
-
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct NavMaskLayer {
     data: Arc<Mutex<NavMaskLayerData>>,
 }
@@ -210,7 +212,7 @@ pub struct NavMaskLayer {
 impl NavMaskLayer {
     pub fn new() -> Self {
         Self {
-            data: Arc::new(Mutex::new(NavMaskLayerData::new()))
+            data: Arc::new(Mutex::new(NavMaskLayerData::new())),
         }
     }
 
@@ -251,7 +253,7 @@ impl NavMaskLayer {
     }
 
     // Batch operations for performance
-    pub fn batch_update<F, R>(&self, f: F) -> Result<R, String> 
+    pub fn batch_update<F, R>(&self, f: F) -> Result<R, String>
     where
         F: FnOnce(&mut NavMaskLayerData) -> R,
     {
@@ -301,13 +303,13 @@ impl NavMaskLayer {
 impl From<NavMaskLayerData> for NavMaskLayer {
     fn from(data: NavMaskLayerData) -> Self {
         Self {
-            data: Arc::new(Mutex::new(data))
+            data: Arc::new(Mutex::new(data)),
         }
     }
 }
 
 // Make NavMaskLayerData public so users can work with it in batch operations
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct NavMaskLayerData {
     pub mask: HashMap<UVec3, NavCellMask>,
 }
@@ -375,8 +377,6 @@ impl From<&NavMaskLayer> for NavMaskLayerData {
     }
 }
 
-
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Region3d {
     pub min: UVec3,
@@ -385,7 +385,10 @@ pub struct Region3d {
 
 impl Region3d {
     pub fn new(min: UVec3, max: UVec3) -> Self {
-        assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z, "Invalid region bounds");
+        assert!(
+            min.x <= max.x && min.y <= max.y && min.z <= max.z,
+            "Invalid region bounds"
+        );
         Self { min, max }
     }
 
@@ -410,24 +413,26 @@ pub struct Region3dIter {
     current: UVec3,
 }
 
-
 // This needs to be inclusive?
 impl Iterator for Region3dIter {
     type Item = UVec3;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current.z > self.region.max.z {  // ✅ Changed >= to > (inclusive)
+        if self.current.z > self.region.max.z {
+            // ✅ Changed >= to > (inclusive)
             return None;
         }
 
         let result = self.current;
 
         self.current.x += 1;
-        if self.current.x > self.region.max.x {  // ✅ Changed >= to > (inclusive)
+        if self.current.x > self.region.max.x {
+            // ✅ Changed >= to > (inclusive)
             self.current.x = self.region.min.x;
             self.current.y += 1;
 
-            if self.current.y > self.region.max.y {  // ✅ Changed >= to > (inclusive)
+            if self.current.y > self.region.max.y {
+                // ✅ Changed >= to > (inclusive)
                 self.current.y = self.region.min.y;
                 self.current.z += 1;
             }
@@ -436,31 +441,6 @@ impl Iterator for Region3dIter {
         Some(result)
     }
 }
-
-/*impl Iterator for Region3dIter {
-    type Item = UVec3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current.z >= self.region.max.z {
-            return None;
-        }
-
-        let result = self.current;
-
-        self.current.x += 1;
-        if self.current.x >= self.region.max.x {
-            self.current.x = self.region.min.x;
-            self.current.y += 1;
-
-            if self.current.y >= self.region.max.y {
-                self.current.y = self.region.min.y;
-                self.current.z += 1;
-            }
-        }
-
-        Some(result)
-    }
-}*/
 
 #[cfg(test)]
 mod tests {
@@ -472,22 +452,28 @@ mod tests {
 
         // Create layers directly
         let layer1 = NavMaskLayer::new();
-        layer1.insert_region(
-            Region3d::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
-            NavCellMask::ImpassableOverride
-        ).unwrap();
+        layer1
+            .insert_region(
+                Region3d::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
+                NavCellMask::ImpassableOverride,
+            )
+            .unwrap();
 
         let layer2 = NavMaskLayer::new();
-        layer2.insert_region(
-            Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
-            NavCellMask::PassableOverride(2)
-        ).unwrap();
+        layer2
+            .insert_region(
+                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+                NavCellMask::PassableOverride(2),
+            )
+            .unwrap();
 
         let layer3 = NavMaskLayer::new();
-        layer3.insert_region(
-            Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
-            NavCellMask::ModifyCost(3)
-        ).unwrap();
+        layer3
+            .insert_region(
+                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+                NavCellMask::ModifyCost(3),
+            )
+            .unwrap();
 
         mask.add_layer(layer1).unwrap();
         mask.add_layer(layer2).unwrap();
@@ -496,19 +482,36 @@ mod tests {
         let layer4 = NavMaskLayer::new();
 
         let mut layer4_data: NavMaskLayerData = layer4.into_data();
-        layer4_data.insert_mask(
-            UVec3::new(5, 5, 5),
-            NavCellMask::ImpassableOverride
-        );
+        layer4_data.insert_mask(UVec3::new(5, 5, 5), NavCellMask::ImpassableOverride);
 
         let updated_layer4: NavMaskLayer = layer4_data.into();
 
         mask.add_layer(updated_layer4).unwrap();
 
-        assert_eq!(mask.get(NavCell::default(), UVec3::new(1, 1, 1)).unwrap().nav, Nav::Impassable);
-        assert_eq!(mask.get(NavCell::default(), UVec3::new(5, 5, 5)).unwrap().nav, Nav::Impassable);
-        assert_eq!(mask.get(NavCell::default(), UVec3::new(6, 6, 6)).unwrap().nav, Nav::Passable(5));
-        assert_eq!(mask.get(NavCell::default(), UVec3::new(40, 40, 40)).unwrap().nav, Nav::Passable(1));
+        assert_eq!(
+            mask.get(NavCell::default(), UVec3::new(1, 1, 1))
+                .unwrap()
+                .nav,
+            Nav::Impassable
+        );
+        assert_eq!(
+            mask.get(NavCell::default(), UVec3::new(5, 5, 5))
+                .unwrap()
+                .nav,
+            Nav::Impassable
+        );
+        assert_eq!(
+            mask.get(NavCell::default(), UVec3::new(6, 6, 6))
+                .unwrap()
+                .nav,
+            Nav::Passable(5)
+        );
+        assert_eq!(
+            mask.get(NavCell::default(), UVec3::new(40, 40, 40))
+                .unwrap()
+                .nav,
+            Nav::Passable(1)
+        );
     }
 
     #[test]

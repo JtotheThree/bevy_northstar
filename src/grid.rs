@@ -12,7 +12,21 @@ use bevy::{
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
 use crate::{
-    chunk::Chunk, dijkstra::*, dir::*, filter::NeighborFilter, flood_fill::flood_fill_bool_mask, graph::Graph, nav::{Nav, NavCell, Portal}, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path, pathfind::{pathfind, pathfind_astar, reroute_path}, position_in_cubic_window, prelude::NavMask, timed, MovementCost
+    chunk::Chunk,
+    dijkstra::*,
+    dir::*,
+    filter::NeighborFilter,
+    flood_fill::flood_fill_bool_mask,
+    graph::Graph,
+    nav::{Nav, NavCell, Portal},
+    nav_mask::NavMaskData,
+    neighbor::Neighborhood,
+    node::Node,
+    path::Path,
+    pathfind::{pathfind, pathfind_astar, reroute_path},
+    position_in_cubic_window,
+    prelude::NavMask,
+    timed, MovementCost,
 };
 
 /// Settings for how the grid is divided into chunks.
@@ -1585,15 +1599,15 @@ impl<N: Neighborhood + Default> Grid<N> {
 
         // Remap blocking positions into local view
         /*let blocking_local: HashMap<UVec3, Entity> = blocking
-            .iter()
-            .filter_map(|(pos, &ent)| {
-                let pos_i = pos.as_ivec3();
-                if pos_i.cmplt(min).any() || pos_i.cmpge(max).any() {
-                    return None;
-                }
-                Some(((pos_i - min).as_uvec3(), ent))
-            })
-            .collect();*/
+        .iter()
+        .filter_map(|(pos, &ent)| {
+            let pos_i = pos.as_ivec3();
+            if pos_i.cmplt(min).any() || pos_i.cmpge(max).any() {
+                return None;
+            }
+            Some(((pos_i - min).as_uvec3(), ent))
+        })
+        .collect();*/
 
         let mask_local = mask.translate_by(-min);
 
@@ -1636,10 +1650,14 @@ mod tests {
     use bevy::math::UVec3;
 
     use crate::{
-        dir::Dir, grid::{
+        dir::Dir,
+        grid::{
             ChunkSettings, CollisionSettings, Grid, GridInternalSettings, GridSettings,
             GridSettingsBuilder, NavCell, NavSettings, NeighborhoodSettings,
-        }, nav::{Nav, Portal}, neighbor::OrdinalNeighborhood3d, prelude::{CardinalNeighborhood, OrdinalNeighborhood}
+        },
+        nav::{Nav, Portal},
+        neighbor::OrdinalNeighborhood3d,
+        prelude::{CardinalNeighborhood, OrdinalNeighborhood},
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -1940,18 +1958,8 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(
-            UVec3::new(10, 10, 0),
-            UVec3::new(4, 4, 0),
-            None,
-            false,
-        );
-        let raw_path = grid.pathfind_astar(
-            UVec3::new(10, 10, 0),
-            UVec3::new(4, 4, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), None, false);
+        let raw_path = grid.pathfind_astar(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), None, false);
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
@@ -2060,12 +2068,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(
-            UVec3::new(7, 7, 0),
-            UVec3::new(121, 121, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(7, 7, 0), UVec3::new(121, 121, 0), None, false);
 
         assert!(path.is_some());
         assert!(!path.unwrap().is_empty());
@@ -2081,12 +2084,7 @@ mod tests {
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&grid_settings);
 
         grid.build();
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(31, 31, 3),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(31, 31, 3), None, false);
 
         assert!(path.is_some());
     }
@@ -2097,12 +2095,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind_astar(
-            UVec3::new(0, 0, 0),
-            UVec3::new(10, 10, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), None, false);
 
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 10);
@@ -2246,12 +2239,7 @@ mod tests {
         assert_graph_node_invariants(&grid);
 
         // There should be a path from (0,0,0) to (15,15,0)
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
         assert!(path.is_some(), "Path should exist in empty grid");
 
         // Block a vertical wall at x=8
@@ -2268,35 +2256,20 @@ mod tests {
         );
 
         // Now there should be no path from left to right
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
 
         assert!(path.is_none(), "Path should not exist after wall");
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
-            None,
-            false,
-        );
+        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
 
         // Open a gap in the wall at (8,8)
         grid.set_nav(UVec3::new(8, 8, 0), Nav::Passable(1));
         grid.build();
 
         // Now a path should exist again, and should pass through (8,8,0)
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
         assert!(path.is_some(), "Path should exist after opening gap");
         let path = path.unwrap();
         assert!(
@@ -2316,12 +2289,7 @@ mod tests {
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
-            None,
-            false,
-        );
+        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
     }
 
     #[test]
@@ -2343,12 +2311,7 @@ mod tests {
             "Grid should need build after marking dirty"
         );
 
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(10, 10, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), None, false);
 
         assert!(path.is_none(), "Path should not exist after marking dirty");
 
@@ -2398,12 +2361,7 @@ mod tests {
             })
             .expect("Portal edge to (10,10,0) should exist");
 
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(11, 11, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(11, 11, 0), None, false);
 
         assert!(path.is_some(), "Path should exist with portal");
     }
@@ -2454,21 +2412,11 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(
-            UVec3::new(0, 0, 0),
-            UVec3::new(12, 4, 2),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(12, 4, 2), None, false);
 
         assert!(path.is_some(), "Path should exist with portal");
 
-        let path = grid.pathfind(
-            UVec3::new(12, 4, 2),
-            UVec3::new(0, 0, 0),
-            None,
-            false,
-        );
+        let path = grid.pathfind(UVec3::new(12, 4, 2), UVec3::new(0, 0, 0), None, false);
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
     }

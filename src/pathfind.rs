@@ -14,9 +14,9 @@ use crate::{
     grid::Grid,
     nav::NavCell,
     nav_mask::NavMaskData,
+    neighbor::Neighborhood,
     node::Node,
     path::Path,
-    neighbor::Neighborhood,
     raycast::{bresenham_path, bresenham_path_filtered},
 };
 
@@ -58,8 +58,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
 
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
-    if mask.get(goal_cell, goal).is_impassable() && !partial
-    {
+    if mask.get(goal_cell, goal).is_impassable() && !partial {
         return None;
     }
 
@@ -99,8 +98,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
-    if mask.get(goal_cell, goal).is_impassable() && !partial
-    {
+    if mask.get(goal_cell, goal).is_impassable() && !partial {
         return None;
     }
 
@@ -500,10 +498,9 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
 
     // Adjust the blocking map to the local chunk coordinates
     /*let adjusted_blocking = blocking
-        .iter()
-        .map(|(pos, entity)| (chunk.to_local(pos), *entity))
-        .collect::<HashMap<_, _>>();*/
-
+    .iter()
+    .map(|(pos, entity)| (chunk.to_local(pos), *entity))
+    .collect::<HashMap<_, _>>();*/
 
     // Get paths from source to all nodes in this chunk
     let paths = dijkstra_grid(
@@ -579,25 +576,11 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
     if path.graph_path.is_empty() {
         // Our only option here is to astar path to the goal
-        return pathfind_astar(
-            &grid.neighborhood,
-            &grid.view(),
-            start,
-            goal,
-            mask,
-            false,
-        );
+        return pathfind_astar(&grid.neighborhood, &grid.view(), start, goal, mask, false);
     }
 
     let new_path = path.graph_path.iter().find_map(|pos| {
-        let new_path = pathfind_astar(
-            &grid.neighborhood,
-            &grid.view(),
-            start,
-            *pos,
-            mask,
-            false,
-        );
+        let new_path = pathfind_astar(&grid.neighborhood, &grid.view(), start, *pos, mask, false);
         if new_path.is_some() && !new_path.as_ref().unwrap().is_empty() {
             new_path
         } else {
