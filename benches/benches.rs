@@ -1,10 +1,11 @@
 use std::time::Duration;
 
-use bevy::{math::UVec3, platform::collections::HashMap};
+use bevy::math::UVec3;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use bevy_northstar::{
     grid::{Grid, GridSettingsBuilder},
+    nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d},
     prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
 };
 
@@ -30,7 +31,7 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind(
                 UVec3::new(0, 0, 0),
                 UVec3::new(63, 63, 0),
-                &HashMap::new(),
+                None,
                 false,
             )
         })
@@ -41,7 +42,7 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind_astar(
                 UVec3::new(0, 0, 0),
                 UVec3::new(63, 63, 0),
-                &HashMap::new(),
+                None,
                 false,
             )
         })
@@ -59,7 +60,7 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind(
                 UVec3::new(0, 0, 0),
                 UVec3::new(511, 511, 0),
-                &HashMap::new(),
+                None,
                 false,
             )
         })
@@ -71,7 +72,64 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind_astar(
                 UVec3::new(0, 0, 0),
                 UVec3::new(511, 511, 0),
-                &HashMap::new(),
+                None,
+                false,
+            )
+        })
+    });
+
+    let mut mask = NavMask::new();
+
+    let layer1 = NavMaskLayer::new();
+    layer1.insert_region(
+        Region3d::new(UVec3::new(0, 0, 0), UVec3::new(511, 511, 0)),
+        NavCellMask::ModifyCost(5),
+    ).unwrap();
+
+    let layer2 = NavMaskLayer::new();
+    layer2.insert_region(
+        Region3d::new(UVec3::new(100, 100, 0), UVec3::new(200, 200, 0)),
+        NavCellMask::ModifyCost(6),
+    ).unwrap();
+
+    let layer3 = NavMaskLayer::new();
+    layer3.insert_region(
+        Region3d::new(UVec3::new(300, 300, 0), UVec3::new(400, 400, 0)),
+        NavCellMask::ModifyCost(10),
+    ).unwrap();
+
+    let layer4 = NavMaskLayer::new();
+    layer4.insert_region(
+        Region3d::new(UVec3::new(400, 400, 0), UVec3::new(500, 500, 0)),
+        NavCellMask::ModifyCost(12),
+    ).unwrap();
+
+    mask.add_layer(layer1).unwrap();
+    mask.add_layer(layer2).unwrap();
+    mask.add_layer(layer3).unwrap();
+    mask.add_layer(layer4).unwrap();
+
+    group.measurement_time(Duration::from_secs(5));
+    group.bench_function("pathfind_512x512_with_mask", |b| {
+        b.iter(|| {
+            grid.pathfind_astar(
+                UVec3::new(0, 0, 0),
+                UVec3::new(511, 511, 0),
+                Some(&mask),
+                false,
+            )
+        })
+    });
+
+
+    mask.flatten().unwrap();
+
+    group.bench_function("raw_pathfind_512x512_with_mask_flat", |b| {
+        b.iter(|| {
+            grid.pathfind(
+                UVec3::new(0, 0, 0),
+                UVec3::new(511, 511, 0),
+                Some(&mask),
                 false,
             )
         })
@@ -92,7 +150,7 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind(
                 UVec3::new(0, 0, 0),
                 UVec3::new(127, 127, 3),
-                &HashMap::new(),
+                None,
                 false,
             )
         })
@@ -103,7 +161,7 @@ fn benchmarks(c: &mut Criterion) {
             grid.pathfind_astar(
                 UVec3::new(0, 0, 0),
                 UVec3::new(127, 127, 3),
-                &HashMap::new(),
+                None,
                 false,
             )
         })

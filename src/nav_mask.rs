@@ -66,31 +66,18 @@ impl NavMask {
         Ok(())
     }
 
-    /*pub fn with_additional_layer(&self, layer: NavMaskLayer) -> Self {
-        let original_data = self.data.lock().unwrap();
-        let mut new_data = original_data.clone();
-        new_data.add_layer(layer);
-
-        Self {
-            data: Arc::new(Mutex::new(new_data))
-        }
-    }*/
-
     pub fn with_additional_layer(&self, layer: NavMaskLayer) -> Self {
-        // Create a completely new mask
         let new_mask = NavMask::new();
         
-        // Copy all existing layers first
+        // Copy all existing layers
         {
             let original_data = self.data.lock().unwrap();
             let mut new_data = new_mask.data.lock().unwrap();
             
-            // Clone the entire layers vector (this is cheap - just Arc references)
             new_data.layers = original_data.layers.clone();
             new_data.translation = original_data.translation;
         }
         
-        // Add the new layer
         new_mask.add_layer(layer).unwrap();
         
         new_mask
@@ -120,6 +107,24 @@ impl NavMask {
     pub fn clear(&self) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
         data.clear();
+        Ok(())
+    }
+
+    pub fn flatten(&mut self) -> Result<(), String> {
+        let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
+        
+        let mut merged_layer_data = NavMaskLayerData::new();
+
+        for layer in &data.layers {
+            let layer_data = layer.data.lock().unwrap();
+            for (pos, mask) in &layer_data.mask {
+                merged_layer_data.mask.insert(*pos, mask.clone());
+            }
+        }
+
+        data.layers.clear();
+        data.layers.push(NavMaskLayer::from(merged_layer_data));
+
         Ok(())
     }
 }
