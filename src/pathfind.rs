@@ -56,11 +56,9 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
         return None;
     }
 
-    let start_cell = grid[[start.x as usize, start.y as usize, start.z as usize]].clone();
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
-    if mask.get(start_cell, start).is_impassable()
-        || mask.get(goal_cell, goal).is_impassable() && !partial
+    if mask.get(goal_cell, goal).is_impassable() && !partial
     {
         return None;
     }
@@ -98,12 +96,10 @@ pub(crate) fn pathfind<N: Neighborhood>(
         return None;
     }
 
-    let start_cell = grid.view()[[start.x as usize, start.y as usize, start.z as usize]].clone();
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
-    if mask.get(start_cell, start).is_impassable()
-        || mask.get(goal_cell, goal).is_impassable() && !partial
+    if mask.get(goal_cell, goal).is_impassable() && !partial
     {
         return None;
     }

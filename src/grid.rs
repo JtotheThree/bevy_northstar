@@ -1379,21 +1379,19 @@ impl<N: Neighborhood + Default> Grid<N> {
         path: &Path,
         start: UVec3,
         goal: UVec3,
-        mask: Option<&NavMaskData>,
+        mask: Option<&NavMask>,
         refined: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
-        let mask = if let Some(mask) = mask {
-            mask
-        } else {
-            &NavMaskData::new()
+        let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
         };
 
-
-        reroute_path(self, path, start, goal, mask, refined)
+        reroute_path(self, path, start, goal, &mask, refined)
     }
 
     /// Checks if a path exists from `start` to `goal` using the fastest algorithm.
@@ -1436,13 +1434,12 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        // Lock and get the underlying data from the NavMask
-        let mask_data: NavMaskData = match mask {
+        let mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask_data, partial, true)
+        pathfind(self, start, goal, &mask, partial, true)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1471,12 +1468,12 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         // Lock and get the underlying data from the NavMask
-        let mask_data: NavMaskData = match mask {
+        let mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask_data, partial, false)
+        pathfind(self, start, goal, &mask, partial, false)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.
@@ -1505,7 +1502,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         // Lock and get the underlying data from the NavMask
-        let mask_data: NavMaskData = match mask {
+        let mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
@@ -1515,7 +1512,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &self.grid.view(),
             start,
             goal,
-            &mask_data,
+            &mask,
             partial,
         )
     }

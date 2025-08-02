@@ -13,6 +13,9 @@ use rand::seq::IndexedRandom;
 
 mod shared;
 
+#[derive(Resource)]
+struct BigAssCostMap(NavMask);
+
 fn main() {
     App::new()
         // Bevy default plugins
@@ -61,14 +64,22 @@ fn main() {
         // You only need to add the `NorthstarPluginSettings` resource if you want to change the default settings.
         // The default settings are 16 agents per frame for pathfinding and 32 for collision avoidance.
         .insert_resource(NorthstarPluginSettings {
-            max_pathfinding_agents_per_frame: 48,
-            max_collision_avoidance_agents_per_frame: 64,
+            max_pathfinding_agents_per_frame: 1024,
+            max_collision_avoidance_agents_per_frame: 1024,
         })
         .insert_resource(TileTexturesToUpdate::default())
+        .insert_resource(BigAssCostMap(NavMask::new()))
         .run();
 }
 
-fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut big_ass_cost_map: ResMut<BigAssCostMap>) {
+    big_ass_cost_map.0 = NavMask::new();
+    let layer = NavMaskLayer::new();
+
+    layer.insert_region(Region3d { min: UVec3::new(64, 64, 0), max: UVec3::new(128, 128, 0) }, NavCellMask::ModifyCost(250)).unwrap();
+
+    big_ass_cost_map.0.add_layer(layer).unwrap();
+
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
 
@@ -182,6 +193,7 @@ fn spawn_minions(
     asset_server: Res<AssetServer>,
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
+    big_ass_cost_map: Res<BigAssCostMap>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
@@ -219,9 +231,9 @@ fn spawn_minions(
         let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as u32, (goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined).mask(big_ass_cost_map.0.clone()),
         }
 
         commands
@@ -231,7 +243,7 @@ fn spawn_minions(
                 ..Default::default()
             })
             .insert(Name::new(format!("{color:?}")))
-            //.insert(DebugPath::new(color))
+            .insert(DebugPath::new(color))
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))
@@ -298,6 +310,7 @@ fn set_new_goal(
     mut minions: Query<Entity, (Without<Path>, Without<Pathfind>)>,
     walkable: Res<shared::Walkable>,
     config: Res<shared::Config>,
+    big_ass_cost_map: Res<BigAssCostMap>,
 ) {
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
@@ -305,9 +318,9 @@ fn set_new_goal(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined).mask(big_ass_cost_map.0.clone()),
         }
 
         commands.entity(entity).insert(pathfind);
@@ -320,6 +333,7 @@ fn handle_pathfinding_failed(
     minions: Query<Entity, Or<(With<PathfindingFailed>, With<RerouteFailed>)>>,
     config: Res<shared::Config>,
     walkable: Res<shared::Walkable>,
+    big_ass_cost_map: Res<BigAssCostMap>,
 ) {
     // Pathfinding failed, normally we might have our AI come up with a new plan,
     // but for this example, we'll just reroute to a new random goal.
@@ -330,9 +344,9 @@ fn handle_pathfinding_failed(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse).mask(big_ass_cost_map.0.clone()),
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined).mask(big_ass_cost_map.0.clone()),
         }
 
         commands
