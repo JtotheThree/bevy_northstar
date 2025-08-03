@@ -14,9 +14,17 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum NavCellMask {
+    /// Overrides anything below this as impassable
     ImpassableOverride,
+    /// Overrides anything below this as passable.
+    /// This might have odd interactions if you override a grid NavCell that is
+    /// already impassable because it won't change the surrounding neighbors.
     PassableOverride(MovementCost),
+    /// Overrides anything below this as a portal.
     PortalOverride(Portal),
+    /// Modifies the cost of the cell.
+    /// If the cell is impassable, this will not change it.
+    /// If the cell is passable, this will add the cost to the existing cost. In this way you can layer cost.
     ModifyCost(i32),
 }
 
@@ -48,6 +56,8 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     cell
 }
 
+/// Arc Mutex wrapper for NavMaskData. 
+/// I probably need to rename this so it's obvious. SharedNavMask?
 #[derive(Clone, Debug, Default)]
 pub struct NavMask {
     pub(crate) data: Arc<Mutex<NavMaskData>>,
@@ -93,17 +103,16 @@ impl NavMask {
 
     pub fn translate_by(&self, offset: IVec3) -> Self {
         let original_data = self.data.lock().unwrap();
-        let new_data = original_data.translate_by(offset); // Delegate to NavMaskData
+        let new_data = original_data.translate_by(offset);
 
         Self {
             data: Arc::new(Mutex::new(new_data)),
         }
     }
 
-    // Use NavMaskData::translate_by_mut for mutable translation
     pub fn translate_by_mut(&self, offset: IVec3) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
-        data.translate_by_mut(offset); // Delegate to NavMaskData
+        data.translate_by_mut(offset);
         Ok(())
     }
 
@@ -113,6 +122,8 @@ impl NavMask {
         Ok(())
     }
 
+    /// Merges all the layers in the NavMask into a single layer if you don't need to change them often.
+    /// Useful for performance in theory, but in benches it's slower for some reason? I doubt having less layers would decrease perforamnce so there must be another issue.
     pub fn flatten(&mut self) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
 
@@ -134,11 +145,9 @@ impl NavMask {
 
 impl From<NavMask> for NavMaskData {
     fn from(mask: NavMask) -> Self {
-        // Try to unwrap the Arc<Mutex<NavMaskData>> and extract the data
         match Arc::try_unwrap(mask.data) {
             Ok(mutex) => mutex.into_inner().unwrap(),
             Err(arc) => {
-                // If there are multiple references, we need to clone
                 let data = arc.lock().unwrap();
                 data.clone()
             }
@@ -153,7 +162,7 @@ impl From<&NavMask> for NavMaskData {
     }
 }
 
-// Update NavMaskData to work with NavMaskLayer directly
+/// The underlying data structure for NavMask
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskData {
     pub(crate) layers: Vec<NavMaskLayer>,
@@ -173,17 +182,14 @@ impl NavMaskData {
     }
 
     pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
-        // Apply translation first
         let translated_pos = pos.as_ivec3() - self.translation;
 
-        // Check bounds after translation
         if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
             return prev;
         }
 
         let translated_pos = translated_pos.as_uvec3();
 
-        // Apply all layers in sequence
         self.layers
             .iter()
             .fold(prev, |cell, layer| layer.get(cell, translated_pos))
@@ -204,6 +210,8 @@ impl NavMaskData {
     }
 }
 
+/// Arc Mutex wrapper for NavMaskLayerData.
+/// I probably need to rename this so it's obvious. SharedNavMaskLayer?
 #[derive(Clone, Default, Debug)]
 pub struct NavMaskLayer {
     data: Arc<Mutex<NavMaskLayerData>>,
@@ -216,7 +224,6 @@ impl NavMaskLayer {
         }
     }
 
-    // Direct mutation methods
     pub fn insert_mask(&self, pos: UVec3, mask: NavCellMask) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         data.insert_mask(pos, mask);
@@ -252,7 +259,6 @@ impl NavMaskLayer {
         Ok(())
     }
 
-    // Batch operations for performance
     pub fn batch_update<F, R>(&self, f: F) -> Result<R, String>
     where
         F: FnOnce(&mut NavMaskLayerData) -> R,
@@ -261,7 +267,6 @@ impl NavMaskLayer {
         Ok(f(&mut data))
     }
 
-    // Read-only operations
     pub fn get_mask(&self, pos: UVec3) -> Result<Option<NavCellMask>, String> {
         let data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         Ok(data.mask.get(&pos).cloned())
@@ -282,12 +287,11 @@ impl NavMaskLayer {
         Ok(data.mask.is_empty())
     }
 
-    // Internal method for NavMaskData
     pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
         if let Ok(data) = self.data.lock() {
             data.get(prev, pos)
         } else {
-            prev // Fallback on poison
+            panic!("NavMaskLayer lock poisoned")
         }
     }
 
@@ -308,7 +312,7 @@ impl From<NavMaskLayerData> for NavMaskLayer {
     }
 }
 
-// Make NavMaskLayerData public so users can work with it in batch operations
+/// The underlying data structure for NavMaskLayer
 #[derive(Clone, Debug, Default)]
 pub struct NavMaskLayerData {
     pub mask: HashMap<UVec3, NavCellMask>,
@@ -358,11 +362,9 @@ impl NavMaskLayerData {
 
 impl From<NavMaskLayer> for NavMaskLayerData {
     fn from(layer: NavMaskLayer) -> Self {
-        // Try to unwrap the Arc<Mutex<NavMaskLayerData>> and extract the data
         match Arc::try_unwrap(layer.data) {
             Ok(mutex) => mutex.into_inner().unwrap(),
             Err(arc) => {
-                // If there are multiple references, we need to clone
                 let data = arc.lock().unwrap();
                 data.clone()
             }
@@ -413,13 +415,11 @@ pub struct Region3dIter {
     current: UVec3,
 }
 
-// This needs to be inclusive?
 impl Iterator for Region3dIter {
     type Item = UVec3;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current.z > self.region.max.z {
-            // ✅ Changed >= to > (inclusive)
             return None;
         }
 
@@ -427,12 +427,10 @@ impl Iterator for Region3dIter {
 
         self.current.x += 1;
         if self.current.x > self.region.max.x {
-            // ✅ Changed >= to > (inclusive)
             self.current.x = self.region.min.x;
             self.current.y += 1;
 
             if self.current.y > self.region.max.y {
-                // ✅ Changed >= to > (inclusive)
                 self.current.y = self.region.min.y;
                 self.current.z += 1;
             }
