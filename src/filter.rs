@@ -20,6 +20,7 @@ pub trait NeighborFilter {
 /// |x|/|
 /// |/|x|
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NoCornerClipping;
 
 impl NeighborFilter for NoCornerClipping {
@@ -66,6 +67,7 @@ impl NeighborFilter for NoCornerClipping {
 /// |x|/|
 /// |/| |
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NoCornerCutting;
 
 impl NeighborFilter for NoCornerCutting {
@@ -126,6 +128,7 @@ impl NeighborFilter for NoCornerCutting {
 /// This filter is the same as [`NoCornerCutting`]` with the exception that it only disallows purely horizontal diagonals.
 /// This will work better in a 3d tilemap situation where you want your player to be able to jump heights but not cut corners horizontally.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NoCornerCuttingFlat;
 
 impl NeighborFilter for NoCornerCuttingFlat {
@@ -187,6 +190,7 @@ impl NeighborFilter for NoCornerCuttingFlat {
 /// Disallow diagonal movement involving Z.
 /// Keeps cardinal movement and 2D (XY) diagonals.
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DisallowDiagonalZMovement;
 
 impl NeighborFilter for DisallowDiagonalZMovement {

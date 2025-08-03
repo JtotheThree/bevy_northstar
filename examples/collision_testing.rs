@@ -289,6 +289,7 @@ fn set_new_goal(
             PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
             PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
             PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands.entity(entity).insert(pathfind);
@@ -314,6 +315,7 @@ fn handle_pathfinding_failed(
             PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
             PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
             PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands

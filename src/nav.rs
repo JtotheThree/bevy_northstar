@@ -5,6 +5,7 @@ use crate::{prelude::ORDINAL_3D_OFFSETS, MovementCost};
 
 /// Navigation state for a cell (position) in the `Grid`.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Nav {
     /// Agents can move this cell with a defined movement cost.
     Passable(MovementCost),
@@ -30,6 +31,7 @@ impl PartialEq for Nav {
 /// [`NavCell`] represents the navigation data for a position in the grid.
 /// Normal use shouldn't require direct interaction with this struct,
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NavCell {
     /// Whether the cell is walkable, solid, or a ramp and its associated movement cost.
     pub(crate) nav: Nav,
@@ -109,6 +111,7 @@ impl Default for NavCell {
 
 /// Represents a portal that can be used to transition to another cell in the grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Portal {
     /// The movement cost
     pub cost: MovementCost,

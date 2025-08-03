@@ -26,6 +26,7 @@ pub mod path;
 pub mod pathfind;
 pub mod plugin;
 pub mod raycast;
+mod thetastar;
 
 /// Crate Prelude
 pub mod prelude {

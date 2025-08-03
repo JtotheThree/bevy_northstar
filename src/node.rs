@@ -6,6 +6,7 @@ use crate::{chunk::Chunk, dir::Dir, path::Path};
 
 /// A `Node` for use in `Graph`.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct Node {
     /// The position of the node in space.
     pub(crate) pos: UVec3,
