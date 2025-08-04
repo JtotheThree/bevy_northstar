@@ -17,7 +17,7 @@ use crate::{
     node::Node,
     path::Path,
     prelude::Neighborhood,
-    raycast::{bresenham_path, bresenham_path_filtered},
+    raycast::bresenham_path,
     thetastar::thetastar_grid,
 };
 
@@ -129,11 +129,46 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         return None;
     }
 
-    let path = thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
+    let waypoints = thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
 
-    if let Some(mut path) = path {
-        path.path.pop_front();
-        Some(path)
+    if let Some(waypoints) = waypoints {
+        if *waypoints.path.front().unwrap() != start {
+            log::warn!("Thetastar did not return the start position as the first waypoint");
+        }
+
+        let mut path = Vec::new();
+        let mut cost = 0;
+
+        // Collect all waypoints into a Vec for easy pairwise iteration
+        let points: Vec<_> = waypoints.path().iter().cloned().collect();
+
+        if points.is_empty() {
+            return None;
+        }
+
+        // Always start with the starting position
+        path.push(start);
+
+        for pair in points.windows(2) {
+            let (from, to) = (pair[0], pair[1]);
+            if let Some(path_segment) = bresenham_path(
+                grid,
+                from,
+                to,
+                neighborhood.is_ordinal(),
+                true,
+            ) {
+                // Skip the first cell to avoid duplicates
+                let segment_len = path_segment.len();
+                path.extend(path_segment.into_iter().skip(1));
+                cost += segment_len as u32;
+            } else {
+                log::warn!("No line of sight from {:?} to {:?}", from, to);
+                return None;
+            }
+        }
+
+        Some(Path::new(path, cost))
     } else {
         None
     }
@@ -428,11 +463,8 @@ pub(crate) fn optimize_path<N: Neighborhood>(
                 }
             }
 
-            let maybe_shortcut = if filtered {
-                bresenham_path_filtered(grid, path.path[i], candidate, neighborhood.is_ordinal())
-            } else {
-                bresenham_path(grid, path.path[i], candidate, neighborhood.is_ordinal())
-            };
+            let maybe_shortcut = 
+                bresenham_path(grid, path.path[i], candidate, neighborhood.is_ordinal(), filtered);
 
             if let Some(shortcut) = maybe_shortcut {
                 refined_path.extend(shortcut.into_iter().skip(1));

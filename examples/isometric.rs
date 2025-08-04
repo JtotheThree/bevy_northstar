@@ -420,7 +420,7 @@ fn input(
             log::info!("Pathfinding to tile: {:?}", tile);
             commands
                 .entity(player)
-                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z));
+                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z).mode(PathfindMode::ThetaStar));
         }
     }
 }

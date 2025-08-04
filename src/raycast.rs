@@ -4,6 +4,147 @@ use ndarray::ArrayView3;
 
 use crate::nav::NavCell;
 
+/// Yielding function for tracing a line in a grid.
+pub(crate) fn trace_line<F>(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+    filtered: bool,
+    mut yield_each_step: F,
+) -> bool
+where
+    F: FnMut(UVec3) -> bool,
+{
+    let mut current = start;
+    let shape = grid.shape();
+    let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
+
+    let delta = goal.as_ivec3() - start.as_ivec3();
+    let step = delta.map(|d| if d == 0 { 0 } else if d > 0 { 1 } else { -1 });
+    let abs = delta.map(i32::abs);
+
+    let mut err_xy = abs.x - abs.y;
+    let mut err_xz = abs.x - abs.z;
+
+    while current != goal {
+        if current.x >= bounds.x || current.y >= bounds.y || current.z >= bounds.z {
+            return false;
+        }
+        if !yield_each_step(current) {
+            return false;
+        }
+
+        let next = if ordinal {
+            let mut next = current;
+            let dx2 = 2 * err_xy;
+            let dz2 = 2 * err_xz;
+
+            if dx2 >= -abs.y && dz2 >= -abs.z {
+                err_xy -= abs.y;
+                err_xz -= abs.z;
+                next.x = next.x.saturating_add_signed(step.x);
+            }
+            if dx2 < abs.x {
+                err_xy += abs.x;
+                next.y = next.y.saturating_add_signed(step.y);
+            }
+            if bounds.z > 1 && dz2 < abs.x {
+                err_xz += abs.x;
+                next.z = next.z.saturating_add_signed(step.z);
+            }
+            next
+        } else {
+            let dx2 = 2 * err_xy;
+            let dz2 = 2 * err_xz;
+
+            if dx2 >= -abs.y && dz2 >= -abs.z {
+                err_xy -= abs.y;
+                err_xz -= abs.z;
+                UVec3::new(
+                    current.x.saturating_add_signed(step.x),
+                    current.y,
+                    current.z,
+                )
+            } else if dx2 < abs.x {
+                err_xy += abs.x;
+                UVec3::new(
+                    current.x,
+                    current.y.saturating_add_signed(step.y),
+                    current.z,
+                )
+            } else if bounds.z > 1 && dz2 < abs.x {
+                err_xz += abs.x;
+                UVec3::new(
+                    current.x,
+                    current.y,
+                    current.z.saturating_add_signed(step.z),
+                )
+            } else {
+                return false;
+            }
+        };
+
+        if filtered {
+            let mut neighbors = grid[[current.x as usize, current.y as usize, current.z as usize]]
+                .neighbor_iter(current);
+
+            if !neighbors.any(|n| n == next) {
+                return false;
+            }
+        }
+
+        current = next;
+    }
+
+    yield_each_step(goal)
+}
+
+pub fn has_line_of_sight(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+) -> bool {
+    trace_line(grid, start, goal, ordinal, false, |pos| {
+        !grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable()
+    })
+}
+
+pub(crate) fn bresenham_path(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+    filtered: bool,
+) -> Option<Vec<UVec3>> {
+    let mut path = Vec::new();
+
+    let success = trace_line(grid, start, goal, ordinal, filtered, |pos| {
+        let cell = &grid[[pos.x as usize, pos.y as usize, pos.z as usize]];
+        if cell.is_impassable() {
+            return false;
+        }
+        path.push(pos);
+        true
+    });
+
+    if success {
+        Some(path)
+    } else {
+        None
+    }
+}
+
+
+
+
+
+
+
+
+
+
 /// Check if there is a line of sight between two positions in the grid allowing diagonal movement.
 ///
 /// Arguments:
@@ -31,7 +172,7 @@ use crate::nav::NavCell;
 ///
 /// assert_eq!(line_of_sight(&grid.view(), start, end), false);
 /// ```
-pub fn line_of_sight(grid: &ArrayView3<NavCell>, start: UVec3, end: UVec3) -> bool {
+/*pub fn line_of_sight(grid: &ArrayView3<NavCell>, start: UVec3, end: UVec3) -> bool {
     // TDDO: This can be optimized using integers
     let start = start.as_vec3();
     let end = end.as_vec3();
@@ -68,7 +209,104 @@ pub fn line_of_sight(grid: &ArrayView3<NavCell>, start: UVec3, end: UVec3) -> bo
     }
 
     true
+}*/
+/* 
+/// Returns the traced path if there is line of sight, or None if blocked.
+pub(crate) fn line_of_sight(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+) -> Option<Vec<UVec3>> {
+    let (width, height, depth) = (
+        grid.shape()[0] as u32,
+        grid.shape()[1] as u32,
+        grid.shape()[2] as u32,
+    );
+
+    let mut path = Vec::new();
+    let mut current = start;
+
+    let dx = (goal.x as i32 - start.x as i32).abs();
+    let dy = (goal.y as i32 - start.y as i32).abs();
+    let dz = if depth > 1 {
+        (goal.z as i32 - start.z as i32).abs()
+    } else {
+        0
+    };
+
+    let sx: i32 = if start.x < goal.x { 1 } else { -1 };
+    let sy: i32 = if start.y < goal.y { 1 } else { -1 };
+    let sz: i32 = if depth > 1 && start.z < goal.z { 1 } else { -1 };
+
+    let mut err_xy = dx - dy;
+    let mut err_xz = dx - dz;
+
+    while current != goal {
+        if current.x >= width || current.y >= height || current.z >= depth {
+            return None;
+        }
+
+        path.push(current);
+
+        if grid[[current.x as usize, current.y as usize, current.z as usize]].is_impassable() {
+            return None;
+        }
+
+        let double_err_xy = 2 * err_xy;
+        let double_err_xz = 2 * err_xz;
+
+        if ordinal {
+            if double_err_xy >= -dy && double_err_xz >= -dz {
+                err_xy -= dy;
+                err_xz -= dz;
+                current.x = current.x.saturating_add_signed(sx);
+            }
+            if double_err_xy < dx {
+                err_xy += dx;
+                current.y = current.y.saturating_add_signed(sy);
+            }
+            if depth > 1 && double_err_xz < dx {
+                err_xz += dx;
+                current.z = current.z.saturating_add_signed(sz);
+            }
+        } else if double_err_xy >= -dy && double_err_xz >= -dz {
+            err_xy -= dy;
+            err_xz -= dz;
+            current.x = current.x.saturating_add_signed(sx);
+        } else if double_err_xy < dx {
+            err_xy += dx;
+            current.y = current.y.saturating_add_signed(sy);
+        } else if depth > 1 && double_err_xz < dx {
+            err_xz += dx;
+            current.z = current.z.saturating_add_signed(sz);
+        }
+    }
+
+    // Final cell (goal)
+    if current.x < width
+        && current.y < height
+        && current.z < depth
+        && !grid[[current.x as usize, current.y as usize, current.z as usize]].is_impassable()
+    {
+        path.push(goal);
+        Some(path)
+    } else {
+        None
+    }
 }
+
+/// Returns true if there is line of sight, false if blocked.
+pub(crate) fn has_line_of_sight(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+) -> bool {
+    line_of_sight(grid, start, goal, ordinal).is_some()
+}*/
+
+
 /* Unused but may be useful at some later point
 pub(crate) fn path_line_trace(
     grid: &ArrayView3<NavCell>,
@@ -118,7 +356,7 @@ pub(crate) fn path_line_trace(
 
     None
 } */
-
+/*
 // Trace a line from start to goal and get the Bresenham path only if the path doesn't collide with a wall
 // This should take into account the Neighborhood and the grid
 pub(crate) fn bresenham_path_filtered(
@@ -388,7 +626,7 @@ pub(crate) fn bresenham_path(
     path.push(goal);
 
     Some(path)
-}
+}*/
 
 #[cfg(test)]
 mod tests {
@@ -402,7 +640,7 @@ mod tests {
         },
         nav::NavCell,
         prelude::*,
-        raycast::{bresenham_path, line_of_sight},
+        raycast::{bresenham_path, has_line_of_sight},
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -410,12 +648,7 @@ mod tests {
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 1,
-            diagonal_connections: false,
-        },
-        cost_settings: NavSettings {
-            default_movement_cost: 1,
-            default_impassible: false,
-        },
+            diagonal_connections: false, }, cost_settings: NavSettings { default_movement_cost: 1, default_impassible: false, },
         collision_settings: CollisionSettings {
             enabled: true,
             avoidance_distance: 4,
@@ -433,7 +666,7 @@ mod tests {
         let start = UVec3::new(0, 0, 0);
         let end = UVec3::new(9, 9, 0);
 
-        assert!(!line_of_sight(&grid.view(), start, end));
+        assert!(!has_line_of_sight(&grid.view(), start, end, true));
     }
 
     #[test]
@@ -447,6 +680,7 @@ mod tests {
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
+            false,
         );
 
         assert!(path.is_some());
@@ -461,6 +695,7 @@ mod tests {
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
+            false,
         );
 
         assert!(path.is_some());
@@ -476,6 +711,7 @@ mod tests {
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
+            false,
         );
 
         assert!(path.is_none());

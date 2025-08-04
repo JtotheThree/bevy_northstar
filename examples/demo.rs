@@ -232,7 +232,7 @@ fn spawn_minions(
                 ..Default::default()
             })
             .insert(Name::new(format!("{color:?}")))
-            //.insert(DebugPath::new(color))
+            .insert(DebugPath::new(color))
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))

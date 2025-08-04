@@ -5,7 +5,7 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    in_bounds_3d, nav::NavCell, neighbor::Neighborhood, path::Path, raycast::line_of_sight,
+    in_bounds_3d, nav::NavCell, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight,
     FxIndexMap, SmallestCostHolder,
 };
 
@@ -49,7 +49,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     let max = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
 
     while let Some(SmallestCostHolder { cost, index, .. }) = to_visit.pop() {
-        let mut index = index;
+        //let mut index = index;
         let neighbors = {
             let (current_pos, &(_, current_cost)) = visited.get_index(index).unwrap();
             let current_distance = neighborhood.heuristic(*current_pos, goal);
@@ -59,6 +59,8 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 closest_node = *current_pos;
                 closest_distance = current_distance;
             }
+
+            //log::info!("Visiting node: {:?}, cost: {}, current_cost: {}", current_pos, cost, current_cost);
 
             if *current_pos == goal {
                 let mut current = index;
@@ -71,6 +73,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
 
                 steps.reverse();
+                log::info!("Found start {:?} to goal {:?}: {:?}", start, goal, steps);
                 return Some(Path::new(steps, current_cost));
             }
 
@@ -106,13 +109,29 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 continue;
             }
 
-            let parent_index = visited.get_index(index).unwrap().1 .0;
+            // Get current node's parent index (if any)
+            let (cur_parent_pos, _) = visited.get_index(index).unwrap();
+            let cur_parent_index = visited.get_index_of(cur_parent_pos).unwrap_or(usize::MAX);
 
-            if parent_index != usize::MAX {
-                let parent = visited.get_index(parent_index).unwrap().0;
-
-                if line_of_sight(grid, neighbor, *parent) {
-                    index = parent_index;
+            // Determine best valid parent with LoS to neighbor
+            let (_, parent_index) = if cur_parent_index != usize::MAX {
+                let (grandparent_pos, _) = visited.get_index(cur_parent_index).unwrap();
+                if has_line_of_sight(grid, neighbor, *grandparent_pos, neighborhood.is_ordinal()) {
+                    (*grandparent_pos, cur_parent_index)
+                } else {
+                    let parent_pos = visited.get_index(index).unwrap().0;
+                    if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal()) {
+                        (*parent_pos, index)
+                    } else {
+                        continue; // Neither grandparent nor parent has LoS
+                    }
+                }
+            } else {
+                let parent_pos = visited.get_index(index).unwrap().0;
+                if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal()) {
+                    (*parent_pos, index)
+                } else {
+                    continue; // No parent and no LoS
                 }
             };
 
@@ -123,13 +142,13 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 Vacant(e) => {
                     h = neighborhood.heuristic(neighbor, goal);
                     n = e.index();
-                    e.insert((index, new_cost));
+                    e.insert((parent_index, new_cost));
                 }
                 Occupied(mut e) => {
                     if e.get().1 > new_cost {
                         h = neighborhood.heuristic(neighbor, goal);
                         n = e.index();
-                        e.insert((index, new_cost));
+                        e.insert((parent_index, new_cost));
                     } else {
                         continue;
                     }
