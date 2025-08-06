@@ -9,7 +9,7 @@ use bevy::{
 use ndarray::ArrayView3;
 
 use crate::{
-    astar::{astar_graph, astar_grid}, chunk::Chunk, dijkstra::dijkstra_grid, grid::Grid, nav::NavCell, node::Node, path::Path, prelude::Neighborhood, raycast::{bresenham_path, bresenham_path_no_aliasing}, thetastar::thetastar_grid
+    astar::{astar_graph, astar_grid}, chunk::Chunk, dijkstra::dijkstra_grid, grid::Grid, nav::NavCell, node::Node, path::Path, prelude::Neighborhood, raycast::bresenham_path, thetastar::thetastar_grid
 };
 
 /// AStar pathfinding
@@ -71,7 +71,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     }
 }
 
-/// AStar pathfinding
+/// ThetaStar pathfinding
 ///
 /// This function is provided if you want to supply your own grid.
 /// If you're using the built in [`Grid`] you can use the pathfinding helper functions
@@ -120,49 +120,7 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         return None;
     }
 
-    let waypoints = thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
-
-    if let Some(waypoints) = waypoints {
-        if *waypoints.path.front().unwrap() != start {
-            log::warn!("Thetastar did not return the start position as the first waypoint");
-        }
-
-        let mut path = Vec::new();
-        let mut cost = 0;
-
-        // Collect all waypoints into a Vec for easy pairwise iteration
-        let points: Vec<_> = waypoints.path().iter().cloned().collect();
-
-        if points.is_empty() {
-            return None;
-        }
-
-        // Always start with the starting position
-        path.push(start);
-
-        for pair in points.windows(2) {
-            let (from, to) = (pair[0], pair[1]);
-            if let Some(path_segment) = bresenham_path(
-                grid,
-                from,
-                to,
-                neighborhood.is_ordinal(),
-                true,
-            ) {
-                // Skip the first cell to avoid duplicates
-                let segment_len = path_segment.len();
-                path.extend(path_segment.into_iter().skip(1));
-                cost += segment_len as u32;
-            } else {
-                log::warn!("No line of sight from {:?} to {:?}", from, to);
-                return None;
-            }
-        }
-
-        Some(Path::new(path, cost))
-    } else {
-        None
-    }
+    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking)
 }
 
 /// HPA* pathfinding.
@@ -453,7 +411,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
             }*/
 
             let maybe_shortcut = 
-                bresenham_path_no_aliasing(grid, path.path[i], candidate, neighborhood.is_ordinal(), filtered);
+                bresenham_path(grid, path.path[i], candidate, neighborhood.is_ordinal(), filtered, false);
 
             if let Some(shortcut) = maybe_shortcut {
                 refined_path.extend(shortcut.into_iter().skip(1));

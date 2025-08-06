@@ -121,7 +121,7 @@ fn main() {
         .insert_state(State::Loading)
         .insert_resource(NorthstarPluginSettings {
             pathfind_settings: PathfindSettings {
-                default_mode: PathfindMode::Refined,
+                default_mode: PathfindMode::ThetaStar,
                 ..Default::default()
             },
             ..Default::default()
