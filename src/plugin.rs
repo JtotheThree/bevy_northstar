@@ -7,6 +7,17 @@ use bevy::{log, platform::collections::HashMap, prelude::*};
 
 use crate::{prelude::*, WithoutPathingFailures};
 
+/// Sets default settings for the Pathfind component.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PathfindSettings {
+    /// Sets the default pathfinding mode.
+    /// Defaults to PathfindMode::Refined
+    pub default_mode: PathfindMode,
+    /// Sets the default for whether or not pathfinding should return partial paths
+    /// closets to the goal when a path to the goal cannot be found.
+    pub default_partial: bool,
+}
+
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
 pub struct NorthstarPluginSettings {
@@ -16,6 +27,9 @@ pub struct NorthstarPluginSettings {
     pub max_pathfinding_agents_per_frame: usize,
     /// The maximum number of agents that can be processed for collision avoidance per frame.
     pub max_collision_avoidance_agents_per_frame: usize,
+    /// Pathfind defaults
+    pub pathfind_settings: PathfindSettings,
+
 }
 
 impl Default for NorthstarPluginSettings {
@@ -23,6 +37,7 @@ impl Default for NorthstarPluginSettings {
         Self {
             max_pathfinding_agents_per_frame: 128,
             max_collision_avoidance_agents_per_frame: 128,
+            pathfind_settings: PathfindSettings::default(),
         }
     }
 }
@@ -200,7 +215,9 @@ fn pathfind<N: Neighborhood + 'static>(
             &HashMap::new()
         };
 
-        let path = match pathfind.mode {
+        let mode = pathfind.mode.unwrap_or(settings.pathfind_settings.default_mode);
+
+        let path = match mode {
             PathfindMode::Refined => {
                 grid.pathfind(start.0, pathfind.goal, blocking, pathfind.partial)
             }
@@ -504,8 +521,10 @@ fn reroute_path<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start = Instant::now();
 
+        let mode = pathfind.mode.unwrap_or(settings.pathfind_settings.default_mode);
+
         // Let's reroute the path
-        let refined = match pathfind.mode {
+        let refined = match mode {
             PathfindMode::Refined => true,
             PathfindMode::Coarse => false,
             PathfindMode::AStar => false,

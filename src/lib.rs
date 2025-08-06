@@ -39,7 +39,7 @@ pub mod prelude {
     pub use crate::neighbor::*;
     pub use crate::path::Path;
     pub use crate::plugin::{
-        BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathingSet, Stats,
+        BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathfindSettings, PathingSet, Stats,
     };
     pub use crate::MovementCost;
     pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d};

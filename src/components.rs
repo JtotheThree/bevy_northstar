@@ -23,8 +23,8 @@ pub struct AgentPos(pub UVec3);
 /// Determines which algorithm to use for pathfinding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
 pub enum PathfindMode {
-    /// Hierarchical pathfinding with the final path refined with line tracing.
     #[default]
+    /// Hierarchical pathfinding with the final path refined with line tracing.
     Refined,
     /// Hierarchical pathfinding using only cached paths. Use this if you're not concerned with trying to find the shortest path.
     Coarse,
@@ -38,7 +38,7 @@ pub enum PathfindMode {
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -46,8 +46,9 @@ pub struct Pathfind {
     pub partial: bool,
 
     /// The [`PathfindMode`] to use for pathfinding.
+    /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
-    pub mode: PathfindMode,
+    pub mode: Option<PathfindMode>,
 }
 
 impl Pathfind {
@@ -91,7 +92,7 @@ impl Pathfind {
 
     /// Sets the pathfinding mode. See [`PathfindMode`] for options.
     pub fn mode(mut self, mode: PathfindMode) -> Self {
-        self.mode = mode;
+        self.mode = Some(mode);
         self
     }
 

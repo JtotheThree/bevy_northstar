@@ -26,6 +26,7 @@ use crate::{
     position_in_cubic_window, timed, MovementCost,
 };
 
+
 /// Settings for how the grid is divided into chunks.
 #[derive(Copy, Clone, Debug)]
 pub struct ChunkSettings {

@@ -1,5 +1,5 @@
 //! Raycasting and pathfinding utilities for 2D/3D grids.
-use bevy::math::UVec3;
+use bevy::{math::{IVec3, UVec3}};
 use ndarray::ArrayView3;
 
 use crate::nav::NavCell;
@@ -105,8 +105,9 @@ pub fn has_line_of_sight(
     start: UVec3,
     goal: UVec3,
     ordinal: bool,
+    filtered: bool,
 ) -> bool {
-    trace_line(grid, start, goal, ordinal, false, |pos| {
+    trace_line(grid, start, goal, ordinal, filtered, |pos| {
         !grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable()
     })
 }
@@ -136,10 +137,116 @@ pub(crate) fn bresenham_path(
     }
 }
 
+pub(crate) fn bresenham_path_no_aliasing(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+    filtered: bool,
+) -> Option<Vec<UVec3>> {
+    let mut path = Vec::new();
+    let mut current = start;
+    let mut last_dir: Option<IVec3> = None;
 
+    let shape = grid.shape();
+    let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
 
+    let delta = goal.as_ivec3() - start.as_ivec3();
+    let step = delta.map(|d| if d == 0 { 0 } else if d > 0 { 1 } else { -1 });
+    let abs = delta.map(i32::abs);
 
+    let mut err_xy = abs.x - abs.y;
+    let mut err_xz = abs.x - abs.z;
 
+    path.push(current);
+
+    while current != goal {
+        if current.x >= bounds.x || current.y >= bounds.y || current.z >= bounds.z {
+            return None;
+        }
+        if grid[[current.x as usize, current.y as usize, current.z as usize]].is_impassable() {
+            return None;
+        }
+
+        let next = if ordinal {
+            let mut next = current;
+            let dx2 = 2 * err_xy;
+            let dz2 = 2 * err_xz;
+
+            if dx2 >= -abs.y && dz2 >= -abs.z {
+                err_xy -= abs.y;
+                err_xz -= abs.z;
+                next.x = next.x.saturating_add_signed(step.x);
+            }
+            if dx2 < abs.x {
+                err_xy += abs.x;
+                next.y = next.y.saturating_add_signed(step.y);
+            }
+            if bounds.z > 1 && dz2 < abs.x {
+                err_xz += abs.x;
+                next.z = next.z.saturating_add_signed(step.z);
+            }
+            next
+        } else {
+            let dx2 = 2 * err_xy;
+            let dz2 = 2 * err_xz;
+
+            if dx2 >= -abs.y && dz2 >= -abs.z {
+                err_xy -= abs.y;
+                err_xz -= abs.z;
+                UVec3::new(
+                    current.x.saturating_add_signed(step.x),
+                    current.y,
+                    current.z,
+                )
+            } else if dx2 < abs.x {
+                err_xy += abs.x;
+                UVec3::new(
+                    current.x,
+                    current.y.saturating_add_signed(step.y),
+                    current.z,
+                )
+            } else if bounds.z > 1 && dz2 < abs.x {
+                err_xz += abs.x;
+                UVec3::new(
+                    current.x,
+                    current.y,
+                    current.z.saturating_add_signed(step.z),
+                )
+            } else {
+                return None;
+            }
+        };
+
+        // Check for aliasing: direction change not at a corner
+        let dir = (next.as_ivec3() - current.as_ivec3()).signum();
+        if let Some(last) = last_dir {
+            if dir != last {
+                // If direction changes, only allow if current is a corner (i.e., both axes change)
+                let diff = (current.as_ivec3() - path.last().unwrap().as_ivec3()).abs();
+                if diff.x + diff.y + diff.z < 2 {
+                    // Not a corner, reject
+                    return None;
+                }
+            }
+        }
+        last_dir = Some(dir);
+
+        if filtered {
+            let mut neighbors = grid[[current.x as usize, current.y as usize, current.z as usize]]
+                .neighbor_iter(current);
+
+            if !neighbors.any(|n| n == next) {
+                return None;
+            }
+        }
+
+        current = next;
+        path.push(current);
+    }
+
+    Some(path)
+}
 
 
 
@@ -666,7 +773,7 @@ mod tests {
         let start = UVec3::new(0, 0, 0);
         let end = UVec3::new(9, 9, 0);
 
-        assert!(!has_line_of_sight(&grid.view(), start, end, true));
+        assert!(!has_line_of_sight(&grid.view(), start, end, true, false));
     }
 
     #[test]

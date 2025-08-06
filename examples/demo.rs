@@ -63,6 +63,7 @@ fn main() {
         .insert_resource(NorthstarPluginSettings {
             max_pathfinding_agents_per_frame: 48,
             max_collision_avoidance_agents_per_frame: 64,
+            ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
         .run();
@@ -273,7 +274,7 @@ fn move_pathfinders(
                 commands
                     .entity(entity)
                     // For our case, we'll just reinsert the same goal to generate a new path.
-                    .insert(Pathfind::new(pathfind.goal).mode(pathfind.mode))
+                    .insert(pathfind.clone())
                     .remove::<NextPos>();
                 continue;
             }

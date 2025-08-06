@@ -73,7 +73,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
 
                 steps.reverse();
-                log::info!("Found start {:?} to goal {:?}: {:?}", start, goal, steps);
+                //log::info!("Found start {:?} to goal {:?}: {:?}", start, goal, steps);
                 return Some(Path::new(steps, current_cost));
             }
 
@@ -116,11 +116,11 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
             // Determine best valid parent with LoS to neighbor
             let (_, parent_index) = if cur_parent_index != usize::MAX {
                 let (grandparent_pos, _) = visited.get_index(cur_parent_index).unwrap();
-                if has_line_of_sight(grid, neighbor, *grandparent_pos, neighborhood.is_ordinal()) {
+                if has_line_of_sight(grid, neighbor, *grandparent_pos, neighborhood.is_ordinal(), true) {
                     (*grandparent_pos, cur_parent_index)
                 } else {
                     let parent_pos = visited.get_index(index).unwrap().0;
-                    if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal()) {
+                    if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal(), true) {
                         (*parent_pos, index)
                     } else {
                         continue; // Neither grandparent nor parent has LoS
@@ -128,7 +128,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
             } else {
                 let parent_pos = visited.get_index(index).unwrap().0;
-                if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal()) {
+                if has_line_of_sight(grid, neighbor, *parent_pos, neighborhood.is_ordinal(), true) {
                     (*parent_pos, index)
                 } else {
                     continue; // No parent and no LoS

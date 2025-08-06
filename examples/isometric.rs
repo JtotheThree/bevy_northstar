@@ -119,6 +119,13 @@ fn main() {
         .register_type::<TileInfo>()
         .insert_resource(Cursor::default())
         .insert_state(State::Loading)
+        .insert_resource(NorthstarPluginSettings {
+            pathfind_settings: PathfindSettings {
+                default_mode: PathfindMode::Refined,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .run();
 }
 
@@ -420,7 +427,7 @@ fn input(
             log::info!("Pathfinding to tile: {:?}", tile);
             commands
                 .entity(player)
-                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z).mode(PathfindMode::ThetaStar));
+                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z));
         }
     }
 }
