@@ -2,14 +2,16 @@
 use bevy::{
     math::UVec3,
     platform::collections::{HashMap, HashSet},
-    prelude::Entity,
 };
 
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
-use crate::{graph::Graph, in_bounds_3d, nav::NavCell, path::Path, FxIndexMap, SmallestCostHolder};
+use crate::{
+    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, path::Path, FxIndexMap,
+    SmallestCostHolder,
+};
 
 /// Dijkstra's algorithm for pathfinding in a grid.
 ///
@@ -30,7 +32,7 @@ pub(crate) fn dijkstra_grid(
     goals: &[UVec3],
     only_closest_goal: bool,
     size_hint: usize,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &NavMaskData,
 ) -> HashMap<UVec3, Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -80,11 +82,7 @@ pub(crate) fn dijkstra_grid(
                 neighbor.z as usize,
             ]];
 
-            if neighbor_cell.is_impassable() {
-                continue;
-            }
-
-            if blocking.contains_key(&neighbor) {
+            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
                 continue;
             }
 
@@ -263,7 +261,7 @@ mod tests {
             &goals,
             false,
             8 * 8 * 8,
-            &HashMap::new(),
+            &NavMaskData::new(),
         );
 
         assert_eq!(paths.len(), 4);

@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::debug::DebugTilemapType;
+use crate::{debug::DebugTilemapType, nav_mask::NavMask};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -54,6 +54,8 @@ pub struct Pathfind {
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
+    #[reflect(ignore)]
+    pub mask: Option<NavMask>,
 }
 
 impl Pathfind {
@@ -106,6 +108,11 @@ impl Pathfind {
     /// even if it can't find a full route to the goal.
     pub fn partial(mut self) -> Self {
         self.partial = true;
+        self
+    }
+
+    pub fn mask(mut self, mask: NavMask) -> Self {
+        self.mask = Some(mask);
         self
     }
 }

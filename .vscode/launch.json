@@ -100,6 +100,24 @@
                 "RUST_BACKTRACE": "1"
             },
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug nav_mask example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example",
+                    "nav_mask"
+                ]
+            },
+            "args": [],
+            "env": {
+                "CARGO_MANIFEST_DIR": "${workspaceFolder}",
+                "RUST_BACKTRACE": "1"
+            },
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

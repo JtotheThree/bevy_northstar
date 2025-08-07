@@ -81,13 +81,14 @@ impl Chunk {
     }
 
     // Adjusts a position to the local coordinates of the chunk.
-    pub(crate) fn to_local(&self, pos: &UVec3) -> UVec3 {
+    // I guess this isn't needed after switching to NavMasks, but it'll likely be relevant again.
+    /*pub(crate) fn to_local(&self, pos: &UVec3) -> UVec3 {
         UVec3::new(
             pos.x.saturating_sub(self.min().x),
             pos.y.saturating_sub(self.min().y),
             pos.z.saturating_sub(self.min().z),
         )
-    }
+    }*/
 
     /// Returns a 3D `ArrayView3`` of `NavCell`s of the chunk from the grid.
     pub(crate) fn view<'a>(&self, grid: &'a Array3<NavCell>) -> ArrayView3<'a, NavCell> {
