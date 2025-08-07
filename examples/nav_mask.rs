@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use bevy::{
-    log::{self, LogPlugin}, platform::collections::HashMap, prelude::*
+    log::{self, LogPlugin},
+    platform::collections::HashMap,
+    prelude::*,
 };
 use bevy_northstar::{nav::NavCell, prelude::*};
 
@@ -59,9 +61,17 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
         )
         .unwrap();
 
-    layers.0.insert("water_layer".to_string(), Arc::new(Mutex::new(water_layer)));
-    layers.0.insert("red_faction_not_allowed_layer".to_string(), Arc::new(Mutex::new(red_faction_not_allowed_layer)));
-    layers.0.insert("blue_faction_not_allowed_layer".to_string(), Arc::new(Mutex::new(blue_faction_not_allowed_layer)));
+    layers
+        .0
+        .insert("water_layer".to_string(), Arc::new(Mutex::new(water_layer)));
+    layers.0.insert(
+        "red_faction_not_allowed_layer".to_string(),
+        Arc::new(Mutex::new(red_faction_not_allowed_layer)),
+    );
+    layers.0.insert(
+        "blue_faction_not_allowed_layer".to_string(),
+        Arc::new(Mutex::new(blue_faction_not_allowed_layer)),
+    );
 }
 
 // Setup some test entities.
@@ -127,7 +137,9 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     );
 
     // Test that the red faction agent cannot pass through the blue faction's no-go region
-    let masked_red_faction_cell = red_faction_mask.get(grid_cell.clone(), blue_faction_pos).unwrap();
+    let masked_red_faction_cell = red_faction_mask
+        .get(grid_cell.clone(), blue_faction_pos)
+        .unwrap();
     assert_eq!(masked_red_faction_cell.nav(), Nav::Impassable);
     log::info!(
         "Red Faction Agent to Blue Faction Area - Original: {:?}, Masked: {:?}",
@@ -136,7 +148,9 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     );
 
     // Test that the red faction agent can pass through its own territory
-    let masked_red_faction_own_cell = red_faction_mask.get(grid_cell.clone(), red_faction_pos).unwrap();
+    let masked_red_faction_own_cell = red_faction_mask
+        .get(grid_cell.clone(), red_faction_pos)
+        .unwrap();
     assert_eq!(masked_red_faction_own_cell.nav(), Nav::Passable(1));
     log::info!(
         "Red Faction Agent to Red Faction Area - Original: {:?}, Masked: {:?}",
@@ -145,7 +159,9 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     );
 
     // Test that the blue faction agent cannot pass through the red faction's no-go region
-    let masked_blue_faction_cell = blue_faction_mask.get(grid_cell.clone(), red_faction_pos).unwrap();
+    let masked_blue_faction_cell = blue_faction_mask
+        .get(grid_cell.clone(), red_faction_pos)
+        .unwrap();
     assert_eq!(masked_blue_faction_cell.nav(), Nav::Impassable);
     log::info!(
         "Blue Faction Agent to Red Faction Area - Original: {:?}, Masked: {:?}",

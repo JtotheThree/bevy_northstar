@@ -56,7 +56,7 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     cell
 }
 
-/// Arc Mutex wrapper for NavMaskData. 
+/// Arc Mutex wrapper for NavMaskData.
 /// I probably need to rename this so it's obvious. SharedNavMask?
 #[derive(Clone, Debug, Default)]
 pub struct NavMask {

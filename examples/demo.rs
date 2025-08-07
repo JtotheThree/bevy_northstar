@@ -260,6 +260,7 @@ fn spawn_minions(
                     .mode(PathfindMode::Refined)
                     .mask(test_cost_mask.0.clone())
             }
+            _ => {}
         }
 
         commands
@@ -359,6 +360,7 @@ fn set_new_goal(
                     .mode(PathfindMode::Refined)
                     .mask(test_cost_mask.0.clone())
             }
+            _ => {}
         }
 
         commands.entity(entity).insert(pathfind);
@@ -397,6 +399,7 @@ fn handle_pathfinding_failed(
                     .mode(PathfindMode::Refined)
                     .mask(test_cost_mask.0.clone())
             }
+            _ => {}
         }
 
         commands

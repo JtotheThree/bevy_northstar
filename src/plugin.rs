@@ -33,7 +33,6 @@ pub struct NorthstarPluginSettings {
     pub max_collision_avoidance_agents_per_frame: usize,
     /// Pathfind defaults
     pub pathfind_settings: PathfindSettings,
-
 }
 
 impl Default for NorthstarPluginSettings {
@@ -220,7 +219,9 @@ fn pathfind<N: Neighborhood + 'static>(
         let mask =
             prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
-        let mode = pathfind.mode.unwrap_or(settings.pathfind_settings.default_mode);
+        let mode = pathfind
+            .mode
+            .unwrap_or(settings.pathfind_settings.default_mode);
 
         let path = match mode {
             PathfindMode::Refined => {
@@ -233,7 +234,7 @@ fn pathfind<N: Neighborhood + 'static>(
                 grid.pathfind_astar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
             PathfindMode::ThetaStar => {
-                grid.pathfind_thetastar(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind_thetastar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
         };
 
@@ -541,7 +542,9 @@ fn reroute_path<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start = Instant::now();
 
-        let mode = pathfind.mode.unwrap_or(settings.pathfind_settings.default_mode);
+        let mode = pathfind
+            .mode
+            .unwrap_or(settings.pathfind_settings.default_mode);
 
         // Let's reroute the path
         let refined = match mode {

@@ -1,12 +1,12 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3, platform::collections::HashMap, prelude::Entity};
+use bevy::{log, math::UVec3};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    in_bounds_3d, nav::NavCell, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight,
-    FxIndexMap, SmallestCostHolder,
+    in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path,
+    raycast::has_line_of_sight, FxIndexMap, SmallestCostHolder,
 };
 
 /// θ* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -29,7 +29,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -102,7 +102,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 continue;
             }
 
-            if blocking.contains_key(&neighbor) {
+            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
                 continue;
             }
 
@@ -113,15 +113,15 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
 
                 if has_line_of_sight(grid, neighbor, *parent, neighborhood.is_ordinal()) {
                     index = parent_index;
-                } else {
-                    if grid[[
-                        neighbor.x as usize,
-                        neighbor.y as usize,
-                        neighbor.z as usize,
-                    ]].is_portal() {
-                        // If the neighbor is a portal, we can skip the line of sight check
-                        index = parent_index;
-                    }
+                } else if grid[[
+                    neighbor.x as usize,
+                    neighbor.y as usize,
+                    neighbor.z as usize,
+                ]]
+                .is_portal()
+                {
+                    // If the neighbor is a portal, we can skip the line of sight check
+                    index = parent_index;
                 }
             };
 
@@ -212,7 +212,7 @@ mod tests {
             goal,
             64,
             false,
-            &HashMap::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 

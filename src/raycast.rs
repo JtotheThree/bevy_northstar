@@ -1,5 +1,5 @@
 //! Raycasting and pathfinding utilities for 2D/3D grids.
-use bevy::{math::{IVec3, UVec3}};
+use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
 use crate::nav::NavCell;
@@ -106,13 +106,12 @@ where
             last_dir = Some(dir);
         }
 
-        if filtered {
-            if !grid[[current.x as usize, current.y as usize, current.z as usize]]
+        if filtered
+            && !grid[[current.x as usize, current.y as usize, current.z as usize]]
                 .neighbor_iter(current)
                 .any(|n| n == next)
-            {
-                return false;
-            }
+        {
+            return false;
         }
 
         current = next;
@@ -149,9 +148,12 @@ pub(crate) fn bresenham_path(
             true
         }
     });
-    if success { Some(path) } else { None }
+    if success {
+        Some(path)
+    } else {
+        None
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -173,7 +175,12 @@ mod tests {
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 1,
-            diagonal_connections: false, }, cost_settings: NavSettings { default_movement_cost: 1, default_impassible: false, },
+            diagonal_connections: false,
+        },
+        cost_settings: NavSettings {
+            default_movement_cost: 1,
+            default_impassible: false,
+        },
         collision_settings: CollisionSettings {
             enabled: true,
             avoidance_distance: 4,

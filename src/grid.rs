@@ -29,7 +29,6 @@ use crate::{
     timed, MovementCost,
 };
 
-
 /// Settings for how the grid is divided into chunks.
 #[derive(Copy, Clone, Debug)]
 pub struct ChunkSettings {
@@ -1647,19 +1646,25 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
+        // Lock and get the underlying data from the NavMask
+        let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
+        };
+
         pathfind_thetastar(
             &self.neighborhood,
             &self.grid.view(),
             start,
             goal,
-            blocking,
+            &mask,
             partial,
         )
     }

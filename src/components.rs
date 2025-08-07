@@ -43,7 +43,7 @@ pub enum PathfindMode {
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
-#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[derive(Component, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -54,6 +54,9 @@ pub struct Pathfind {
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
+
+    /// Optional [`NavMask`] to use for pathfinding.
+    /// You can filter out certain areas of the grid or apply movement costs.
     #[reflect(ignore)]
     pub mask: Option<NavMask>,
 }
