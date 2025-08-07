@@ -194,6 +194,7 @@ pub fn update_pathfind_type_text(
             PathfindMode::AStar => "A*".to_string(),
             PathfindMode::Coarse => "HPA* Coarse".to_string(),
             PathfindMode::Refined => "HPA*".to_string(),
+            PathfindMode::ThetaStar => "Theta*".to_string(),
         };
     }
 }
@@ -252,8 +253,9 @@ pub fn input<N: Neighborhood + 'static>(
             // Cycle through pathfinding modes
             config.mode = match config.mode {
                 PathfindMode::AStar => PathfindMode::Refined,
-                PathfindMode::Coarse => PathfindMode::AStar,
+                PathfindMode::Coarse => PathfindMode::ThetaStar,
                 PathfindMode::Refined => PathfindMode::Coarse,
+                PathfindMode::ThetaStar => PathfindMode::AStar,
             };
 
             stats.reset_pathfinding();

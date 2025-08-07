@@ -23,19 +23,27 @@ pub struct AgentPos(pub UVec3);
 /// Determines which algorithm to use for pathfinding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
 pub enum PathfindMode {
-    /// Hierarchical pathfinding with the final path refined with line tracing.
     #[default]
+    /// Hierarchical pathfinding with the final path refined with line tracing.
     Refined,
     /// Hierarchical pathfinding using only cached paths. Use this if you're not concerned with trying to find the shortest path.
     Coarse,
     /// Full-grid A* pathfinding without hierarchy.
     /// Useful for small grids or a turn based pathfinding path where movement cost needs to be the most accurate and cpu usage isn't a concern.
     AStar,
+
+    /// Returns only the start, LoS edge points, and goal position. Useful for HPA* pathfinding with freeform movement.
+    //AnyAngleHPA,
+
+    /// Any-Angle θ* pathfinding without hierarchy.
+    /// Note that Theta* only returns the key points where line of sight breaks to the goal.
+    /// It provides a very direct path but calculation is slow. This is only recommended for games with freeform movement.
+    ThetaStar,
 }
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -43,8 +51,9 @@ pub struct Pathfind {
     pub partial: bool,
 
     /// The [`PathfindMode`] to use for pathfinding.
+    /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
-    pub mode: PathfindMode,
+    pub mode: Option<PathfindMode>,
     #[reflect(ignore)]
     pub mask: Option<NavMask>,
 }
@@ -90,7 +99,7 @@ impl Pathfind {
 
     /// Sets the pathfinding mode. See [`PathfindMode`] for options.
     pub fn mode(mut self, mode: PathfindMode) -> Self {
-        self.mode = mode;
+        self.mode = Some(mode);
         self
     }
 

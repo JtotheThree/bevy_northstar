@@ -119,6 +119,13 @@ fn main() {
         .register_type::<TileInfo>()
         .insert_resource(Cursor::default())
         .insert_state(State::Loading)
+        .insert_resource(NorthstarPluginSettings {
+            pathfind_settings: PathfindSettings {
+                default_mode: PathfindMode::ThetaStar,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .run();
 }
 

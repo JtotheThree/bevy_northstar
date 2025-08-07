@@ -64,8 +64,9 @@ fn main() {
         // You only need to add the `NorthstarPluginSettings` resource if you want to change the default settings.
         // The default settings are 16 agents per frame for pathfinding and 32 for collision avoidance.
         .insert_resource(NorthstarPluginSettings {
-            max_pathfinding_agents_per_frame: 1024,
-            max_collision_avoidance_agents_per_frame: 1024,
+            max_pathfinding_agents_per_frame: 48,
+            max_collision_avoidance_agents_per_frame: 64,
+            ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
         .insert_resource(TestCostNavMask(NavMask::new()))
@@ -309,7 +310,7 @@ fn move_pathfinders(
                 commands
                     .entity(entity)
                     // For our case, we'll just reinsert the same goal to generate a new path.
-                    .insert(Pathfind::new(pathfind.goal).mode(pathfind.mode))
+                    .insert(pathfind.clone())
                     .remove::<NextPos>();
                 continue;
             }

@@ -72,6 +72,11 @@ impl Path {
         self.path.as_slices().0
     }
 
+    // Returns the HPA* graph path as a slice of `UVec3` positions.
+    pub(crate) fn graph_path(&self) -> &[UVec3] {
+        self.graph_path.as_slices().0
+    }
+
     /// Returns the movement cost of the path
     pub fn cost(&self) -> u32 {
         self.cost
