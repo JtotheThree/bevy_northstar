@@ -111,7 +111,6 @@ fn setup_masks(layers: Res<MyNavMaskLayers>, mut masks: ResMut<MyNavMasks>, agen
 
     masks.0.insert(red_faction_entity, red_mask);
     masks.0.insert(blue_faction_entity, blue_mask);
-    log::info!("Masks set up for factions");
 }
 
 fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
