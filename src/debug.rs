@@ -8,7 +8,7 @@ use crate::{
     grid::Grid,
     neighbor::Neighborhood,
     path::Path,
-    prelude::{AgentOfGrid, DebugDepthYOffsets, DebugOffset},
+    prelude::{AgentOfGrid, DebugDepthYOffsets, DebugNavMask, DebugOffset},
 };
 
 /// Required to calculate how to draw the debug gizmos
@@ -561,5 +561,39 @@ fn update_debug_node<N: Neighborhood + 'static>(
         }
 
         node.0 = selected_node;
+    }
+}
+
+fn debug_nav_mask<N: Neighborhood + 'static>(
+    grid_children: Query<(Entity, &Children), With<Grid<N>>>,
+    debug_grid: Query<(&DebugGrid, &DebugOffset, Option<&DebugDepthYOffsets>)>,
+    debug_masks: Query<(&DebugNavMask, &Path, &AgentOfGrid)>,
+    mut gizmos: Gizmos,
+) {
+    for (grid_entity, child) in grid_children {
+        // Find the DebugGrid component for the Grid entity
+        let debug_grid_vec: Vec<_> = child
+            .iter()
+            .filter_map(|child_entity| debug_grid.get(child_entity).ok())
+            .collect();
+
+        if debug_grid_vec.is_empty() {
+            continue;
+        }
+
+        if debug_grid_vec.len() > 1 {
+            warn!(
+                "Multiple DebugGrid components found for Grid entity: {:?}",
+                grid_entity
+            );
+        }
+
+        let (debug_grid, debug_offset, debug_depth_offsets) = debug_grid_vec[0];
+
+        let center_offset = debug_offset.0.truncate();
+
+        for (debug_mask, path, parent_grid) in debug_masks {
+            
+        }
     }
 }

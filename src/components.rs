@@ -219,6 +219,9 @@ pub struct DebugCursor(pub Option<Vec2>);
 #[derive(Component, Debug, Default)]
 pub(crate) struct DebugNode(pub(crate) Option<UVec3>);
 
+#[derive(Component)]
+pub struct DebugNavMask;
+
 /// Component for debugging an entity's [`crate::path::Path`].
 #[derive(Component, Reflect)]
 pub struct DebugPath {
