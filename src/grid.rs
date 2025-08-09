@@ -1422,7 +1422,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
-        pathfind(self, start, goal, &NavMaskData::new(), false, false).is_some()
+        pathfind(self, start, goal, &NavMaskData::new(), false, false, false).is_some()
     }
 
     /// Generate an HPA* path from `start` to `goal`.
@@ -1453,7 +1453,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, true)
+        pathfind(self, start, goal, &mask, partial, true, false)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1487,7 +1487,27 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, false)
+        pathfind(self, start, goal, &mask, partial, false, false)
+    }
+
+    pub fn pathfind_waypoints(
+        &self,
+        start: UVec3,
+        goal: UVec3,
+        mask: Option<&NavMask>,
+        partial: bool,
+    ) -> Option<Path> {
+        if self.needs_build() {
+            return None;
+        }
+
+        // Lock and get the underlying data from the NavMask
+        let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
+        };
+
+        pathfind(self, start, goal, &mask, partial, false, true)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.

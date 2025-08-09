@@ -403,7 +403,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
             let half_tile_width = debug_grid.tile_width as f32 * 0.5;
             let half_tile_height = debug_grid.tile_height as f32 * 0.5;
 
-            // Iterate over path.path() drawing a line from one cell to the next cell until completed
+            // Iterate over full_path drawing a line from one cell to the next cell until completed
             let mut iter = path.path().iter();
             let mut prev = iter.next().unwrap();
 
@@ -502,6 +502,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
         }
     }
 }
+
 fn update_debug_node<N: Neighborhood + 'static>(
     mut query: Query<(
         &mut DebugNode,

@@ -233,9 +233,12 @@ fn pathfind<N: Neighborhood + 'static>(
             PathfindMode::AStar => {
                 grid.pathfind_astar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
+            PathfindMode::Waypoints => {
+                grid.pathfind_waypoints(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+            },
             PathfindMode::ThetaStar => {
                 grid.pathfind_thetastar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
-            }
+            },
         };
 
         #[cfg(feature = "stats")]
@@ -551,6 +554,7 @@ fn reroute_path<N: Neighborhood + 'static>(
             PathfindMode::Refined => true,
             PathfindMode::Coarse => false,
             PathfindMode::AStar => false,
+            PathfindMode::Waypoints => false,
             PathfindMode::ThetaStar => false,
         };
 

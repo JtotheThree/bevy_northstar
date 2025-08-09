@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{log, prelude::*};
 
 use bevy_northstar::prelude::*;
 
@@ -7,6 +7,9 @@ use bevy_ecs_tilemap::prelude::*;
 
 mod shared;
 
+#[derive(Component)]
+struct Player;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -14,7 +17,12 @@ fn main() {
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding
         .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood>::default())
+        .add_plugins((TilemapPlugin, TiledMapPlugin::default()))
         .add_systems(Startup, startup)
+        .add_systems(OnEnter(shared::State::Playing), spawn_player)
+        .add_systems(Update, (input, move_player).run_if(in_state(shared::State::Playing)))
+        .add_observer(layer_created)
+        .insert_state(shared::State::Loading)
         .run();
 }
 
@@ -69,6 +77,15 @@ fn startup(
         },
         Grid::<OrdinalNeighborhood>::new(&grid_settings),
     ));
+
+    // Add the debug map as a child of the entity containing the Grid.
+    // Set the translation to offset the the debug gizmos.
+    map_entity.with_child((
+        DebugGridBuilder::new(8, 8)
+            .build(),
+        // Add the offset to the debug gizmo so that it aligns with your tilemap.
+        DebugOffset(offset.extend(0.0)),
+    ));
 }
 
 fn layer_created(
@@ -120,5 +137,102 @@ fn spawn_player(
     )>,
     asset_server: Res<AssetServer>,
 ) {
-    
+    let (grid_entity, _) = grid.into_inner();
+    let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
+    let layer_entity = layer_entity.iter().next().unwrap();
+
+
+    let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
+
+
+    let position = UVec3::new(64, 64, 0);
+    let translation = Vec3::new(
+        offset.x + (position.x as f32 * grid_size.x) + (tile_size.x / 2.0),
+        offset.y + (position.y as f32 * grid_size.y) + (tile_size.y / 2.0),
+        1.0,
+    );
+
+    commands.spawn((
+        Player,
+        Sprite {
+            image: asset_server.load("tiles/tile_0018_edit.png"),
+            ..Default::default()
+        },
+        AgentPos(position),
+        DebugPath::new(Color::srgb(0.0, 1.0, 0.0)),
+        AgentOfGrid(grid_entity),
+        Transform::from_translation(translation),
+        ChildOf(layer_entity),
+    ));
+}
+
+fn input(
+    input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    camera: Single<(&Camera, &GlobalTransform, &Transform), With<Camera>>,
+    player: Single<Entity, With<AgentPos>>,
+    map_query: Query<shared::MapQuery>,
+    mut commands: Commands,
+) {
+    let window = window.into_inner();
+    let (camera, camera_transform, _) = camera.into_inner();
+    let player = player.into_inner();
+
+    let map = map_query.iter().next().expect("No map found in the query");
+
+
+    let clicked_tile: Option<TilePos> = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+        .and_then(|cursor_position| {
+            let offset = Vec2::new(0.0, 0.0);
+            let cursor_position = cursor_position - offset;
+
+            TilePos::from_world_pos(
+                &cursor_position,
+                map.map_size,
+                map.grid_size,
+                map.tile_size,
+                map.map_type,
+                map.anchor,
+            )
+        });
+
+    if input.just_pressed(MouseButton::Left) {
+        if let Some(goal) = clicked_tile {
+            log::info!("Pathfinding to: {:?}", goal);
+            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints));
+        }
+    }
+}
+
+fn move_player(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut AgentPos, &NextPos, &mut Transform)>,
+    map_query: Query<shared::MapQuery>,
+    time: Res<Time>,
+) {
+    let map = map_query.iter().next().expect("No map found in the query");
+
+    for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
+        let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
+        let world_pos = tile_pos.center_in_world(map.map_size, map.grid_size, map.tile_size, map.map_type, map.anchor);
+
+        let next_translation = Vec3::new(
+            world_pos.x,
+            world_pos.y,
+            1.0,
+        );
+
+        let direction = next_translation - transform.translation;
+        let distance = direction.length();
+
+        if distance > 2.0 {
+            let movement = direction.normalize() * 100.0 * time.delta_secs();
+            transform.translation += movement;
+        } else {
+            agent_pos.0 = next_pos.0;
+            commands.entity(entity).remove::<NextPos>();
+        }
+    }
 }

@@ -138,6 +138,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     mask: &NavMaskData,
     partial: bool,
     refined: bool,
+    waypoints: bool,
 ) -> Option<Path> {
     if !grid.in_bounds(start) {
         log::warn!("Start is out of bounds: {:?}", start);
@@ -255,11 +256,22 @@ pub(crate) fn pathfind<N: Neighborhood>(
                     log::warn!("Start contains duplicate nodes: {:?}", path);
                 }
 
-                if !refined {
+                if !refined && !waypoints {
                     // If we're not refining, return the path as is
                     let mut path = Path::new(path, cost);
                     path.graph_path = node_path.path;
                     return Some(path);
+                }
+
+                if waypoints {
+                    let waypoints_path =
+                        path_to_waypoints(&grid.neighborhood, &grid.view(), &Path::new(path, cost));
+                    if waypoints_path.is_empty() {
+                        log::warn!("Waypoints path is empty, returning None");
+                        return None;
+                    }
+
+                    return Some(waypoints_path);
                 }
 
                 let mut refined_path = optimize_path(
@@ -368,6 +380,54 @@ pub(crate) fn trim_path(
         "BUG: trim_path() removed all nodes — this should never happen"
     );
 }*/
+
+pub(crate) fn path_to_waypoints<N: Neighborhood>(
+    neighborhood: &N,
+    grid: &ArrayView3<NavCell>,
+    path: &Path,
+) -> Path {
+    if path.is_empty() {
+        return path.clone();
+    }
+
+    let filtered = !neighborhood.filters().is_empty();
+
+    let mut waypoints_path = Vec::with_capacity(path.len());
+    let mut i = 0;
+
+    waypoints_path.push(path.path[i]); // Always keep the first node
+
+    while i < path.len() - 1 {
+        let mut found = false;
+        for farthest in (i + 1..path.len()).rev() {
+            let candidate = path.path[farthest];
+            let maybe_shortcut = bresenham_path(
+                grid,
+                path.path[i],
+                candidate,
+                neighborhood.is_ordinal(),
+                filtered,
+                true,
+            );
+            if maybe_shortcut.is_some() {
+                waypoints_path.push(candidate);
+                i = farthest;
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            // No shortcut found, advance by one
+            i += 1;
+            // Only add if not already present
+            if i < path.len() && waypoints_path.last() != Some(&path.path[i]) {
+                waypoints_path.push(path.path[i]);
+            }
+        }
+    }
+
+    Path::new(waypoints_path, path.cost())
+}
 
 /// Optimize a path by using line of sight checks to skip waypoints.
 ///
@@ -569,7 +629,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *new_path.path().last().unwrap();
 
-        let hpa = pathfind(grid, last_pos, goal, mask, false, refined);
+        let hpa = pathfind(grid, last_pos, goal, mask, false, refined, false);
 
         if let Some(hpa) = hpa {
             for pos in hpa.path() {

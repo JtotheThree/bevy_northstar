@@ -32,13 +32,13 @@ pub enum PathfindMode {
     /// Useful for small grids or a turn based pathfinding path where movement cost needs to be the most accurate and cpu usage isn't a concern.
     AStar,
 
-    /// Returns only the start, LoS edge points, and goal position. Useful for HPA* pathfinding with freeform movement.
-    //AnyAngleHPA,
-
+    /// Any-Angle HPA* pathfinding, returns only the key points where line of sight breaks to the goal.
+    Waypoints,
     /// Any-Angle θ* pathfinding without hierarchy.
     /// Note that Theta* only returns the key points where line of sight breaks to the goal.
     /// It provides a very direct path but calculation is slow. This is only recommended for games with freeform movement.
     ThetaStar,
+
 }
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
