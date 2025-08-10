@@ -1,14 +1,14 @@
 //! Plugin to add systems for drawing gizmos. For debugging pathfinding.
 use std::fmt::Debug;
 
-use bevy::{color::palettes::css, math::Vec2, platform::collections::HashMap, prelude::*};
+use bevy::{color::palettes::css, log, math::Vec2, platform::collections::HashMap, prelude::*};
 
 use crate::{
     components::{DebugCursor, DebugGrid, DebugNode, DebugPath},
     grid::Grid,
     neighbor::Neighborhood,
     path::Path,
-    prelude::{AgentOfGrid, DebugDepthYOffsets, DebugNavMask, DebugOffset},
+    prelude::{AgentOfGrid, DebugDepthYOffsets, DebugNavMask, DebugOffset, Pathfind},
 };
 
 /// Required to calculate how to draw the debug gizmos
@@ -87,6 +87,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
         &DebugNode,
         Option<&DebugDepthYOffsets>,
     )>,
+    pathfinds: Query<&Pathfind>,
     grid: Query<&Grid<N>>,
     mut gizmos: Gizmos,
 ) {
@@ -194,14 +195,30 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                 continue;
             }
 
+            let pathfind = debug_grid
+                .debug_mask
+                .and_then(|entity| pathfinds.get(entity).ok());
+
             // Draw cell gizmos
             for x in 0..grid.width() {
                 for y in 0..grid.height() {
-                    let cell = grid.navcell(UVec3::new(x, y, debug_grid.depth));
+                    let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
+
+                    if let Some(pathfind) = pathfind {
+                        if let Some(mask) = &pathfind.mask {
+                            if let Ok(masked_cell) = mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth)) {
+                                cell = masked_cell;
+                            }
+                        }
+                    }
+
                     let color = if cell.is_impassable() {
                         css::RED
                     } else {
-                        css::WHITE
+                        // Full white at 1 cost, and full green at u8::MAX cost.
+                        let normalized_cost = cell.cost as f32 / u8::MAX as f32;
+                        let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
+                        Color::srgb(1.0, other_colors, other_colors).to_srgba()
                     };
 
                     let position = match debug_grid.map_type {
@@ -561,39 +578,5 @@ fn update_debug_node<N: Neighborhood + 'static>(
         }
 
         node.0 = selected_node;
-    }
-}
-
-fn debug_nav_mask<N: Neighborhood + 'static>(
-    grid_children: Query<(Entity, &Children), With<Grid<N>>>,
-    debug_grid: Query<(&DebugGrid, &DebugOffset, Option<&DebugDepthYOffsets>)>,
-    debug_masks: Query<(&DebugNavMask, &Path, &AgentOfGrid)>,
-    mut gizmos: Gizmos,
-) {
-    for (grid_entity, child) in grid_children {
-        // Find the DebugGrid component for the Grid entity
-        let debug_grid_vec: Vec<_> = child
-            .iter()
-            .filter_map(|child_entity| debug_grid.get(child_entity).ok())
-            .collect();
-
-        if debug_grid_vec.is_empty() {
-            continue;
-        }
-
-        if debug_grid_vec.len() > 1 {
-            warn!(
-                "Multiple DebugGrid components found for Grid entity: {:?}",
-                grid_entity
-            );
-        }
-
-        let (debug_grid, debug_offset, debug_depth_offsets) = debug_grid_vec[0];
-
-        let center_offset = debug_offset.0.truncate();
-
-        for (debug_mask, path, parent_grid) in debug_masks {
-            
-        }
     }
 }

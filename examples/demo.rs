@@ -148,6 +148,7 @@ fn startup(
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
             .enable_chunks()
+            .enable_cells()
             .enable_entrances()
             .enable_cached_paths()
             .enable_show_connections_on_hover()
@@ -209,9 +210,11 @@ fn spawn_minions(
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
     test_cost_mask: Res<TestCostNavMask>,
+    debug_grid: Single<&mut DebugGrid>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
+    let mut debug_grid = debug_grid.into_inner();
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
@@ -273,7 +276,7 @@ fn spawn_minions(
             }
         }
 
-        commands
+        let entity = commands
             .spawn(Sprite {
                 image: asset_server.load("tiles/tile_0018_edit.png"),
                 color,
@@ -290,7 +293,11 @@ fn spawn_minions(
                 0,
             )))
             .insert(pathfind)
-            .insert(ChildOf(layer_entity));
+            .insert(ChildOf(layer_entity)).id();
+
+        if count == 0 {
+            debug_grid.set_debug_mask(entity);
+        }
 
         count += 1;
     }
