@@ -342,7 +342,7 @@ impl Default for GridInternalSettings {
 ///    commands.spawn(grid);
 /// }
 /// ```
-#[derive(Component, Transform)]
+#[derive(Component)]
 pub struct Grid<N: Neighborhood> {
     pub(crate) neighborhood: N,
 
