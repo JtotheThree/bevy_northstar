@@ -97,11 +97,10 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            if neighbor_cell.is_impassable() {
-                continue;
-            }
 
-            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
+            let cell = mask.get(neighbor_cell.clone(), neighbor);
+
+            if cell.is_impassable() {
                 continue;
             }
 
@@ -125,7 +124,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
             }
 
-            let new_cost = cost + neighbor_cell.cost;
+            let new_cost = cost + cell.cost;
             let h;
             let n;
             match visited.entry(neighbor) {
