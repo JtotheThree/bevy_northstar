@@ -130,7 +130,6 @@ fn spawn_player(
     mut commands: Commands,
     grid: Single<(Entity, &mut Grid<OrdinalNeighborhood>)>,
     layer_entity: Query<Entity, With<TiledMapTileLayer>>,
-    debug_grid: Single<&mut DebugGrid>,
     tilemap: Single<(
         &TilemapSize,
         &TilemapTileSize,
@@ -140,7 +139,6 @@ fn spawn_player(
     asset_server: Res<AssetServer>,
 ) {
     let (grid_entity, _) = grid.into_inner();
-    let mut debug_grid = debug_grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
     let layer_entity = layer_entity.iter().next().unwrap();
 
@@ -166,9 +164,7 @@ fn spawn_player(
         AgentOfGrid(grid_entity),
         Transform::from_translation(translation),
         ChildOf(layer_entity),
-    )).id();
-
-    debug_grid.set_debug_mask(player_entity);
+    ));
 }
 
 fn input(
@@ -177,11 +173,13 @@ fn input(
     camera: Single<(&Camera, &GlobalTransform, &Transform), With<Camera>>,
     player: Single<Entity, With<AgentPos>>,
     map_query: Query<shared::MapQuery>,
+    debug_grid: Single<&mut DebugGrid>,
     mut commands: Commands,
 ) {
     let window = window.into_inner();
     let (camera, camera_transform, _) = camera.into_inner();
     let player = player.into_inner();
+    let mut debug_grid = debug_grid.into_inner();
 
     let map = map_query.iter().next().expect("No map found in the query");
 
@@ -214,9 +212,10 @@ fn input(
             let nav_mask = NavMask::new();
             nav_mask.add_layer(mask_layer).ok();
 
+            debug_grid.set_debug_mask(nav_mask.clone());
 
             log::info!("Pathfinding to: {:?}", goal);
-            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::ThetaStar).mask(nav_mask));
+            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints).mask(nav_mask));
         }
     }
 }

@@ -7,7 +7,7 @@ use bevy::{
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
-    prelude::Component,
+    prelude::Component, transform::components::Transform,
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -343,6 +343,10 @@ impl Default for GridInternalSettings {
 /// }
 /// ```
 #[derive(Component)]
+// Transform doesn't actually do anything for the grid
+// Requiring it just surpresses the Bevy warning if the user doesn't add the grid 
+// as a child to anything.
+#[require(Transform)]
 pub struct Grid<N: Neighborhood> {
     pub(crate) neighborhood: N,
 

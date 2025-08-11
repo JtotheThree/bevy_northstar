@@ -275,7 +275,8 @@ pub struct DebugGrid {
     pub draw_cached_paths: bool,
     /// Will show the connections between nodes only when hovering over them.
     pub show_connections_on_hover: bool,
-    pub debug_mask: Option<Entity>,
+    #[reflect(ignore)]
+    pub debug_mask: Option<NavMask>,
 }
 
 impl DebugGrid {
@@ -368,8 +369,8 @@ impl DebugGrid {
         self
     }
 
-    pub fn set_debug_mask(&mut self, entity: Entity) -> &Self {
-        self.debug_mask = Some(entity);
+    pub fn set_debug_mask(&mut self, mask: NavMask) -> &Self {
+        self.debug_mask = Some(mask);
         self
     }
 
@@ -393,7 +394,7 @@ pub struct DebugGridBuilder {
     draw_entrances: bool,
     draw_cached_paths: bool,
     show_connections_on_hover: bool,
-    debug_mask: Option<Entity>,
+    debug_mask: Option<NavMask>,
 }
 
 impl DebugGridBuilder {

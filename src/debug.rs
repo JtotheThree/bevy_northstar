@@ -87,7 +87,6 @@ fn draw_debug_map<N: Neighborhood + 'static>(
         &DebugNode,
         Option<&DebugDepthYOffsets>,
     )>,
-    pathfinds: Query<&Pathfind>,
     grid: Query<&Grid<N>>,
     mut gizmos: Gizmos,
 ) {
@@ -195,20 +194,14 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                 continue;
             }
 
-            let pathfind = debug_grid
-                .debug_mask
-                .and_then(|entity| pathfinds.get(entity).ok());
-
             // Draw cell gizmos
             for x in 0..grid.width() {
                 for y in 0..grid.height() {
                     let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
 
-                    if let Some(pathfind) = pathfind {
-                        if let Some(mask) = &pathfind.mask {
-                            if let Ok(masked_cell) = mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth)) {
-                                cell = masked_cell;
-                            }
+                    if let Some(mask) = &debug_grid.debug_mask {
+                        if let Ok(masked_cell) = mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth)) {
+                            cell = masked_cell;
                         }
                     }
 

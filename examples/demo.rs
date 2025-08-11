@@ -148,7 +148,6 @@ fn startup(
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
             .enable_chunks()
-            .enable_cells()
             .enable_entrances()
             .enable_cached_paths()
             .enable_show_connections_on_hover()
@@ -233,7 +232,7 @@ fn spawn_minions(
 
     let mut count = 0;
 
-    while count < 512 {
+    while count < 128 {
         let position = walkable.tiles.choose(&mut rand::rng()).unwrap();
         let goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
@@ -276,7 +275,7 @@ fn spawn_minions(
             }
         }
 
-        let entity = commands
+        commands
             .spawn(Sprite {
                 image: asset_server.load("tiles/tile_0018_edit.png"),
                 color,
@@ -293,11 +292,7 @@ fn spawn_minions(
                 0,
             )))
             .insert(pathfind)
-            .insert(ChildOf(layer_entity)).id();
-
-        if count == 0 {
-            debug_grid.set_debug_mask(entity);
-        }
+            .insert(ChildOf(layer_entity));
 
         count += 1;
     }
