@@ -82,6 +82,7 @@ fn startup(
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
+            .enable_cells()
             .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
@@ -152,7 +153,7 @@ fn spawn_player(
         1.0,
     );
 
-    commands.spawn((
+    let player_entity = commands.spawn((
         Player,
         Sprite {
             image: asset_server.load("tiles/tile_0018_edit.png"),
@@ -172,11 +173,13 @@ fn input(
     camera: Single<(&Camera, &GlobalTransform, &Transform), With<Camera>>,
     player: Single<Entity, With<AgentPos>>,
     map_query: Query<shared::MapQuery>,
+    debug_grid: Single<&mut DebugGrid>,
     mut commands: Commands,
 ) {
     let window = window.into_inner();
     let (camera, camera_transform, _) = camera.into_inner();
     let player = player.into_inner();
+    let mut debug_grid = debug_grid.into_inner();
 
     let map = map_query.iter().next().expect("No map found in the query");
 
@@ -200,8 +203,19 @@ fn input(
 
     if input.just_pressed(MouseButton::Left) {
         if let Some(goal) = clicked_tile {
+            let mask_layer = NavMaskLayer::new();
+            mask_layer.insert_region(
+                Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+                NavCellMask::ModifyCost(5000),
+            ).unwrap();
+
+            let nav_mask = NavMask::new();
+            nav_mask.add_layer(mask_layer).ok();
+
+            debug_grid.set_debug_mask(nav_mask.clone());
+
             log::info!("Pathfinding to: {:?}", goal);
-            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints));
+            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints).mask(nav_mask));
         }
     }
 }

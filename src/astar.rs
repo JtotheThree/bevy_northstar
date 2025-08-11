@@ -97,21 +97,13 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
+            let cell = mask.get(neighbor_cell.clone(), neighbor);
+
+            if cell.is_impassable() {
                 continue;
             }
 
-            /*if neighbor_cell.is_impassable() {
-                continue;
-            }
-
-            if let Some(nav_cell) = masks.nav(grid, neighbor) {
-                if nav_cell.is_impassable() {
-                    continue;
-                }
-            }*/
-
-            let new_cost = cost + neighbor_cell.cost;
+            let new_cost = cost + cell.cost;
             let h;
             let n;
             match visited.entry(neighbor) {

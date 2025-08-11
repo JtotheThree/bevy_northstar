@@ -265,7 +265,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
                 if waypoints {
                     let waypoints_path =
-                        path_to_waypoints(&grid.neighborhood, &grid.view(), &Path::new(path, cost));
+                        extract_waypoints(&grid.neighborhood, &grid.view(), &Path::new(path, cost), mask);
                     if waypoints_path.is_empty() {
                         log::warn!("Waypoints path is empty, returning None");
                         return None;
@@ -334,54 +334,79 @@ pub(crate) fn trim_path(
         "BUG: trim_path() removed all nodes — this should never happen"
     );
 }
+pub(crate) fn extract_waypoints<N: Neighborhood>(
+    neighborhood: &N,
+    grid: &ArrayView3<NavCell>,
+    path: &Path,
+    mask: &NavMaskData,
+) -> Path {
+    if path.is_empty() {
+        return path.clone();
+    }
 
-/*#[inline(always)]
-pub(crate) fn trim_path(
-    path: &mut Path,
-    starts: Vec<UVec3>,
-    goals: Vec<UVec3>,
-) {
-    // Trim out reduntant nodes in the viable starts
-    if let Some(last_start_node) = path
-        .path
-        .iter()
-        .rev()
-        .find(|&&pos| starts.contains(&pos))
-        .cloned()
-    {
-        while let Some(first) = path.path.front() {
-            // Trim only if it's a different node in the start chunk
-            if starts.contains(first) && *first != last_start_node {
-                path.path.pop_front();
-            } else {
+    let filtered = !neighborhood.filters().is_empty();
+    let mut waypoints_path = Vec::with_capacity(path.len());
+    let mut total_cost = 0;
+    let mut i = 0;
+
+    waypoints_path.push(path.path[i]); // Always keep the first node
+
+    while i < path.len() - 1 {
+        let mut found = false;
+        for farthest in (i + 1..path.len()).rev() {
+            let candidate = path.path[farthest];
+            if let Some(shortcut) = bresenham_path(
+                grid,
+                path.path[i],
+                candidate,
+                neighborhood.is_ordinal(),
+                filtered,
+                true,
+            ) {
+                for &pos in shortcut.iter().skip(1) {
+                    let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                    let masked_cell = mask.get(cell_val, pos);
+                    total_cost += masked_cell.cost;
+                }
+
+                waypoints_path.push(candidate);
+                i = farthest;
+                found = true;
                 break;
+            }
+        }
+        if !found {
+            // No shortcut found, advance by one
+            i += 1;
+            if i < path.len() && waypoints_path.last() != Some(&path.path[i]) {
+                if let Some(step) = bresenham_path(
+                    grid,
+                    *waypoints_path.last().unwrap(),
+                    path.path[i],
+                    neighborhood.is_ordinal(),
+                    filtered,
+                    true,
+                ) {
+                    for &pos in step.iter().skip(1) {
+                        let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                        let masked_cell = mask.get(cell_val, pos);
+                        total_cost += masked_cell.cost;
+                    }
+                }
+                waypoints_path.push(path.path[i]);
             }
         }
     }
 
-    // Trim out redundant nodes in the viable goals
-    if let Some(first_goal_node) = path
-        .path
-        .iter()
-        .find(|&&pos| goals.contains(&pos))
-        .cloned()
-    {
-        while let Some(last) = path.path.back() {
-            if goals.contains(last) && *last != first_goal_node {
-                path.path.pop_back();
-            } else {
-                break;
-            }
-        }
-    }
+    log::info!("Found total_cost: {}", total_cost);
 
-    assert!(
-        !path.path.is_empty(),
-        "BUG: trim_path() removed all nodes — this should never happen"
-    );
-}*/
+    Path::new(waypoints_path, total_cost)
+}
 
-pub(crate) fn path_to_waypoints<N: Neighborhood>(
+
+
+
+/*pub(crate) fn extract_waypoints<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     path: &Path,
@@ -427,7 +452,7 @@ pub(crate) fn path_to_waypoints<N: Neighborhood>(
     }
 
     Path::new(waypoints_path, path.cost())
-}
+}*/
 
 /// Optimize a path by using line of sight checks to skip waypoints.
 ///
@@ -526,12 +551,6 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     //let max = chunk.max().as_ivec3();
 
     let mask_local = mask.translate_by(-min);
-
-    // Adjust the blocking map to the local chunk coordinates
-    /*let adjusted_blocking = blocking
-    .iter()
-    .map(|(pos, entity)| (chunk.to_local(pos), *entity))
-    .collect::<HashMap<_, _>>();*/
 
     // Get paths from source to all nodes in this chunk
     let paths = dijkstra_grid(

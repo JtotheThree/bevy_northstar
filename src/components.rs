@@ -219,6 +219,9 @@ pub struct DebugCursor(pub Option<Vec2>);
 #[derive(Component, Debug, Default)]
 pub(crate) struct DebugNode(pub(crate) Option<UVec3>);
 
+#[derive(Component)]
+pub struct DebugNavMask;
+
 /// Component for debugging an entity's [`crate::path::Path`].
 #[derive(Component, Reflect)]
 pub struct DebugPath {
@@ -272,6 +275,8 @@ pub struct DebugGrid {
     pub draw_cached_paths: bool,
     /// Will show the connections between nodes only when hovering over them.
     pub show_connections_on_hover: bool,
+    #[reflect(ignore)]
+    pub debug_mask: Option<NavMask>,
 }
 
 impl DebugGrid {
@@ -363,6 +368,17 @@ impl DebugGrid {
         self.show_connections_on_hover = !self.show_connections_on_hover;
         self
     }
+
+    pub fn set_debug_mask(&mut self, mask: NavMask) -> &Self {
+        self.debug_mask = Some(mask);
+        self
+    }
+
+    pub fn clear_debug_mask(&mut self) -> &Self {
+        self.debug_mask = None;
+        self
+    }
+
 }
 
 /// Builder for [`DebugGrid`].
@@ -378,6 +394,7 @@ pub struct DebugGridBuilder {
     draw_entrances: bool,
     draw_cached_paths: bool,
     show_connections_on_hover: bool,
+    debug_mask: Option<NavMask>,
 }
 
 impl DebugGridBuilder {
@@ -393,6 +410,7 @@ impl DebugGridBuilder {
             draw_entrances: false,
             draw_cached_paths: false,
             show_connections_on_hover: false,
+            debug_mask: None,
         }
     }
 
@@ -464,6 +482,7 @@ impl DebugGridBuilder {
             draw_entrances: self.draw_entrances,
             draw_cached_paths: self.draw_cached_paths,
             show_connections_on_hover: self.show_connections_on_hover,
+            debug_mask: self.debug_mask,
         }
     }
 }

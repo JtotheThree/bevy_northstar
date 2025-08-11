@@ -209,9 +209,11 @@ fn spawn_minions(
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
     test_cost_mask: Res<TestCostNavMask>,
+    debug_grid: Single<&mut DebugGrid>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
+    let mut debug_grid = debug_grid.into_inner();
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
@@ -230,7 +232,7 @@ fn spawn_minions(
 
     let mut count = 0;
 
-    while count < 512 {
+    while count < 128 {
         let position = walkable.tiles.choose(&mut rand::rng()).unwrap();
         let goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 

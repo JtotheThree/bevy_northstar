@@ -82,11 +82,14 @@ pub(crate) fn dijkstra_grid(
                 neighbor.z as usize,
             ]];
 
-            if mask.get(neighbor_cell.clone(), neighbor).is_impassable() {
+
+            let cell = mask.get(neighbor_cell.clone(), neighbor);
+
+            if cell.is_impassable() {
                 continue;
             }
 
-            let new_cost = cost + neighbor_cell.cost;
+            let new_cost = cost + cell.cost;
             let n;
 
             match visited.entry(neighbor) {
