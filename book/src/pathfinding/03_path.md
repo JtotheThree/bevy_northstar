@@ -1,4 +1,5 @@
-# Path
+# The `Path` Component / Struct
+
 The `Path` component will be inserted to an entity when after a path is found. It is also returned when calling the manual pathfinding methods on `Grid`.
 
 You can use it draw paths in your game, for example when highlighting tiles for a path in a turn based game.

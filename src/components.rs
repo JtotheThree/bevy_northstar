@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::debug::DebugTilemapType;
+use crate::{debug::DebugTilemapType, nav_mask::NavMask};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -23,19 +23,26 @@ pub struct AgentPos(pub UVec3);
 /// Determines which algorithm to use for pathfinding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
 pub enum PathfindMode {
-    /// Hierarchical pathfinding with the final path refined with line tracing.
     #[default]
+    /// Hierarchical pathfinding with the final path refined with line tracing.
     Refined,
     /// Hierarchical pathfinding using only cached paths. Use this if you're not concerned with trying to find the shortest path.
     Coarse,
     /// Full-grid A* pathfinding without hierarchy.
     /// Useful for small grids or a turn based pathfinding path where movement cost needs to be the most accurate and cpu usage isn't a concern.
     AStar,
+
+    /// Any-Angle HPA* pathfinding, returns only the key points where line of sight breaks to the goal.
+    Waypoints,
+    /// Any-Angle θ* pathfinding without hierarchy.
+    /// Note that Theta* only returns the key points where line of sight breaks to the goal.
+    /// It provides a very direct path but calculation is slow. This is only recommended for games with freeform movement.
+    ThetaStar,
 }
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -43,8 +50,14 @@ pub struct Pathfind {
     pub partial: bool,
 
     /// The [`PathfindMode`] to use for pathfinding.
+    /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
-    pub mode: PathfindMode,
+    pub mode: Option<PathfindMode>,
+
+    /// Optional [`NavMask`] to use for pathfinding.
+    /// You can filter out certain areas of the grid or apply movement costs.
+    #[reflect(ignore)]
+    pub mask: Option<NavMask>,
 }
 
 impl Pathfind {
@@ -88,7 +101,7 @@ impl Pathfind {
 
     /// Sets the pathfinding mode. See [`PathfindMode`] for options.
     pub fn mode(mut self, mode: PathfindMode) -> Self {
-        self.mode = mode;
+        self.mode = Some(mode);
         self
     }
 
@@ -97,6 +110,14 @@ impl Pathfind {
     /// even if it can't find a full route to the goal.
     pub fn partial(mut self) -> Self {
         self.partial = true;
+        self
+    }
+
+    /// Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
+    /// This allows you to filter out certain areas of the grid or apply movement costs.
+    /// This is useful for agent specific movement costs or areas that should be avoided.
+    pub fn mask(mut self, mask: NavMask) -> Self {
+        self.mask = Some(mask);
         self
     }
 }
@@ -253,6 +274,10 @@ pub struct DebugGrid {
     pub draw_cached_paths: bool,
     /// Will show the connections between nodes only when hovering over them.
     pub show_connections_on_hover: bool,
+    /// You can assign an entity as the debug_mask to visualize that agent's [`crate::nav_mask::NavMask`] in the debug grid.
+    /// Since the NavMasks are agent related, you can only visualize one at a time.
+    #[reflect(ignore)]
+    pub debug_mask: Option<NavMask>,
 }
 
 impl DebugGrid {
@@ -344,6 +369,19 @@ impl DebugGrid {
         self.show_connections_on_hover = !self.show_connections_on_hover;
         self
     }
+
+    /// You can assign an entity as the debug_mask to visualize that agent's [`crate::nav_mask::NavMask`] in the debug grid.
+    /// Since the NavMasks are agent related, you can only visualize one at a time.
+    pub fn set_debug_mask(&mut self, mask: NavMask) -> &Self {
+        self.debug_mask = Some(mask);
+        self
+    }
+
+    /// Clears the debug mask so it will no longer be visualized in the debug grid cells.
+    pub fn clear_debug_mask(&mut self) -> &Self {
+        self.debug_mask = None;
+        self
+    }
 }
 
 /// Builder for [`DebugGrid`].
@@ -359,6 +397,7 @@ pub struct DebugGridBuilder {
     draw_entrances: bool,
     draw_cached_paths: bool,
     show_connections_on_hover: bool,
+    debug_mask: Option<NavMask>,
 }
 
 impl DebugGridBuilder {
@@ -374,6 +413,7 @@ impl DebugGridBuilder {
             draw_entrances: false,
             draw_cached_paths: false,
             show_connections_on_hover: false,
+            debug_mask: None,
         }
     }
 
@@ -445,6 +485,7 @@ impl DebugGridBuilder {
             draw_entrances: self.draw_entrances,
             draw_cached_paths: self.draw_cached_paths,
             show_connections_on_hover: self.show_connections_on_hover,
+            debug_mask: self.debug_mask,
         }
     }
 }

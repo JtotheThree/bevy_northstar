@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::{ecs::query::QueryData, prelude::*};
+use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
 
 // Config used for the examples
@@ -17,6 +18,17 @@ pub enum State {
     #[default]
     Loading,
     Playing,
+}
+
+// Common bevy_ecs_tilemap query often used for tile<->world position calculations.
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
+pub struct MapQuery {
+    pub grid_size: &'static TilemapGridSize,
+    pub map_size: &'static TilemapSize,
+    pub tile_size: &'static TilemapTileSize,
+    pub map_type: &'static TilemapType,
+    pub anchor: &'static TilemapAnchor,
 }
 
 // Plugin used for the examples
@@ -59,6 +71,8 @@ impl<N: Neighborhood + 'static> Plugin for SharedPlugin<N> {
 
 #[derive(Resource, Debug, Default)]
 pub struct Walkable {
+    #[allow(dead_code)]
+    // THIS IS NOT DEAD CODE. TF CLIPPY??
     pub tiles: Vec<Vec3>,
 }
 
@@ -191,9 +205,11 @@ pub fn update_pathfind_type_text(
 ) {
     for mut span in &mut query {
         **span = match config.mode {
-            PathfindMode::AStar => "A*".to_string(),
+            PathfindMode::Refined => "HPA* Refined".to_string(),
             PathfindMode::Coarse => "HPA* Coarse".to_string(),
-            PathfindMode::Refined => "HPA*".to_string(),
+            PathfindMode::AStar => "A*".to_string(),
+            PathfindMode::Waypoints => "Waypoints".to_string(),
+            PathfindMode::ThetaStar => "Theta*".to_string(),
         };
     }
 }
@@ -251,9 +267,11 @@ pub fn input<N: Neighborhood + 'static>(
         if keyboard_input.just_pressed(KeyCode::KeyP) {
             // Cycle through pathfinding modes
             config.mode = match config.mode {
-                PathfindMode::AStar => PathfindMode::Refined,
-                PathfindMode::Coarse => PathfindMode::AStar,
                 PathfindMode::Refined => PathfindMode::Coarse,
+                PathfindMode::Coarse => PathfindMode::AStar,
+                PathfindMode::AStar => PathfindMode::Waypoints,
+                PathfindMode::Waypoints => PathfindMode::ThetaStar,
+                PathfindMode::ThetaStar => PathfindMode::Refined,
             };
 
             stats.reset_pathfinding();
