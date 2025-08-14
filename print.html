@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_path.html"><strong aria-hidden="true">7.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/03_manual_pathfinding.html"><strong aria-hidden="true">8.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">9.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">10.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">11.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">12.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="pathfinding/04_manual_pathfinding.html"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="debugging.html"><strong aria-hidden="true">12.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="migrations/001_v0.3.0.html"><strong aria-hidden="true">13.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -555,15 +555,6 @@ See below for a list of <code>PathfindMode</code>s and their description.</p>
 <h4 id="partial"><a class="header" href="#partial"><code>partial()</code></a></h4>
 <p><code>Default: Not enabled</code></p>
 <p>Apply <code>.partial()</code> to request an incomplete path if the goal is not reachable. Ex: <code>Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()</code>.</p>
-<h3 id="pathfindmode"><a class="header" href="#pathfindmode">PathfindMode</a></h3>
-<p>The pathfinding algorithm enum. Current options are:</p>
-<h4 id="pathfindmoderefined"><a class="header" href="#pathfindmoderefined"><code>PathfindMode::Refined</code></a></h4>
-<h5 id="this-is-the-default-algorithm"><a class="header" href="#this-is-the-default-algorithm">This is the default algorithm</a></h5>
-<p>Gets a high level path to the goal at the chunk level. If a path is found, the path is iterated over with a line of sight / tracing algorithm to attempt to create the shortest path to the goal. The refinement is more expensive than the HPA* algorithm but not nearly as expensive as using A*.</p>
-<h4 id="pathfindmodecoarse"><a class="header" href="#pathfindmodecoarse"><code>PathfindMode::Coarse</code></a></h4>
-<p>Returns the unrefined HPA* path pulled from the cached entrance paths. This will not return the path with the least steps to the goal but is extremely fast to generate. It's great for natural paths NPCs might use to move around a building for example.</p>
-<h4 id="pathfindmodeastar"><a class="header" href="#pathfindmodeastar"><code>PathfindMode::AStar</code></a></h4>
-<p>This is standard A* pathfinding. It's very expensive for long distance goals on large maps but is still useful for very short distances or when you're concerned with the absolute shortest path. A good use would be movement where action points are subtracted based on number of moves.</p>
 <h2 id="nextpos"><a class="header" href="#nextpos">NextPos</a></h2>
 <p>The pathfind system detects entities with a changed <code>Pathfind</code> component. It then runs the pathfinding algorithm and, if a valid path is found, inserts the next step as a <code>NextPos</code> component.</p>
 <p>You should consume the <code>NextPos</code> component by moving the entity accordingly and then removing the component afterward. In a subsequent frame, the next_position system will insert the next <code>NextPos</code> if the path is not yet complete.</p>
@@ -668,7 +659,36 @@ fn handle_reroute_failed(
     })
 <span class="boring">}
 </span></code></pre></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="path"><a class="header" href="#path">Path</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="available-modes--algorithms"><a class="header" href="#available-modes--algorithms">Available Modes / Algorithms</a></h1>
+<h2 id="pathfindmode"><a class="header" href="#pathfindmode">PathfindMode</a></h2>
+<p>The pathfinding algorithm enum. Current options are:</p>
+<h3 id="grid-movement-modes"><a class="header" href="#grid-movement-modes">Grid Movement Modes</a></h3>
+<p>These modes return paths that keep the agent’s movement constrained to the grid. Every position in the path is adjacent to the next.</p>
+<h4 id="pathfindmoderefined"><a class="header" href="#pathfindmoderefined"><code>PathfindMode::Refined</code></a></h4>
+<h5 id="this-is-the-default-algorithm"><a class="header" href="#this-is-the-default-algorithm">This is the default algorithm</a></h5>
+<p>Gets a high level path to the goal at the chunk level. If a path is found, the path is iterated over with a line of sight / tracing algorithm to attempt to create the shortest path to the goal. The refinement is more expensive than the HPA* algorithm but not nearly as expensive as using A*.</p>
+<p><em>Manual call</em>: <code>Grid::pathfind()</code>.</p>
+<h4 id="pathfindmodecoarse"><a class="header" href="#pathfindmodecoarse"><code>PathfindMode::Coarse</code></a></h4>
+<p>Returns the unrefined HPA* path pulled from the cached entrance paths. This will not return the path with the least steps to the goal but is extremely fast to generate. It's great for natural paths NPCs might use to move around a building for example.</p>
+<p><em>Manual call</em>: <code>Grid::pathfind_coarse()</code>.</p>
+<h4 id="pathfindmodeastar"><a class="header" href="#pathfindmodeastar"><code>PathfindMode::AStar</code></a></h4>
+<p>This is standard A* pathfinding. It's very expensive for long distance goals on large maps but is still useful for very short distances or when you're concerned with the absolute shortest path. A good use would be movement where action points are subtracted based on number of moves.</p>
+<p><em>Manual call</em>: <code>Grid::pathfind_astar()</code>.</p>
+<h3 id="any-angle-modes"><a class="header" href="#any-angle-modes">Any Angle Modes</a></h3>
+<p>Any-angle modes return the path as a series of waypoint segments. Each waypoint marks the start or end of a straight-line segment that can be traversed without intersecting any obstacles. This is intended for freeform movement where the agent is not constrained to follow the grid.</p>
+<blockquote>
+<p><strong>⚠️ Warning</strong>
+The cost of an any-angle path is a good estimate but does not account for the exact cost of every grid cell the agent may or may not pass through between waypoints.</p>
+</blockquote>
+<h4 id="pathfindmodewaypoints"><a class="header" href="#pathfindmodewaypoints"><code>PathfindMode::Waypoints</code></a></h4>
+<p>Very fast HPA* any-angle pathfinding that returns only the essential waypoints instead of the full step-by-step path. It uses the standard HPA* algorithm, but during the refinement stage it outputs only the waypoints rather than expanding every intermediate step.</p>
+<p><em>Manual call</em>: <code>Grid::pathfind_waypoints()</code>.</p>
+<h4 id="pathfindmodethetastar"><a class="header" href="#pathfindmodethetastar"><code>PathfindMode::ThetaStar</code></a></h4>
+<p>An expensive but near-optimal any-angle algorithm. It produces paths similar to PathfindMode::Waypoints, but can sometimes yield slightly shorter results. This is a lazy Theta* implementation, which calculates line-of-sight for all neighbors during the search, making it significantly more costly to compute.</p>
+<p><em>Manual call</em>: <code>Grid::pathfind_thetastar()</code>.</p>
+<h3 id="limited-search"><a class="header" href="#limited-search">Limited Search</a></h3>
+<p>There is also an extra AStar algorthm that is currently only available by manually calling it on the grid <code>Grid::pathfind_astar_radius()</code>. This will run AStar pathfinding limited to a u32 radius around the starting point.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-path-component--struct"><a class="header" href="#the-path-component--struct">The <code>Path</code> Component / Struct</a></h1>
 <p>The <code>Path</code> component will be inserted to an entity when after a path is found. It is also returned when calling the manual pathfinding methods on <code>Grid</code>.</p>
 <p>You can use it draw paths in your game, for example when highlighting tiles for a path in a turn based game.</p>
 <p>There are a few notable methods on <code>Path</code>.</p>
