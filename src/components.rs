@@ -1,14 +1,15 @@
 //! Components for pathfinding, collision, and debugging.
+#[cfg(feature = "debug")]
 use bevy::{
     color::palettes::css,
-    ecs::entity::Entity,
-    math::{UVec3, Vec2, Vec3},
+    math::{Vec2, Vec3},
     platform::collections::HashMap,
-    prelude::{Color, Component},
-    reflect::Reflect,
+    prelude::Color,
     transform::components::Transform,
 };
+use bevy::{ecs::entity::Entity, math::UVec3, prelude::Component, reflect::Reflect};
 
+#[cfg(feature = "debug")]
 use crate::debug::DebugTilemapType;
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
@@ -22,6 +23,7 @@ pub struct AgentPos(pub UVec3);
 
 /// Determines which algorithm to use for pathfinding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PathfindMode {
     /// Hierarchical pathfinding with the final path refined with line tracing.
     #[default]
@@ -31,11 +33,15 @@ pub enum PathfindMode {
     /// Full-grid A* pathfinding without hierarchy.
     /// Useful for small grids or a turn based pathfinding path where movement cost needs to be the most accurate and cpu usage isn't a concern.
     AStar,
+    /// Any-Angle θ* pathfinding without hierarchy.
+    /// Useful for small grids or a turn based pathfinding path where movement cost needs to be the most accurate and cpu usage isn't a concern.
+    ThetaStar,
 }
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
 #[derive(Component, Default, Debug, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
@@ -107,6 +113,7 @@ impl Pathfind {
 /// a new [`NextPos`] will be inserted on the next frame.
 #[derive(Component, Default, Debug, Reflect)]
 #[component(storage = "SparseSet")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NextPos(pub UVec3);
 
 // See src/path.rs for the Path component
@@ -123,6 +130,7 @@ pub struct NextPos(pub UVec3);
 /// **Do not** use this component for static obstacles such as walls or terrain.
 /// Static geometry should be handled separately with [`crate::grid::Grid::set_nav()`] in [`crate::grid::Grid`].
 #[derive(Component, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blocking;
 
 // I want to switch to this in the future on the next Bevy major release.
@@ -159,6 +167,7 @@ impl PartialEq for PathError {
 /// unless the desire is to handle the failure in a custom way.
 #[derive(Component, Default, Debug)]
 #[component(storage = "SparseSet")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AvoidanceFailed;
 
 /// Marker component that is inserted on an entity when a collision is detected.
@@ -166,6 +175,7 @@ pub struct AvoidanceFailed;
 /// you handle the failure in a custom way.
 #[derive(Component, Default, Debug)]
 #[component(storage = "SparseSet")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PathfindingFailed;
 
 /// Marker component that is inserted on an entity when path rerouting in [`crate::plugin::NorthstarPlugin`] `reroute_path` fails.
@@ -174,34 +184,40 @@ pub struct PathfindingFailed;
 /// Examples would be to set a new goal or wait for a certain amount of time before trying to reroute again.
 #[derive(Component, Default, Debug)]
 #[component(storage = "SparseSet")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RerouteFailed;
 
 /****************************************
     DEBUGGING COMPONENTS
 *****************************************/
-
+#[cfg(feature = "debug")]
 /// Add this component to the same entity as [`DebugPath`] to offset the debug gizmos.
 /// Useful for aligning the gizmos with your tilemap rendering offset.
 #[derive(Component, Default, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugOffset(pub Vec3);
-
+#[cfg(feature = "debug")]
 /// You can add DebugDepthOffsets to your DebugGrid entity and the debug gizmo's y position
 /// will be offset by the depth (z-coordinate) of the grid/path position.
 #[derive(Component, Default, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugDepthYOffsets(pub HashMap<u32, f32>);
-
+#[cfg(feature = "debug")]
 /// Add [`DebugCursor`] to your DebugGrid entity and provide it with the current position
 /// of your mouse cursor.
 /// This will allow [`DebugGrid::set_show_connections_on_hover()`] to only draw connections graph node under the cursor.
 #[derive(Component, Debug, Default, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugCursor(pub Option<Vec2>);
-
+#[cfg(feature = "debug")]
 // Internal component to hold which cell the mouse is hovering over.
 #[derive(Component, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct DebugNode(pub(crate) Option<UVec3>);
-
+#[cfg(feature = "debug")]
 /// Component for debugging an entity's [`crate::path::Path`].
 #[derive(Component, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugPath {
     /// The [`Color`] of the path gizmo.
     pub color: Color,
@@ -209,7 +225,7 @@ pub struct DebugPath {
     /// This is useful for debugging the HPA* algorithm.
     pub draw_unrefined: bool,
 }
-
+#[cfg(feature = "debug")]
 impl DebugPath {
     /// Creates a new [`DebugPath`] component with the specified color.
     /// The default color is red.
@@ -220,7 +236,7 @@ impl DebugPath {
         }
     }
 }
-
+#[cfg(feature = "debug")]
 impl Default for DebugPath {
     fn default() -> Self {
         DebugPath {
@@ -230,10 +246,12 @@ impl Default for DebugPath {
     }
 }
 
+#[cfg(feature = "debug")]
 /// Component for debugging [`crate::grid::Grid`].
 /// You need to insert [`DebugGrid`] as a child of your map.
 #[derive(Reflect, Component)]
 #[require(Transform, DebugOffset, DebugDepthYOffsets, DebugCursor, DebugNode)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugGrid {
     /// The width of your tiles in pixels.
     pub tile_width: u32,
@@ -255,6 +273,7 @@ pub struct DebugGrid {
     pub show_connections_on_hover: bool,
 }
 
+#[cfg(feature = "debug")]
 impl DebugGrid {
     /// The width and height of a tile in pixels. This is required because your tile pixel dimensions may not match the grid size.
     pub fn tile_size(&mut self, width: u32, height: u32) -> &Self {
@@ -346,9 +365,11 @@ impl DebugGrid {
     }
 }
 
+#[cfg(feature = "debug")]
 /// Builder for [`DebugGrid`].
 /// Use this to configure debugging for a grid before inserting it into your map entity.
 /// Insert the returned [`DebugGrid`] as a child of the entity with your [`crate::grid::Grid`] component.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugGridBuilder {
     tile_width: u32,
     tile_height: u32,
@@ -361,6 +382,7 @@ pub struct DebugGridBuilder {
     show_connections_on_hover: bool,
 }
 
+#[cfg(feature = "debug")]
 impl DebugGridBuilder {
     /// Creates a new [`DebugGridBuilder`] with the specified tile width and height.
     pub fn new(tile_width: u32, tile_height: u32) -> Self {

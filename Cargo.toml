@@ -18,6 +18,8 @@ exclude = ["assets/*", "res/*"]
 default = ["parallel"]
 stats = []
 parallel = ["rayon", "ndarray/rayon"]
+serde = ["dep:serde", "bevy/serialize"]
+debug = ["bevy/bevy_gizmos", "bevy/bevy_render"]
 
 [dependencies]
 thiserror = "2.0.12"
@@ -28,11 +30,12 @@ rustc-hash = "2.1.1"
 strum = "0.27.1"
 slab = "0.4.10"
 smallvec = "1.15.1"
+serde = { version = "1", features = ["derive"], optional = true }
 
 [dependencies.bevy]
 version = "0.16.1"
 default-features = false
-features=["bevy_render", "bevy_gizmos", "bevy_log"]
+features = ["bevy_log"]
 
 [dev-dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools"] }
@@ -52,15 +55,16 @@ harness = false
 
 [[example]]
 name = "demo"
-required-features = ["stats"]
+required-features = ["stats", "debug"]
 
 [[example]]
 name = "isometric"
+required-features = ["debug"]
 
 [[example]]
 name = "collision_testing"
-required-features = ["stats"]
+required-features = ["stats", "debug"]
 
 [[example]]
 name = "basic"
-
+required-features = ["debug"]

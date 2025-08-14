@@ -22,12 +22,13 @@ use crate::{
     neighbor::Neighborhood,
     node::Node,
     path::Path,
-    pathfind::{pathfind, pathfind_astar, reroute_path},
+    pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path},
     position_in_cubic_window, timed, MovementCost,
 };
 
 /// Settings for how the grid is divided into chunks.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChunkSettings {
     /// The square size of each chunk in the grid.
     /// Needs to be at least 3.
@@ -53,6 +54,7 @@ impl Default for ChunkSettings {
 /// Defaults movement cost and passability for initializing the grid cells.
 /// Useful if you're generating your a large map to reduce your initialization time.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NavSettings {
     /// The default cost for each cell in the grid.
     pub default_movement_cost: MovementCost,
@@ -71,6 +73,7 @@ impl Default for NavSettings {
 
 /// Settings for collision
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CollisionSettings {
     /// If true, collision avoidance is enabled.
     pub enabled: bool,
@@ -433,12 +436,12 @@ impl<N: Neighborhood + Default> Grid<N> {
     }
 
     /// Returns an [`ndarray::ArrayView3<NavCell>`] for read-only access to the grid data.
-    pub fn view(&self) -> ArrayView3<NavCell> {
+    pub fn view(&'_ self) -> ArrayView3<'_, NavCell> {
         self.grid.view()
     }
 
     /// Returns an [`ndarray::ArrayView3<NavCell>`] for read-only access to the data within a given [`Chunk`].
-    pub(crate) fn chunk_view(&self, chunk: &Chunk) -> ArrayView3<NavCell> {
+    pub(crate) fn chunk_view(&'_ self, chunk: &Chunk) -> ArrayView3<'_, NavCell> {
         chunk.view(&self.grid)
     }
 
@@ -1593,6 +1596,41 @@ impl<N: Neighborhood + Default> Grid<N> {
             path.translate_by(min.as_uvec3());
             path
         })
+    }
+
+    /// Generate a traditional A* path from `start` to `goal`.
+    /// This method is useful for generating paths that require precise navigation and CPU cost isn't a concern.
+    /// Great for a turn based game where movment cost is important.
+    ///
+    /// # Arguments
+    /// * `start` - The starting position in the grid.
+    /// * `goal` - The goal position in the grid.
+    /// * `blocking` - A map of positions to entities that are blocking the path. Pass `&HashMap::new()` if you're not concerned with collision.
+    ///   Pass `&HasMap::new()` if you're not concerned with collision. If using [`crate::plugin::NorthstarPlugin`] you can pass it the [`crate::plugin::BlockingMap`] resource.
+    ///   If not, build a [`HashMap<UVec3, Entity>`] with the positions of entities that should be blocking paths.
+    /// * `partial` - Whether to allow partial paths (i.e., if the goal is unreachable, return the closest reachable point).
+    /// # Returns
+    /// A [`Path`] if successful, or `None` if no viable path could be found.
+    ///
+    pub fn pathfind_thetastar(
+        &self,
+        start: UVec3,
+        goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
+        partial: bool,
+    ) -> Option<Path> {
+        if self.needs_build() {
+            return None;
+        }
+
+        pathfind_thetastar(
+            &self.neighborhood,
+            &self.grid.view(),
+            start,
+            goal,
+            blocking,
+            partial,
+        )
     }
 }
 

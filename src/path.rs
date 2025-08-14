@@ -11,6 +11,7 @@ use std::collections::VecDeque;
 /// systems have pathfound to the goal position.
 ///
 #[derive(Debug, Clone, Component, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Path {
     pub(crate) path: VecDeque<UVec3>,
     pub(crate) graph_path: VecDeque<UVec3>,

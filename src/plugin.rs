@@ -9,6 +9,7 @@ use crate::{prelude::*, WithoutPathingFailures};
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NorthstarPluginSettings {
     /// The maximum number of agents that can be processed per frame.
     /// This is useful to stagger the pathfinding and collision avoidance systems
@@ -36,6 +37,7 @@ pub struct NorthstarPlugin<N: Neighborhood> {
 
 /// Tracks the average time the pathfinding algorithm takes.
 #[derive(Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PathfindingStats {
     /// The average time taken for pathfinding in seconds.
     pub average_time: f64,
@@ -49,6 +51,7 @@ pub struct PathfindingStats {
 
 /// Tracks the average time the collision avoidance algorithms take.
 #[derive(Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CollisionStats {
     /// The average time taken for collision avoidance in seconds.
     pub average_time: f64,
@@ -62,6 +65,7 @@ pub struct CollisionStats {
 
 /// The `Stats` `Resource` holds the pathfinding and collision avoidance statistics.
 #[derive(Resource, Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Stats {
     /// Pathfinding frame time statistics.
     pub pathfinding: PathfindingStats,
@@ -146,15 +150,18 @@ pub struct PathingSet;
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
 #[derive(Resource, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BlockingMap(pub HashMap<UVec3, Entity>);
 
 /// The `DirectionMap` `Resource` contains a map of every pathfinding entity's last moved direction.
 /// This is mainly used for collision avoidance but could be used for other purposes.
 #[derive(Resource, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DirectionMap(pub HashMap<Entity, Vec3>);
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct NeedsPathfinding;
 
 // Flags all the entities with a changed `Pathfind` component to request pathfinding.
@@ -209,6 +216,9 @@ fn pathfind<N: Neighborhood + 'static>(
             }
             PathfindMode::AStar => {
                 grid.pathfind_astar(start.0, pathfind.goal, blocking, pathfind.partial)
+            }
+            PathfindMode::ThetaStar => {
+                grid.pathfind_thetastar(start.0, pathfind.goal, blocking, pathfind.partial)
             }
         };
 
@@ -505,7 +515,8 @@ fn reroute_path<N: Neighborhood + 'static>(
         let refined = match pathfind.mode {
             PathfindMode::Refined => true,
             PathfindMode::Coarse => false,
-            PathfindMode::AStar => false, // A* is not supported for rerouting
+            PathfindMode::AStar => false,
+            PathfindMode::ThetaStar => false,
         };
 
         let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking.0, refined);

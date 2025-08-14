@@ -18,6 +18,7 @@ use crate::{
     path::Path,
     prelude::Neighborhood,
     raycast::{bresenham_path, bresenham_path_filtered},
+    thetastar::thetastar_grid,
 };
 
 /// AStar pathfinding
@@ -70,6 +71,65 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     }
 
     let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
+
+    if let Some(mut path) = path {
+        path.path.pop_front();
+        Some(path)
+    } else {
+        None
+    }
+}
+
+/// AStar pathfinding
+///
+/// This function is provided if you want to supply your own grid.
+/// If you're using the built in [`Grid`] you can use the pathfinding helper functions
+/// provided in the [`Grid`] struct.
+///
+/// # Arguments
+/// * `neighborhood` - The [`Neighborhood`] to use for the pathfinding.
+/// * `grid` - The [`ArrayView3`] of [`NavCell`]s to use for the pathfinding.
+/// * `start` - The starting position.
+/// * `goal` - The goal position.
+/// * `blocking` - A hashmap of blocked positions for dynamic obstacles.
+/// * `partial` - If true, the pathfinding will return a partial path if the goal is blocked.
+#[inline(always)]
+// This has to be moved internally since the base A* and Djikstra algorithms use precomputed neighbors now.
+pub(crate) fn pathfind_thetastar<N: Neighborhood>(
+    neighborhood: &N,
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
+    partial: bool,
+) -> Option<Path> {
+    // Ensure the goal is within bounds of the grid
+    let shape = grid.shape();
+    if start.x as usize >= shape[0] || start.y as usize >= shape[1] || start.z as usize >= shape[2]
+    {
+        log::warn!("Start is out of bounds: {:?}", start);
+        return None;
+    }
+
+    if goal.x as usize >= shape[0] || goal.y as usize >= shape[1] || goal.z as usize >= shape[2] {
+        log::warn!("Goal is out of bounds: {:?}", goal);
+        return None;
+    }
+
+    // If the goal is impassibe and partial isn't set, return none
+    if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
+        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !partial
+    {
+        return None;
+    }
+
+    // if goal is in the blocking map, return None
+    if blocking.contains_key(&goal) && !partial {
+        //log::error!("Goal is in the blocking map");
+        return None;
+    }
+
+    let path = thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking);
 
     if let Some(mut path) = path {
         path.path.pop_front();

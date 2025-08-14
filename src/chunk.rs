@@ -6,6 +6,7 @@ use crate::{dir::Dir, nav::NavCell};
 
 /// A chunk is a 3D region of the grid.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct Chunk {
     /// The index of the chunk in the grid.
     index: (usize, usize, usize),

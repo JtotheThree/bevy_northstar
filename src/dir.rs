@@ -9,6 +9,7 @@ pub use self::Dir::*;
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Dir {
     NorthWestDown = 0,
     NorthDown = 1,
