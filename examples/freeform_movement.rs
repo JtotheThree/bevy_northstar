@@ -20,16 +20,16 @@ fn main() {
         .add_plugins((TilemapPlugin, TiledMapPlugin::default()))
         .add_systems(Startup, startup)
         .add_systems(OnEnter(shared::State::Playing), spawn_player)
-        .add_systems(Update, (input, move_player).run_if(in_state(shared::State::Playing)))
+        .add_systems(
+            Update,
+            (input, move_player).run_if(in_state(shared::State::Playing)),
+        )
         .add_observer(layer_created)
         .insert_state(shared::State::Loading)
         .run();
 }
 
-fn startup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
 
@@ -53,8 +53,7 @@ fn startup(
     // Spawn a 2D camera and set the position based on the centered anchor offset
     commands.spawn(Camera2d).insert(Transform {
         translation: camera_offset,
-        ..Default
-        ::default()
+        ..Default::default()
     });
     let map_handle: Handle<TiledMap> = asset_server.load("demo_128.tmx");
 
@@ -81,9 +80,7 @@ fn startup(
     // Add the debug map as a child of the entity containing the Grid.
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
-        DebugGridBuilder::new(8, 8)
-            .enable_cells()
-            .build(),
+        DebugGridBuilder::new(8, 8).enable_cells().build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
     ));
@@ -142,9 +139,7 @@ fn spawn_player(
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
     let layer_entity = layer_entity.iter().next().unwrap();
 
-
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
-
 
     let position = UVec3::new(64, 64, 0);
     let translation = Vec3::new(
@@ -153,7 +148,7 @@ fn spawn_player(
         1.0,
     );
 
-    let player_entity = commands.spawn((
+    commands.spawn((
         Player,
         Sprite {
             image: asset_server.load("tiles/tile_0018_edit.png"),
@@ -183,7 +178,6 @@ fn input(
 
     let map = map_query.iter().next().expect("No map found in the query");
 
-
     let clicked_tile: Option<TilePos> = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
@@ -204,10 +198,12 @@ fn input(
     if input.just_pressed(MouseButton::Left) {
         if let Some(goal) = clicked_tile {
             let mask_layer = NavMaskLayer::new();
-            mask_layer.insert_region(
-                Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-                NavCellMask::ModifyCost(5000),
-            ).unwrap();
+            mask_layer
+                .insert_region(
+                    Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+                    NavCellMask::ModifyCost(5000),
+                )
+                .unwrap();
 
             let nav_mask = NavMask::new();
             nav_mask.add_layer(mask_layer).ok();
@@ -215,7 +211,11 @@ fn input(
             debug_grid.set_debug_mask(nav_mask.clone());
 
             log::info!("Pathfinding to: {:?}", goal);
-            commands.entity(player).insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints).mask(nav_mask));
+            commands.entity(player).insert(
+                Pathfind::new(UVec3::new(goal.x, goal.y, 0))
+                    .mode(PathfindMode::Waypoints)
+                    .mask(nav_mask),
+            );
         }
     }
 }
@@ -230,13 +230,15 @@ fn move_player(
 
     for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
         let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
-        let world_pos = tile_pos.center_in_world(map.map_size, map.grid_size, map.tile_size, map.map_type, map.anchor);
-
-        let next_translation = Vec3::new(
-            world_pos.x,
-            world_pos.y,
-            1.0,
+        let world_pos = tile_pos.center_in_world(
+            map.map_size,
+            map.grid_size,
+            map.tile_size,
+            map.map_type,
+            map.anchor,
         );
+
+        let next_translation = Vec3::new(world_pos.x, world_pos.y, 1.0);
 
         let direction = next_translation - transform.translation;
         let distance = direction.length();

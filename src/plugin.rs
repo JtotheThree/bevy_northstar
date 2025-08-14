@@ -235,10 +235,10 @@ fn pathfind<N: Neighborhood + 'static>(
             }
             PathfindMode::Waypoints => {
                 grid.pathfind_waypoints(start.0, pathfind.goal, Some(&mask), pathfind.partial)
-            },
+            }
             PathfindMode::ThetaStar => {
                 grid.pathfind_thetastar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
-            },
+            }
         };
 
         #[cfg(feature = "stats")]

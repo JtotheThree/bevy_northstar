@@ -1,6 +1,6 @@
 use bevy::{ecs::query::QueryData, prelude::*};
-use bevy_northstar::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use bevy_northstar::prelude::*;
 
 // Config used for the examples
 
@@ -19,7 +19,6 @@ pub enum State {
     Loading,
     Playing,
 }
-
 
 // Common bevy_ecs_tilemap query often used for tile<->world position calculations.
 #[derive(QueryData)]
@@ -72,6 +71,8 @@ impl<N: Neighborhood + 'static> Plugin for SharedPlugin<N> {
 
 #[derive(Resource, Debug, Default)]
 pub struct Walkable {
+    #[allow(dead_code)]
+    // THIS IS NOT DEAD CODE. TF CLIPPY??
     pub tiles: Vec<Vec3>,
 }
 

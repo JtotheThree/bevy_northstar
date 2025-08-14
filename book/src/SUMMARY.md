@@ -7,8 +7,9 @@
 - [Grid Updates](./grid_updates.md)
 # Pathfinding
 - [With NorthstarPlugin](./pathfinding/01_plugin.md)
-- [Path Component/Struct](./pathfinding/02_path.md)
-- [Manual Pathfinding](./pathfinding/03_manual_pathfinding.md)
+- [Modes / Algorithms](./pathfinding/02_modes.md)
+- [Path Component/Struct](./pathfinding/03_path.md)
+- [Manual Pathfinding](./pathfinding/04_manual_pathfinding.md)
 # Neighborhood
 - [Neighborhoods](./neighborhood/01_neighborhoods.md)
 - [Filters](./neighborhood/02_filters.md)

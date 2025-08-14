@@ -38,7 +38,6 @@ pub enum PathfindMode {
     /// Note that Theta* only returns the key points where line of sight breaks to the goal.
     /// It provides a very direct path but calculation is slow. This is only recommended for games with freeform movement.
     ThetaStar,
-
 }
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
@@ -114,6 +113,9 @@ impl Pathfind {
         self
     }
 
+    /// Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
+    /// This allows you to filter out certain areas of the grid or apply movement costs.
+    /// This is useful for agent specific movement costs or areas that should be avoided.
     pub fn mask(mut self, mask: NavMask) -> Self {
         self.mask = Some(mask);
         self
@@ -219,9 +221,6 @@ pub struct DebugCursor(pub Option<Vec2>);
 #[derive(Component, Debug, Default)]
 pub(crate) struct DebugNode(pub(crate) Option<UVec3>);
 
-#[derive(Component)]
-pub struct DebugNavMask;
-
 /// Component for debugging an entity's [`crate::path::Path`].
 #[derive(Component, Reflect)]
 pub struct DebugPath {
@@ -275,6 +274,8 @@ pub struct DebugGrid {
     pub draw_cached_paths: bool,
     /// Will show the connections between nodes only when hovering over them.
     pub show_connections_on_hover: bool,
+    /// You can assign an entity as the debug_mask to visualize that agent's [`crate::nav_mask::NavMask`] in the debug grid.
+    /// Since the NavMasks are agent related, you can only visualize one at a time.
     #[reflect(ignore)]
     pub debug_mask: Option<NavMask>,
 }
@@ -369,16 +370,18 @@ impl DebugGrid {
         self
     }
 
+    /// You can assign an entity as the debug_mask to visualize that agent's [`crate::nav_mask::NavMask`] in the debug grid.
+    /// Since the NavMasks are agent related, you can only visualize one at a time.
     pub fn set_debug_mask(&mut self, mask: NavMask) -> &Self {
         self.debug_mask = Some(mask);
         self
     }
 
+    /// Clears the debug mask so it will no longer be visualized in the debug grid cells.
     pub fn clear_debug_mask(&mut self) -> &Self {
         self.debug_mask = None;
         self
     }
-
 }
 
 /// Builder for [`DebugGrid`].

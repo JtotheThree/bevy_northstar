@@ -97,7 +97,6 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-
             let cell = mask.get(neighbor_cell.clone(), neighbor);
 
             if cell.is_impassable() {
@@ -111,6 +110,8 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 let parent_pos = *visited.get_index(current_parent_index).unwrap().0;
 
                 // LOS check: parent -> neighbor
+                #[allow(clippy::if_same_then_else)]
+                // Yes the blocks are the same, but this is a performance optimization
                 if has_line_of_sight(grid, parent_pos, neighbor, neighborhood.is_ordinal()) {
                     chosen_parent_index = current_parent_index;
                 } else if grid[[

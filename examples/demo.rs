@@ -209,11 +209,9 @@ fn spawn_minions(
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
     test_cost_mask: Res<TestCostNavMask>,
-    debug_grid: Single<&mut DebugGrid>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
-    let mut debug_grid = debug_grid.into_inner();
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
@@ -318,7 +316,7 @@ fn grid_move_pathfinders(
         }
         PathfindMode::ThetaStar => {
             return;
-        },
+        }
         _ => {}
     }
 
@@ -364,7 +362,7 @@ fn free_move_pathfinders(
     time: Res<Time>,
 ) {
     match config.mode {
-        PathfindMode::Waypoints | PathfindMode::ThetaStar => {},
+        PathfindMode::Waypoints | PathfindMode::ThetaStar => {}
         _ => {
             // Skip if we're not in Waypoints or ThetaStar mode
             return;
@@ -375,13 +373,15 @@ fn free_move_pathfinders(
 
     for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
         let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
-        let world_pos = tile_pos.center_in_world(map.map_size, map.grid_size, map.tile_size, map.map_type, map.anchor);
-
-        let next_translation = Vec3::new(
-            world_pos.x,
-            world_pos.y,
-            1.0,
+        let world_pos = tile_pos.center_in_world(
+            map.map_size,
+            map.grid_size,
+            map.tile_size,
+            map.map_type,
+            map.anchor,
         );
+
+        let next_translation = Vec3::new(world_pos.x, world_pos.y, 1.0);
 
         let direction = next_translation - transform.translation;
         let distance = direction.length();
@@ -432,7 +432,7 @@ fn set_new_goal(
             PathfindMode::ThetaStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone()) 
+                    .mask(test_cost_mask.0.clone())
             }
         }
 

@@ -7,7 +7,8 @@ use bevy::{
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
-    prelude::Component, transform::components::Transform,
+    prelude::Component,
+    transform::components::Transform,
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -344,7 +345,7 @@ impl Default for GridInternalSettings {
 /// ```
 #[derive(Component)]
 // Transform doesn't actually do anything for the grid
-// Requiring it just surpresses the Bevy warning if the user doesn't add the grid 
+// Requiring it just surpresses the Bevy warning if the user doesn't add the grid
 // as a child to anything.
 #[require(Transform)]
 pub struct Grid<N: Neighborhood> {
@@ -1215,7 +1216,8 @@ impl<N: Neighborhood + Default> Grid<N> {
                     .map(|other| other.pos - chunk.min())
                     .collect();
 
-                let paths = dijkstra_grid(&chunk_grid, start, &goals, false, 100, &HashMap::new());
+                let paths =
+                    dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
 
                 for (goal_pos, path) in paths.into_iter() {
                     let world_start = node.pos;
@@ -1494,6 +1496,17 @@ impl<N: Neighborhood + Default> Grid<N> {
         pathfind(self, start, goal, &mask, partial, false, false)
     }
 
+    /// Generate a path using HPA* pathfinding that ONLY returns waypoints needed to avoid walls.
+    /// Games with continous real-time movement can use this to generate paths where the movement only needs the key positions to avoid running into objects and walls.
+    ///
+    /// # Arguuments
+    /// * `start` - The starting position in the grid.
+    /// * `goal` - The goal position in the grid.
+    /// * `mask` - An optional [`NavMask`] which can dynamically alter navigation cells only for this request.
+    /// * `partial` - Whether to allow partial paths (i.e., if the goal is unreachable, return the closest reachable point).
+    /// # Returns
+    /// A waypoint only [`Path`] if successful, or `None` if no viable path could be found.
+    ///
     pub fn pathfind_waypoints(
         &self,
         start: UVec3,

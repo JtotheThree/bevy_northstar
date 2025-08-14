@@ -264,8 +264,12 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 }
 
                 if waypoints {
-                    let waypoints_path =
-                        extract_waypoints(&grid.neighborhood, &grid.view(), &Path::new(path, cost), mask);
+                    let waypoints_path = extract_waypoints(
+                        &grid.neighborhood,
+                        &grid.view(),
+                        &Path::new(path, cost),
+                        mask,
+                    );
                     if waypoints_path.is_empty() {
                         log::warn!("Waypoints path is empty, returning None");
                         return None;
@@ -334,6 +338,8 @@ pub(crate) fn trim_path(
         "BUG: trim_path() removed all nodes — this should never happen"
     );
 }
+
+/// Extract waypoints from a path by checking for line of sight between nodes.
 pub(crate) fn extract_waypoints<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
@@ -388,7 +394,8 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
                     true,
                 ) {
                     for &pos in step.iter().skip(1) {
-                        let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                        let cell_val =
+                            grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
                         let masked_cell = mask.get(cell_val, pos);
                         total_cost += masked_cell.cost;
                     }
@@ -402,57 +409,6 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
 
     Path::new(waypoints_path, total_cost)
 }
-
-
-
-
-/*pub(crate) fn extract_waypoints<N: Neighborhood>(
-    neighborhood: &N,
-    grid: &ArrayView3<NavCell>,
-    path: &Path,
-) -> Path {
-    if path.is_empty() {
-        return path.clone();
-    }
-
-    let filtered = !neighborhood.filters().is_empty();
-
-    let mut waypoints_path = Vec::with_capacity(path.len());
-    let mut i = 0;
-
-    waypoints_path.push(path.path[i]); // Always keep the first node
-
-    while i < path.len() - 1 {
-        let mut found = false;
-        for farthest in (i + 1..path.len()).rev() {
-            let candidate = path.path[farthest];
-            let maybe_shortcut = bresenham_path(
-                grid,
-                path.path[i],
-                candidate,
-                neighborhood.is_ordinal(),
-                filtered,
-                true,
-            );
-            if maybe_shortcut.is_some() {
-                waypoints_path.push(candidate);
-                i = farthest;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            // No shortcut found, advance by one
-            i += 1;
-            // Only add if not already present
-            if i < path.len() && waypoints_path.last() != Some(&path.path[i]) {
-                waypoints_path.push(path.path[i]);
-            }
-        }
-    }
-
-    Path::new(waypoints_path, path.cost())
-}*/
 
 /// Optimize a path by using line of sight checks to skip waypoints.
 ///

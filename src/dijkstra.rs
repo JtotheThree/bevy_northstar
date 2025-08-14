@@ -82,7 +82,6 @@ pub(crate) fn dijkstra_grid(
                 neighbor.z as usize,
             ]];
 
-
             let cell = mask.get(neighbor_cell.clone(), neighbor);
 
             if cell.is_impassable() {

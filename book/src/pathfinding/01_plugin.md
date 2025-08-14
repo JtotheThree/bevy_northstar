@@ -39,19 +39,6 @@ See below for a list of `PathfindMode`s and their description.
 
 Apply `.partial()` to request an incomplete path if the goal is not reachable. Ex: `Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()`.
 
-### PathfindMode
-The pathfinding algorithm enum. Current options are:
-
-#### `PathfindMode::Refined`
-##### This is the default algorithm
-Gets a high level path to the goal at the chunk level. If a path is found, the path is iterated over with a line of sight / tracing algorithm to attempt to create the shortest path to the goal. The refinement is more expensive than the HPA* algorithm but not nearly as expensive as using A*.
-
-#### `PathfindMode::Coarse`
-Returns the unrefined HPA* path pulled from the cached entrance paths. This will not return the path with the least steps to the goal but is extremely fast to generate. It's great for natural paths NPCs might use to move around a building for example.
-
-#### `PathfindMode::AStar`
-This is standard A* pathfinding. It's very expensive for long distance goals on large maps but is still useful for very short distances or when you're concerned with the absolute shortest path. A good use would be movement where action points are subtracted based on number of moves.
-
 ## NextPos
 The pathfind system detects entities with a changed `Pathfind` component. It then runs the pathfinding algorithm and, if a valid path is found, inserts the next step as a `NextPos` component.
 
