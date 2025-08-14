@@ -197,11 +197,23 @@ fn draw_debug_map<N: Neighborhood + 'static>(
             // Draw cell gizmos
             for x in 0..grid.width() {
                 for y in 0..grid.height() {
-                    let cell = grid.navcell(UVec3::new(x, y, debug_grid.depth));
+                    let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
+
+                    if let Some(mask) = &debug_grid.debug_mask {
+                        if let Ok(masked_cell) =
+                            mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
+                        {
+                            cell = masked_cell;
+                        }
+                    }
+
                     let color = if cell.is_impassable() {
                         css::RED
                     } else {
-                        css::WHITE
+                        // Full white at 1 cost, and full green at u8::MAX cost.
+                        let normalized_cost = cell.cost as f32 / u8::MAX as f32;
+                        let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
+                        Color::srgb(1.0, other_colors, other_colors).to_srgba()
                     };
 
                     let position = match debug_grid.map_type {
@@ -403,7 +415,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
             let half_tile_width = debug_grid.tile_width as f32 * 0.5;
             let half_tile_height = debug_grid.tile_height as f32 * 0.5;
 
-            // Iterate over path.path() drawing a line from one cell to the next cell until completed
+            // Iterate over full_path drawing a line from one cell to the next cell until completed
             let mut iter = path.path().iter();
             let mut prev = iter.next().unwrap();
 
@@ -502,6 +514,7 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
         }
     }
 }
+
 fn update_debug_node<N: Neighborhood + 'static>(
     mut query: Query<(
         &mut DebugNode,

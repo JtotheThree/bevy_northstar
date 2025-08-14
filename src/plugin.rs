@@ -5,7 +5,22 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{prelude::*, WithoutPathingFailures};
+use crate::{
+    nav_mask::{NavMaskLayer, NavMaskLayerData},
+    prelude::*,
+    WithoutPathingFailures,
+};
+
+/// Sets default settings for the Pathfind component.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PathfindSettings {
+    /// Sets the default pathfinding mode.
+    /// Defaults to PathfindMode::Refined
+    pub default_mode: PathfindMode,
+    /// Sets the default for whether or not pathfinding should return partial paths
+    /// closets to the goal when a path to the goal cannot be found.
+    pub default_partial: bool,
+}
 
 /// General settings for the Northstar plugin.
 #[derive(Resource, Debug, Copy, Clone)]
@@ -16,6 +31,8 @@ pub struct NorthstarPluginSettings {
     pub max_pathfinding_agents_per_frame: usize,
     /// The maximum number of agents that can be processed for collision avoidance per frame.
     pub max_collision_avoidance_agents_per_frame: usize,
+    /// Pathfind defaults
+    pub pathfind_settings: PathfindSettings,
 }
 
 impl Default for NorthstarPluginSettings {
@@ -23,6 +40,7 @@ impl Default for NorthstarPluginSettings {
         Self {
             max_pathfinding_agents_per_frame: 128,
             max_collision_avoidance_agents_per_frame: 128,
+            pathfind_settings: PathfindSettings::default(),
         }
     }
 }
@@ -126,6 +144,7 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
                 .in_set(PathingSet),
         )
         .insert_resource(NorthstarPluginSettings::default())
+        .insert_resource(BlockingMask::default())
         .insert_resource(BlockingMap::default())
         .insert_resource(Stats::default())
         .insert_resource(DirectionMap::default())
@@ -142,6 +161,9 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 /// You can use this set to schedule systems before or after the pathfinding systems.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PathingSet;
+
+#[derive(Resource, Default)]
+struct BlockingMask(pub NavMaskLayer);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -160,7 +182,7 @@ pub(crate) struct NeedsPathfinding;
 // Flags all the entities with a changed `Pathfind` component to request pathfinding.
 fn tag_pathfinding_requests(mut commands: Commands, query: Query<Entity, Changed<Pathfind>>) {
     for entity in query.iter() {
-        commands.entity(entity).insert(NeedsPathfinding);
+        commands.entity(entity).try_insert(NeedsPathfinding);
     }
 }
 
@@ -170,7 +192,7 @@ fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
     query: Query<(Entity, &AgentPos, &Pathfind), With<NeedsPathfinding>>,
-    blocking: Res<BlockingMap>,
+    blocking_mask: Res<BlockingMask>,
     settings: Res<NorthstarPluginSettings>,
     //mut queue: Local<VecDeque<Entity>>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -194,21 +216,28 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let blocking = if grid.collision() {
-            &blocking.0
-        } else {
-            &HashMap::new()
-        };
+        let mask =
+            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
-        let path = match pathfind.mode {
+        let mode = pathfind
+            .mode
+            .unwrap_or(settings.pathfind_settings.default_mode);
+
+        let path = match mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
             PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind_coarse(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, blocking, pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+            }
+            PathfindMode::Waypoints => {
+                grid.pathfind_waypoints(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+            }
+            PathfindMode::ThetaStar => {
+                grid.pathfind_thetastar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
             }
         };
 
@@ -221,9 +250,9 @@ fn pathfind<N: Neighborhood + 'static>(
 
             commands
                 .entity(entity)
-                .insert(path)
-                .remove::<PathfindingFailed>()
-                .remove::<NeedsPathfinding>();
+                .try_insert(path)
+                .try_remove::<PathfindingFailed>()
+                .try_remove::<NeedsPathfinding>();
             // We remove PathfindingFailed even if it's not there.
         } else {
             #[cfg(feature = "stats")]
@@ -231,9 +260,9 @@ fn pathfind<N: Neighborhood + 'static>(
 
             commands
                 .entity(entity)
-                .insert(PathfindingFailed)
-                .remove::<NeedsPathfinding>()
-                .remove::<NextPos>(); // Just to be safe
+                .try_insert(PathfindingFailed)
+                .try_remove::<NeedsPathfinding>()
+                .try_remove::<NextPos>(); // Just to be safe
         }
 
         count += 1;
@@ -250,7 +279,8 @@ fn next_position<N: Neighborhood + 'static>(
         (WithoutPathingFailures, Without<NextPos>),
     >,
     grid: Single<&Grid<N>>,
-    mut blocking: ResMut<BlockingMap>,
+    mut blocking_map: ResMut<BlockingMap>,
+    blocking_mask: ResMut<BlockingMask>,
     mut direction: ResMut<DirectionMap>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
@@ -278,10 +308,13 @@ fn next_position<N: Neighborhood + 'static>(
         // If the entity still exists and is valid
         if let Ok((entity, mut path, position, pathfind)) = query.get_mut(entity) {
             if position.0 == pathfind.goal {
-                commands.entity(entity).remove::<Path>();
-                commands.entity(entity).remove::<Pathfind>();
+                commands.entity(entity).try_remove::<Path>();
+                commands.entity(entity).try_remove::<Pathfind>();
                 continue;
             }
+
+            let mask =
+                prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
 
             let next = if grid.collision() {
                 #[cfg(feature = "stats")]
@@ -291,15 +324,15 @@ fn next_position<N: Neighborhood + 'static>(
                     grid,
                     entity,
                     &mut path,
-                    pathfind,
                     position.0,
-                    &blocking.0,
+                    &blocking_map.0,
+                    &mask,
                     &direction.0,
                     grid.avoidance_distance() as usize,
                 );
 
                 if !success {
-                    commands.entity(entity).insert(AvoidanceFailed);
+                    commands.entity(entity).try_insert(AvoidanceFailed);
                     continue;
                 }
 
@@ -319,15 +352,26 @@ fn next_position<N: Neighborhood + 'static>(
                     .0
                     .insert(entity, next.as_vec3() - position.0.as_vec3());
 
-                if blocking.0.contains_key(&next) && grid.collision() {
+                if blocking_map.0.contains_key(&next) && grid.collision() {
                     // Someone beat us to it - requeue without inserting NextPos
                     queue.push_back(entity);
                     continue;
                 }
 
-                blocking.0.remove(&position.0);
-                blocking.0.insert(next, entity);
-                commands.entity(entity).insert(NextPos(next));
+                if grid.collision() {
+                    // If we have a blocking mask, insert the next position as impassable
+                    blocking_mask
+                        .0
+                        .insert_mask(next, NavCellMask::ImpassableOverride)
+                        .unwrap();
+                    blocking_mask.0.remove_mask(position.0).unwrap();
+
+                    blocking_map.0.remove(&position.0);
+                    blocking_map.0.insert(next, entity);
+                }
+                // Get mutable reference to the blocking map
+
+                commands.entity(entity).try_insert(NextPos(next));
 
                 // Re-queue for next frame
                 queue.push_back(entity);
@@ -343,9 +387,9 @@ fn avoidance<N: Neighborhood + 'static>(
     grid: &Grid<N>,
     entity: Entity,
     path: &mut Path,
-    pathfind: &Pathfind,
     position: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    blocking_map: &HashMap<UVec3, Entity>,
+    mask: &NavMask,
     direction: &HashMap<Entity, Vec3>,
     avoidance_distance: usize,
 ) -> bool {
@@ -364,7 +408,7 @@ fn avoidance<N: Neighborhood + 'static>(
     // Precompute the dot product for the current position
     let next_position = path.path.front().unwrap();
 
-    if path.path.len() == 1 && blocking.contains_key(next_position) {
+    if path.path.len() == 1 && blocking_map.contains_key(next_position) {
         return false;
     }
 
@@ -375,7 +419,7 @@ fn avoidance<N: Neighborhood + 'static>(
         .iter()
         .take(count)
         .filter(|pos| {
-            if let Some(blocking_entity) = blocking.get(*pos) {
+            if let Some(blocking_entity) = blocking_map.get(*pos) {
                 // If the blocking entity is the same as the current entity, skip it
                 if *blocking_entity == entity {
                     return true;
@@ -410,7 +454,7 @@ fn avoidance<N: Neighborhood + 'static>(
             path.path
                 .iter()
                 .skip(count)
-                .find(|pos| !blocking.contains_key(&**pos))
+                .find(|pos| !blocking_map.contains_key(&**pos))
         };
 
         // If we have an avoidance goal, astar path to that
@@ -421,7 +465,7 @@ fn avoidance<N: Neighborhood + 'static>(
 
             //let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
             let new_path =
-                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking, false);
+                grid.pathfind_astar_radius(position, *avoidance_goal, radius, Some(mask), false);
 
             // Replace the first few positions of path until the avoidance goal
             if let Some(new_path) = new_path {
@@ -458,13 +502,13 @@ fn avoidance<N: Neighborhood + 'static>(
 
     // DELETE THIS
     // We must have gotten to this point because of partial paths
-    if path.path.is_empty() {
+    /*if path.path.is_empty() {
         // if goal is in blocking
-        if blocking.contains_key(&pathfind.goal) {
+        if blocking_map.contains_key(&pathfind.goal) {
             return false;
         }
 
-        let new_path = grid.pathfind(position, pathfind.goal, blocking, false);
+        let new_path = grid.pathfind(position, pathfind.goal, blocking_map, false);
 
         if let Some(new_path) = new_path {
             *path = new_path;
@@ -472,7 +516,7 @@ fn avoidance<N: Neighborhood + 'static>(
         } else {
             return false;
         }
-    }
+    }*/
 
     true
 }
@@ -484,7 +528,7 @@ fn avoidance<N: Neighborhood + 'static>(
 fn reroute_path<N: Neighborhood + 'static>(
     mut query: Query<(Entity, &AgentPos, &Pathfind, &Path), With<AvoidanceFailed>>,
     grid: Single<&Grid<N>>,
-    blocking: Res<BlockingMap>,
+    blocking_mask: Res<BlockingMask>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -501,14 +545,23 @@ fn reroute_path<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start = Instant::now();
 
+        let mode = pathfind
+            .mode
+            .unwrap_or(settings.pathfind_settings.default_mode);
+
         // Let's reroute the path
-        let refined = match pathfind.mode {
+        let refined = match mode {
             PathfindMode::Refined => true,
             PathfindMode::Coarse => false,
-            PathfindMode::AStar => false, // A* is not supported for rerouting
+            PathfindMode::AStar => false,
+            PathfindMode::Waypoints => false,
+            PathfindMode::ThetaStar => false,
         };
 
-        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking.0, refined);
+        let mask =
+            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
+
+        let new_path = grid.reroute_path(path, position.0, pathfind.goal, Some(&mask), refined);
 
         if let Some(new_path) = new_path {
             // if the last position in the path is not the goal...
@@ -521,11 +574,11 @@ fn reroute_path<N: Neighborhood + 'static>(
             #[cfg(feature = "stats")]
             stats.add_collision(elapsed, new_path.cost() as f64);
 
-            commands.entity(entity).insert(new_path);
-            commands.entity(entity).remove::<AvoidanceFailed>();
+            commands.entity(entity).try_insert(new_path);
+            commands.entity(entity).try_remove::<AvoidanceFailed>();
         } else {
-            commands.entity(entity).insert(RerouteFailed);
-            commands.entity(entity).remove::<AvoidanceFailed>(); // Try again next frame
+            commands.entity(entity).try_insert(RerouteFailed);
+            commands.entity(entity).try_remove::<AvoidanceFailed>(); // Try again next frame
 
             #[cfg(feature = "stats")]
             let elapsed = start.elapsed().as_secs_f64();
@@ -536,12 +589,30 @@ fn reroute_path<N: Neighborhood + 'static>(
 }
 
 fn update_blocking_map(
-    mut blocking_set: ResMut<BlockingMap>,
+    mut blocking_map: ResMut<BlockingMap>,
+    mut blocking_mask: ResMut<BlockingMask>,
     query: Query<(Entity, &AgentPos), With<Blocking>>,
 ) {
-    blocking_set.0.clear();
+    blocking_map.0.clear();
+    let mut new_layer = NavMaskLayerData::new();
 
-    query.iter().for_each(|(entity, position)| {
-        blocking_set.0.insert(position.0, entity);
-    });
+    for (entity, position) in query.iter() {
+        blocking_map.0.insert(position.0, entity);
+        new_layer.insert_mask(position.0, NavCellMask::ImpassableOverride);
+    }
+
+    blocking_mask.0 = new_layer.into();
+}
+
+fn prepare_navigation_mask(
+    user_mask: Option<&NavMask>,
+    blocking_mask: &BlockingMask,
+    collision_enabled: bool,
+) -> NavMask {
+    let base_mask = user_mask.cloned().unwrap_or_else(NavMask::new);
+
+    match (collision_enabled, &blocking_mask.0) {
+        (true, blocking_layer) => base_mask.with_additional_layer(blocking_layer.clone()),
+        _ => base_mask,
+    }
 }

@@ -13,6 +13,9 @@ use rand::seq::IndexedRandom;
 
 mod shared;
 
+#[derive(Resource)]
+struct TestCostNavMask(NavMask);
+
 fn main() {
     App::new()
         // Bevy default plugins
@@ -49,7 +52,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                move_pathfinders.before(PathingSet),
+                grid_move_pathfinders.before(PathingSet),
+                free_move_pathfinders.before(PathingSet),
                 set_new_goal.run_if(in_state(shared::State::Playing)),
                 handle_pathfinding_failed.run_if(in_state(shared::State::Playing)),
                 randomize_nav
@@ -61,14 +65,35 @@ fn main() {
         // You only need to add the `NorthstarPluginSettings` resource if you want to change the default settings.
         // The default settings are 16 agents per frame for pathfinding and 32 for collision avoidance.
         .insert_resource(NorthstarPluginSettings {
-            max_pathfinding_agents_per_frame: 48,
+            max_pathfinding_agents_per_frame: 128,
             max_collision_avoidance_agents_per_frame: 64,
+            ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
+        .insert_resource(TestCostNavMask(NavMask::new()))
         .run();
 }
 
-fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn startup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut test_cost_mask: ResMut<TestCostNavMask>,
+) {
+    test_cost_mask.0 = NavMask::new();
+    let layer = NavMaskLayer::new();
+
+    layer
+        .insert_region(
+            Region3d {
+                min: UVec3::new(64, 64, 0),
+                max: UVec3::new(128, 128, 0),
+            },
+            NavCellMask::ModifyCost(250),
+        )
+        .unwrap();
+
+    test_cost_mask.0.add_layer(layer).unwrap();
+
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
 
@@ -169,6 +194,7 @@ fn layer_created(
     state.set(shared::State::Playing);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_minions(
     mut commands: Commands,
     grid: Single<(Entity, &Grid<OrdinalNeighborhood>)>,
@@ -182,6 +208,7 @@ fn spawn_minions(
     asset_server: Res<AssetServer>,
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
+    test_cost_mask: Res<TestCostNavMask>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
@@ -219,9 +246,31 @@ fn spawn_minions(
         let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as u32, (goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Refined => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Refined)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Coarse => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Coarse)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::AStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::AStar)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Waypoints => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Waypoints)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::ThetaStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::ThetaStar)
+                    .mask(test_cost_mask.0.clone());
+            }
         }
 
         commands
@@ -231,7 +280,7 @@ fn spawn_minions(
                 ..Default::default()
             })
             .insert(Name::new(format!("{color:?}")))
-            //.insert(DebugPath::new(color))
+            .insert(DebugPath::new(color))
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))
@@ -247,7 +296,7 @@ fn spawn_minions(
     }
 }
 
-fn move_pathfinders(
+fn grid_move_pathfinders(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AgentPos, &Pathfind, &NextPos)>,
     grid: Single<&Grid<OrdinalNeighborhood>>,
@@ -257,8 +306,20 @@ fn move_pathfinders(
         &TilemapGridSize,
         &TilemapAnchor,
     )>,
+    config: Res<shared::Config>,
     mut tick_reader: EventReader<shared::Tick>,
 ) {
+    // Skip if we're doing Any Angle pathfinding
+    match config.mode {
+        PathfindMode::Waypoints => {
+            return;
+        }
+        PathfindMode::ThetaStar => {
+            return;
+        }
+        _ => {}
+    }
+
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
     let grid = grid.into_inner();
 
@@ -272,7 +333,7 @@ fn move_pathfinders(
                 commands
                     .entity(entity)
                     // For our case, we'll just reinsert the same goal to generate a new path.
-                    .insert(Pathfind::new(pathfind.goal).mode(pathfind.mode))
+                    .insert(pathfind.clone())
                     .remove::<NextPos>();
                 continue;
             }
@@ -293,11 +354,54 @@ fn move_pathfinders(
     }
 }
 
+fn free_move_pathfinders(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut AgentPos, &NextPos, &mut Transform)>,
+    map_query: Query<shared::MapQuery>,
+    config: Res<shared::Config>,
+    time: Res<Time>,
+) {
+    match config.mode {
+        PathfindMode::Waypoints | PathfindMode::ThetaStar => {}
+        _ => {
+            // Skip if we're not in Waypoints or ThetaStar mode
+            return;
+        }
+    }
+
+    let map = map_query.iter().next().expect("No map found in the query");
+
+    for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
+        let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
+        let world_pos = tile_pos.center_in_world(
+            map.map_size,
+            map.grid_size,
+            map.tile_size,
+            map.map_type,
+            map.anchor,
+        );
+
+        let next_translation = Vec3::new(world_pos.x, world_pos.y, 1.0);
+
+        let direction = next_translation - transform.translation;
+        let distance = direction.length();
+
+        if distance > 2.0 {
+            let movement = direction.normalize() * 100.0 * time.delta_secs();
+            transform.translation += movement;
+        } else {
+            agent_pos.0 = next_pos.0;
+            commands.entity(entity).remove::<NextPos>();
+        }
+    }
+}
+
 fn set_new_goal(
     mut commands: Commands,
     mut minions: Query<Entity, (Without<Path>, Without<Pathfind>)>,
     walkable: Res<shared::Walkable>,
     config: Res<shared::Config>,
+    test_cost_mask: Res<TestCostNavMask>,
 ) {
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
@@ -305,9 +409,31 @@ fn set_new_goal(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Refined => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Refined)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Coarse => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Coarse)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::AStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::AStar)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Waypoints => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Waypoints)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::ThetaStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::ThetaStar)
+                    .mask(test_cost_mask.0.clone())
+            }
         }
 
         commands.entity(entity).insert(pathfind);
@@ -320,6 +446,7 @@ fn handle_pathfinding_failed(
     minions: Query<Entity, Or<(With<PathfindingFailed>, With<RerouteFailed>)>>,
     config: Res<shared::Config>,
     walkable: Res<shared::Walkable>,
+    test_cost_mask: Res<TestCostNavMask>,
 ) {
     // Pathfinding failed, normally we might have our AI come up with a new plan,
     // but for this example, we'll just reroute to a new random goal.
@@ -330,9 +457,31 @@ fn handle_pathfinding_failed(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
-            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
-            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Refined => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Refined)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Coarse => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Coarse)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::AStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::AStar)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::Waypoints => {
+                pathfind = pathfind
+                    .mode(PathfindMode::Waypoints)
+                    .mask(test_cost_mask.0.clone())
+            }
+            PathfindMode::ThetaStar => {
+                pathfind = pathfind
+                    .mode(PathfindMode::ThetaStar)
+                    .mask(test_cost_mask.0.clone())
+            }
         }
 
         commands

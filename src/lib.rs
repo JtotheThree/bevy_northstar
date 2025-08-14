@@ -20,12 +20,14 @@ mod graph;
 pub mod grid;
 mod macros;
 pub mod nav;
+pub mod nav_mask;
 pub mod neighbor;
 mod node;
 pub mod path;
 pub mod pathfind;
 pub mod plugin;
 pub mod raycast;
+mod thetastar;
 
 /// Crate Prelude
 pub mod prelude {
@@ -35,10 +37,11 @@ pub mod prelude {
     pub use crate::filter;
     pub use crate::grid::{Grid, GridSettingsBuilder};
     pub use crate::nav::{Nav, Portal};
+    pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d};
     pub use crate::neighbor::*;
     pub use crate::path::Path;
     pub use crate::plugin::{
-        BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathingSet, Stats,
+        BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathfindSettings, PathingSet, Stats,
     };
     pub use crate::MovementCost;
     pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d};

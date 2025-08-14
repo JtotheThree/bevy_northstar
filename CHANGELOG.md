@@ -1,3 +1,7 @@
+## v0.3.3
+// TODO: Do I need to refactor NavMask get to send back an option instead??
+// TODO ON NAVMASK FLATTEN Useful for performance in theory, but in benches it's slower for some reason? I doubt having less layers would decrease perforamnce so there must be another issue.
+
 ## v0.3.2
 
 **BREAKING**
