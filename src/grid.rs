@@ -144,8 +144,9 @@ impl GridSettingsBuilder {
     /// Initalize a 2D [`Grid`] with the given width and height. Returns a [`GridSettingsBuilder`] that can be further configured.
     pub fn new_2d(width: u32, height: u32) -> Self {
         if width < 3 || height < 3 {
-            panic!("Width and height must be at least 3");
+            log::warn!("Width and height must be at least 3");
         }
+
 
         let mut grid_settings = GridSettingsBuilder {
             dimensions: UVec3::new(width, height, 1),
@@ -160,11 +161,11 @@ impl GridSettingsBuilder {
     /// Initalize a 3D [`Grid`] with the given width, height, and depth. Returns a [`GridSettingsBuilder`] that can be further configured.
     pub fn new_3d(width: u32, height: u32, depth: u32) -> Self {
         if width < 3 || height < 3 {
-            panic!("Width and height must be at least 3");
+            log::warn!("Width and height must be at least 3");
         }
 
         if depth < 1 {
-            panic!("Depth must be at least 1");
+            log::warn!("Depth must be at least 1");
         }
 
         GridSettingsBuilder {
@@ -177,7 +178,7 @@ impl GridSettingsBuilder {
     /// Must be at least 3.
     pub fn chunk_size(mut self, chunk_size: u32) -> Self {
         if chunk_size < 3 {
-            panic!("Chunk size must be at least 3");
+            log::warn!("Chunk size must be at least 3");
         }
 
         self.chunk_settings.size = chunk_size;
@@ -188,7 +189,7 @@ impl GridSettingsBuilder {
     /// Must be at least 1 and the grid's depth must be divisible by the chunk depth.
     pub fn chunk_depth(mut self, chunk_depth: u32) -> Self {
         if chunk_depth < 1 {
-            panic!("Chunk depth must be at least 1");
+            log::warn!("Chunk depth must be at least 1");
         }
 
         self.chunk_settings.depth = chunk_depth;

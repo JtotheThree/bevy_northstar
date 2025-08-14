@@ -182,7 +182,7 @@ pub(crate) struct NeedsPathfinding;
 // Flags all the entities with a changed `Pathfind` component to request pathfinding.
 fn tag_pathfinding_requests(mut commands: Commands, query: Query<Entity, Changed<Pathfind>>) {
     for entity in query.iter() {
-        commands.entity(entity).insert(NeedsPathfinding);
+        commands.entity(entity).try_insert(NeedsPathfinding);
     }
 }
 
@@ -250,9 +250,9 @@ fn pathfind<N: Neighborhood + 'static>(
 
             commands
                 .entity(entity)
-                .insert(path)
-                .remove::<PathfindingFailed>()
-                .remove::<NeedsPathfinding>();
+                .try_insert(path)
+                .try_remove::<PathfindingFailed>()
+                .try_remove::<NeedsPathfinding>();
             // We remove PathfindingFailed even if it's not there.
         } else {
             #[cfg(feature = "stats")]
@@ -260,9 +260,9 @@ fn pathfind<N: Neighborhood + 'static>(
 
             commands
                 .entity(entity)
-                .insert(PathfindingFailed)
-                .remove::<NeedsPathfinding>()
-                .remove::<NextPos>(); // Just to be safe
+                .try_insert(PathfindingFailed)
+                .try_remove::<NeedsPathfinding>()
+                .try_remove::<NextPos>(); // Just to be safe
         }
 
         count += 1;
@@ -308,8 +308,8 @@ fn next_position<N: Neighborhood + 'static>(
         // If the entity still exists and is valid
         if let Ok((entity, mut path, position, pathfind)) = query.get_mut(entity) {
             if position.0 == pathfind.goal {
-                commands.entity(entity).remove::<Path>();
-                commands.entity(entity).remove::<Pathfind>();
+                commands.entity(entity).try_remove::<Path>();
+                commands.entity(entity).try_remove::<Pathfind>();
                 continue;
             }
 
@@ -332,7 +332,7 @@ fn next_position<N: Neighborhood + 'static>(
                 );
 
                 if !success {
-                    commands.entity(entity).insert(AvoidanceFailed);
+                    commands.entity(entity).try_insert(AvoidanceFailed);
                     continue;
                 }
 
@@ -371,7 +371,7 @@ fn next_position<N: Neighborhood + 'static>(
                 }
                 // Get mutable reference to the blocking map
 
-                commands.entity(entity).insert(NextPos(next));
+                commands.entity(entity).try_insert(NextPos(next));
 
                 // Re-queue for next frame
                 queue.push_back(entity);
@@ -574,11 +574,11 @@ fn reroute_path<N: Neighborhood + 'static>(
             #[cfg(feature = "stats")]
             stats.add_collision(elapsed, new_path.cost() as f64);
 
-            commands.entity(entity).insert(new_path);
-            commands.entity(entity).remove::<AvoidanceFailed>();
+            commands.entity(entity).try_insert(new_path);
+            commands.entity(entity).try_remove::<AvoidanceFailed>();
         } else {
-            commands.entity(entity).insert(RerouteFailed);
-            commands.entity(entity).remove::<AvoidanceFailed>(); // Try again next frame
+            commands.entity(entity).try_insert(RerouteFailed);
+            commands.entity(entity).try_remove::<AvoidanceFailed>(); // Try again next frame
 
             #[cfg(feature = "stats")]
             let elapsed = start.elapsed().as_secs_f64();
