@@ -72,8 +72,8 @@ impl Path {
         self.path.as_slices().0
     }
 
-    // Returns the HPA* graph path as a slice of `UVec3` positions.
-    pub(crate) fn graph_path(&self) -> &[UVec3] {
+    /// Returns the HPA* high level graph path as a slice of `UVec3` positions.
+    pub fn graph_path(&self) -> &[UVec3] {
         self.graph_path.as_slices().0
     }
 

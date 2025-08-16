@@ -2,10 +2,12 @@
 // Press ` to toggle the debug view, +/- to change the z depth of the debug view.
 // In the debug view hover over an entrance node to see its internal connections.
 
-use bevy::{ecs::query::QueryData, log, prelude::*};
+use bevy::{log, prelude::*};
 use bevy_ecs_tiled::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
+
+mod shared;
 
 // Game state
 #[derive(Clone, Debug, Default, Hash, Eq, States, PartialEq)]
@@ -54,17 +56,6 @@ pub struct LoadCompleteEvent;
 #[derive(Default, Resource, Reflect)]
 pub struct Cursor {
     pub tile: Option<UVec3>,
-}
-
-// Common bevy_ecs_tilemap query often used for tile<->world position calculations.
-#[derive(QueryData)]
-#[query_data(derive(Debug))]
-struct MapQuery {
-    grid_size: &'static TilemapGridSize,
-    map_size: &'static TilemapSize,
-    tile_size: &'static TilemapTileSize,
-    map_type: &'static TilemapType,
-    anchor: &'static TilemapAnchor,
 }
 
 // The Y offset for each higher tile layer in our isometric Tiled map.
@@ -241,7 +232,7 @@ fn tile_created(
 
 fn loading_complete(
     _: Trigger<LoadCompleteEvent>,
-    map_query: Query<MapQuery>,
+    map_query: Query<shared::MapQuery>,
     camera: Single<(&mut Transform, &mut Projection), With<Camera>>,
     grid: Single<(Entity, &mut OrdinalGrid3d)>,
     asset_server: Res<AssetServer>,
@@ -315,7 +306,7 @@ fn update_cursor(
     window: Single<&Window>,
     camera: Single<(&Camera, &GlobalTransform, &Transform), With<Camera>>,
     mut cursor: ResMut<Cursor>,
-    map_query: Query<MapQuery>,
+    map_query: Query<shared::MapQuery>,
     tile_storage: Query<&TileStorage>,
     tile_info: Query<&TileInfo>,
     debug_cursor: Single<&mut DebugCursor>,
@@ -473,7 +464,7 @@ fn pathfind_error(query: Query<Entity, With<PathfindingFailed>>, mut commands: C
 // Warp system to bypass the animation system for teleporters.
 fn warp(
     mut query: Query<(&mut AgentPos, &mut Path, &mut Transform)>,
-    map_query: Query<MapQuery>,
+    map_query: Query<shared::MapQuery>,
     grid: Single<&OrdinalGrid3d>,
 ) {
     let map = map_query.iter().next().expect("No map found in the query");
@@ -540,7 +531,7 @@ fn move_pathfinders(
 
 fn animate_move(
     mut query: Query<(&AgentPos, &mut Transform, &mut YSort)>,
-    map_query: Query<MapQuery>,
+    map_query: Query<shared::MapQuery>,
     time: Res<Time>,
     mut ev_wait: EventWriter<AnimationWaitEvent>,
 ) {

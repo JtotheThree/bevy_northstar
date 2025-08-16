@@ -18,7 +18,7 @@ use crate::{
     node::Node,
     path::Path,
     raycast::bresenham_path,
-    thetastar::thetastar_grid
+    thetastar::thetastar_grid,
 };
 
 /// AStar pathfinding
@@ -93,7 +93,7 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
     // Ensure the goal is within bounds of the grid
@@ -116,13 +116,15 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         return None;
     }
 
-    // if goal is in the blocking map, return None
-    if blocking.contains_key(&goal) && !partial {
-        //log::error!("Goal is in the blocking map");
+    let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
+
+    // if goal is in the blocking mask, return None
+    if mask.get(goal_cell, goal).is_impassable() && !partial {
+        //log::error!("Goal is in the blocking mask");
         return None;
     }
 
-    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking)
+    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, mask)
 }
 
 /// HPA* pathfinding.
@@ -136,6 +138,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     mask: &NavMaskData,
     partial: bool,
     refined: bool,
+    waypoints: bool,
 ) -> Option<Path> {
     if !grid.in_bounds(start) {
         log::warn!("Start is out of bounds: {:?}", start);
@@ -253,11 +256,26 @@ pub(crate) fn pathfind<N: Neighborhood>(
                     log::warn!("Start contains duplicate nodes: {:?}", path);
                 }
 
-                if !refined {
+                if !refined && !waypoints {
                     // If we're not refining, return the path as is
                     let mut path = Path::new(path, cost);
                     path.graph_path = node_path.path;
                     return Some(path);
+                }
+
+                if waypoints {
+                    let waypoints_path = extract_waypoints(
+                        &grid.neighborhood,
+                        &grid.view(),
+                        &Path::new(path, cost),
+                        mask,
+                    );
+                    if waypoints_path.is_empty() {
+                        log::warn!("Waypoints path is empty, returning None");
+                        return None;
+                    }
+
+                    return Some(waypoints_path);
                 }
 
                 let mut refined_path = optimize_path(
@@ -321,52 +339,76 @@ pub(crate) fn trim_path(
     );
 }
 
-/*#[inline(always)]
-pub(crate) fn trim_path(
-    path: &mut Path,
-    starts: Vec<UVec3>,
-    goals: Vec<UVec3>,
-) {
-    // Trim out reduntant nodes in the viable starts
-    if let Some(last_start_node) = path
-        .path
-        .iter()
-        .rev()
-        .find(|&&pos| starts.contains(&pos))
-        .cloned()
-    {
-        while let Some(first) = path.path.front() {
-            // Trim only if it's a different node in the start chunk
-            if starts.contains(first) && *first != last_start_node {
-                path.path.pop_front();
-            } else {
+/// Extract waypoints from a path by checking for line of sight between nodes.
+pub(crate) fn extract_waypoints<N: Neighborhood>(
+    neighborhood: &N,
+    grid: &ArrayView3<NavCell>,
+    path: &Path,
+    mask: &NavMaskData,
+) -> Path {
+    if path.is_empty() {
+        return path.clone();
+    }
+
+    let filtered = !neighborhood.filters().is_empty();
+    let mut waypoints_path = Vec::with_capacity(path.len());
+    let mut total_cost = 0;
+    let mut i = 0;
+
+    waypoints_path.push(path.path[i]); // Always keep the first node
+
+    while i < path.len() - 1 {
+        let mut found = false;
+        for farthest in (i + 1..path.len()).rev() {
+            let candidate = path.path[farthest];
+            if let Some(shortcut) = bresenham_path(
+                grid,
+                path.path[i],
+                candidate,
+                neighborhood.is_ordinal(),
+                filtered,
+                true,
+            ) {
+                for &pos in shortcut.iter().skip(1) {
+                    let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                    let masked_cell = mask.get(cell_val, pos);
+                    total_cost += masked_cell.cost;
+                }
+
+                waypoints_path.push(candidate);
+                i = farthest;
+                found = true;
                 break;
+            }
+        }
+        if !found {
+            // No shortcut found, advance by one
+            i += 1;
+            if i < path.len() && waypoints_path.last() != Some(&path.path[i]) {
+                if let Some(step) = bresenham_path(
+                    grid,
+                    *waypoints_path.last().unwrap(),
+                    path.path[i],
+                    neighborhood.is_ordinal(),
+                    filtered,
+                    true,
+                ) {
+                    for &pos in step.iter().skip(1) {
+                        let cell_val =
+                            grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                        let masked_cell = mask.get(cell_val, pos);
+                        total_cost += masked_cell.cost;
+                    }
+                }
+                waypoints_path.push(path.path[i]);
             }
         }
     }
 
-    // Trim out redundant nodes in the viable goals
-    if let Some(first_goal_node) = path
-        .path
-        .iter()
-        .find(|&&pos| goals.contains(&pos))
-        .cloned()
-    {
-        while let Some(last) = path.path.back() {
-            if goals.contains(last) && *last != first_goal_node {
-                path.path.pop_back();
-            } else {
-                break;
-            }
-        }
-    }
+    log::info!("Found total_cost: {}", total_cost);
 
-    assert!(
-        !path.path.is_empty(),
-        "BUG: trim_path() removed all nodes — this should never happen"
-    );
-}*/
-
+    Path::new(waypoints_path, total_cost)
+}
 
 /// Optimize a path by using line of sight checks to skip waypoints.
 ///
@@ -411,8 +453,14 @@ pub(crate) fn optimize_path<N: Neighborhood>(
                 }
             }*/
 
-            let maybe_shortcut = 
-                bresenham_path(grid, path.path[i], candidate, neighborhood.is_ordinal(), filtered, false);
+            let maybe_shortcut = bresenham_path(
+                grid,
+                path.path[i],
+                candidate,
+                neighborhood.is_ordinal(),
+                filtered,
+                false,
+            );
 
             if let Some(shortcut) = maybe_shortcut {
                 refined_path.extend(shortcut.into_iter().skip(1));
@@ -459,12 +507,6 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
     //let max = chunk.max().as_ivec3();
 
     let mask_local = mask.translate_by(-min);
-
-    // Adjust the blocking map to the local chunk coordinates
-    /*let adjusted_blocking = blocking
-    .iter()
-    .map(|(pos, entity)| (chunk.to_local(pos), *entity))
-    .collect::<HashMap<_, _>>();*/
 
     // Get paths from source to all nodes in this chunk
     let paths = dijkstra_grid(
@@ -562,7 +604,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *new_path.path().last().unwrap();
 
-        let hpa = pathfind(grid, last_pos, goal, mask, false, refined);
+        let hpa = pathfind(grid, last_pos, goal, mask, false, refined, false);
 
         if let Some(hpa) = hpa {
             for pos in hpa.path() {

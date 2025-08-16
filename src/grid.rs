@@ -7,7 +7,7 @@ use bevy::{
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
-    prelude::Component,
+    prelude::Component, transform::components::Transform,
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -28,7 +28,6 @@ use crate::{
     prelude::NavMask,
     timed, MovementCost,
 };
-
 
 /// Settings for how the grid is divided into chunks.
 #[derive(Copy, Clone, Debug)]
@@ -344,6 +343,10 @@ impl Default for GridInternalSettings {
 /// }
 /// ```
 #[derive(Component)]
+// Transform doesn't actually do anything for the grid
+// Requiring it just surpresses the Bevy warning if the user doesn't add the grid 
+// as a child to anything.
+#[require(Transform)]
 pub struct Grid<N: Neighborhood> {
     pub(crate) neighborhood: N,
 
@@ -1212,7 +1215,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     .map(|other| other.pos - chunk.min())
                     .collect();
 
-                let paths = dijkstra_grid(&chunk_grid, start, &goals, false, 100, &HashMap::new());
+                let paths = dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
 
                 for (goal_pos, path) in paths.into_iter() {
                     let world_start = node.pos;
@@ -1423,7 +1426,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
-        pathfind(self, start, goal, &NavMaskData::new(), false, false).is_some()
+        pathfind(self, start, goal, &NavMaskData::new(), false, false, false).is_some()
     }
 
     /// Generate an HPA* path from `start` to `goal`.
@@ -1454,7 +1457,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, true)
+        pathfind(self, start, goal, &mask, partial, true, false)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1488,7 +1491,38 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, false)
+        pathfind(self, start, goal, &mask, partial, false, false)
+    }
+
+    /// Generate a path using HPA* pathfinding that ONLY returns waypoints needed to avoid walls.
+    /// Games with continous real-time movement can use this to generate paths where the movement only needs the key positions to avoid running into objects and walls.
+    ///
+    /// # Arguuments
+    /// * `start` - The starting position in the grid.
+    /// * `goal` - The goal position in the grid.
+    /// * `mask` - An optional [`NavMask`] which can dynamically alter navigation cells only for this request.
+    /// * `partial` - Whether to allow partial paths (i.e., if the goal is unreachable, return the closest reachable point).
+    /// # Returns
+    /// A waypoint only [`Path`] if successful, or `None` if no viable path could be found.
+    ///
+    pub fn pathfind_waypoints(
+        &self,
+        start: UVec3,
+        goal: UVec3,
+        mask: Option<&NavMask>,
+        partial: bool,
+    ) -> Option<Path> {
+        if self.needs_build() {
+            return None;
+        }
+
+        // Lock and get the underlying data from the NavMask
+        let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
+        };
+
+        pathfind(self, start, goal, &mask, partial, false, true)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.
@@ -1647,19 +1681,25 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
-        blocking: &HashMap<UVec3, Entity>,
+        mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
+        // Lock and get the underlying data from the NavMask
+        let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
+        };
+
         pathfind_thetastar(
             &self.neighborhood,
             &self.grid.view(),
             start,
             goal,
-            blocking,
+            &mask,
             partial,
         )
     }

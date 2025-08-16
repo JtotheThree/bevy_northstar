@@ -1,12 +1,12 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3, platform::collections::HashMap, prelude::Entity};
+use bevy::{log, math::UVec3};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    in_bounds_3d, nav::NavCell, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight,
-    FxIndexMap, SmallestCostHolder,
+    in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path,
+    raycast::has_line_of_sight, FxIndexMap, SmallestCostHolder,
 };
 
 /// θ* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -29,7 +29,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
-    blocking: &HashMap<UVec3, Entity>,
+    mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -49,7 +49,6 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     let max = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
 
     while let Some(SmallestCostHolder { cost, index, .. }) = to_visit.pop() {
-        let mut index = index;
         let neighbors = {
             let (current_pos, &(_, current_cost)) = visited.get_index(index).unwrap();
             let current_distance = neighborhood.heuristic(*current_pos, goal);
@@ -98,47 +97,48 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            if neighbor_cell.is_impassable() {
+            let cell = mask.get(neighbor_cell.clone(), neighbor);
+
+            if cell.is_impassable() {
                 continue;
             }
 
-            if blocking.contains_key(&neighbor) {
-                continue;
-            }
+            let current_parent_index = visited.get_index(index).unwrap().1 .0;
+            let mut chosen_parent_index = index; // default to current node
 
-            let parent_index = visited.get_index(index).unwrap().1 .0;
+            if current_parent_index != usize::MAX {
+                let parent_pos = *visited.get_index(current_parent_index).unwrap().0;
 
-            if parent_index != usize::MAX {
-                let parent = visited.get_index(parent_index).unwrap().0;
-
-                if has_line_of_sight(grid, neighbor, *parent, neighborhood.is_ordinal()) {
-                    index = parent_index;
-                } else {
-                    if grid[[
-                        neighbor.x as usize,
-                        neighbor.y as usize,
-                        neighbor.z as usize,
-                    ]].is_portal() {
-                        // If the neighbor is a portal, we can skip the line of sight check
-                        index = parent_index;
-                    }
+                // LOS check: parent -> neighbor
+                #[allow(clippy::if_same_then_else)]
+                // Yes the blocks are the same, but this is a performance optimization
+                if has_line_of_sight(grid, parent_pos, neighbor, neighborhood.is_ordinal()) {
+                    chosen_parent_index = current_parent_index;
+                } else if grid[[
+                    neighbor.x as usize,
+                    neighbor.y as usize,
+                    neighbor.z as usize,
+                ]]
+                .is_portal()
+                {
+                    chosen_parent_index = current_parent_index;
                 }
-            };
+            }
 
-            let new_cost = cost + neighbor_cell.cost;
+            let new_cost = cost + cell.cost;
             let h;
             let n;
             match visited.entry(neighbor) {
                 Vacant(e) => {
                     h = neighborhood.heuristic(neighbor, goal);
                     n = e.index();
-                    e.insert((index, new_cost));
+                    e.insert((chosen_parent_index, new_cost));
                 }
                 Occupied(mut e) => {
                     if e.get().1 > new_cost {
                         h = neighborhood.heuristic(neighbor, goal);
                         n = e.index();
-                        e.insert((index, new_cost));
+                        e.insert((chosen_parent_index, new_cost));
                     } else {
                         continue;
                     }
@@ -155,7 +155,6 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
 
     if partial {
         // If the goal is not reached, return the path to the closest node, but if the closest node is the start return None
-
         if closest_node == start {
             return None;
         }
@@ -212,7 +211,7 @@ mod tests {
             goal,
             64,
             false,
-            &HashMap::new(),
+            &NavMaskData::new(),
         )
         .unwrap();
 

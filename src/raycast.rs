@@ -1,5 +1,5 @@
 //! Raycasting and pathfinding utilities for 2D/3D grids.
-use bevy::{math::{IVec3, UVec3}};
+use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
 use crate::nav::NavCell;
@@ -106,13 +106,12 @@ where
             last_dir = Some(dir);
         }
 
-        if filtered {
-            if !grid[[current.x as usize, current.y as usize, current.z as usize]]
+        if filtered
+            && !grid[[current.x as usize, current.y as usize, current.z as usize]]
                 .neighbor_iter(current)
                 .any(|n| n == next)
-            {
-                return false;
-            }
+        {
+            return false;
         }
 
         current = next;
@@ -121,6 +120,17 @@ where
     yield_each_step(goal)
 }
 
+/// Checks if there is line of sight between two points in the grid ignoring any neighborhood filters.
+/// Use this to check if two points can see each other without any obstacles in between.
+///
+/// # Arguments
+/// * `grid` - The [`crate::grid::Grid`] to check the line of sight in.
+/// * `start` - The starting position in the grid.
+/// * `goal` - The goal position in the grid.
+/// * `ordinal` - Whether to use ordinal or cardinal movement.
+///
+/// # Returns
+/// `true` if there is a line of sight between the two points, `false` otherwise.
 pub fn has_line_of_sight(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
@@ -132,7 +142,23 @@ pub fn has_line_of_sight(
     })
 }
 
-pub(crate) fn bresenham_path(
+/// Bresenham line algorithm for tracing a direct line in a grid.
+/// This function traces a path from `start` to `goal` in the grid
+/// It can be used to find all cells between two points in a grid while respecting the grid's neighborhood and movement costs.
+///
+/// This is mostly used internally, but could be useful if you want to "raycast" between two points and get every cell crossed over by the raycast.
+///
+/// # Arguments
+/// * `grid` - The grid to trace the path in.
+/// * `start` - The starting position in the grid.
+/// * `goal` - The goal position in the grid.
+/// * `ordinal` - Whether to use ordinal or cardinal movement.
+/// * `filtered` - Whether to apply neighborhood filters.
+/// * `aliased` - Setting to true allows aliasing which means it might be jagged. If this is false the path will be rejected if it can't reach to goal without aliazing.
+///
+/// # Returns
+/// An `Option<Vec<UVec3>>` containing the path if successful, or `None` if the path could not be traced.
+pub fn bresenham_path(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
@@ -149,9 +175,12 @@ pub(crate) fn bresenham_path(
             true
         }
     });
-    if success { Some(path) } else { None }
+    if success {
+        Some(path)
+    } else {
+        None
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -173,7 +202,12 @@ mod tests {
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 1,
-            diagonal_connections: false, }, cost_settings: NavSettings { default_movement_cost: 1, default_impassible: false, },
+            diagonal_connections: false,
+        },
+        cost_settings: NavSettings {
+            default_movement_cost: 1,
+            default_impassible: false,
+        },
         collision_settings: CollisionSettings {
             enabled: true,
             avoidance_distance: 4,

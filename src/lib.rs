@@ -1,4 +1,4 @@
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 #![doc = include_str!("../README.md")]
 
 use bevy::ecs::query::Without;
