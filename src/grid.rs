@@ -7,8 +7,7 @@ use bevy::{
     log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
-    prelude::Component,
-    transform::components::Transform,
+    prelude::Component, transform::components::Transform,
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -144,9 +143,8 @@ impl GridSettingsBuilder {
     /// Initalize a 2D [`Grid`] with the given width and height. Returns a [`GridSettingsBuilder`] that can be further configured.
     pub fn new_2d(width: u32, height: u32) -> Self {
         if width < 3 || height < 3 {
-            log::warn!("Width and height must be at least 3");
+            panic!("Width and height must be at least 3");
         }
-
 
         let mut grid_settings = GridSettingsBuilder {
             dimensions: UVec3::new(width, height, 1),
@@ -161,11 +159,11 @@ impl GridSettingsBuilder {
     /// Initalize a 3D [`Grid`] with the given width, height, and depth. Returns a [`GridSettingsBuilder`] that can be further configured.
     pub fn new_3d(width: u32, height: u32, depth: u32) -> Self {
         if width < 3 || height < 3 {
-            log::warn!("Width and height must be at least 3");
+            panic!("Width and height must be at least 3");
         }
 
         if depth < 1 {
-            log::warn!("Depth must be at least 1");
+            panic!("Depth must be at least 1");
         }
 
         GridSettingsBuilder {
@@ -178,7 +176,7 @@ impl GridSettingsBuilder {
     /// Must be at least 3.
     pub fn chunk_size(mut self, chunk_size: u32) -> Self {
         if chunk_size < 3 {
-            log::warn!("Chunk size must be at least 3");
+            panic!("Chunk size must be at least 3");
         }
 
         self.chunk_settings.size = chunk_size;
@@ -189,7 +187,7 @@ impl GridSettingsBuilder {
     /// Must be at least 1 and the grid's depth must be divisible by the chunk depth.
     pub fn chunk_depth(mut self, chunk_depth: u32) -> Self {
         if chunk_depth < 1 {
-            log::warn!("Chunk depth must be at least 1");
+            panic!("Chunk depth must be at least 1");
         }
 
         self.chunk_settings.depth = chunk_depth;
@@ -346,7 +344,7 @@ impl Default for GridInternalSettings {
 /// ```
 #[derive(Component)]
 // Transform doesn't actually do anything for the grid
-// Requiring it just surpresses the Bevy warning if the user doesn't add the grid
+// Requiring it just surpresses the Bevy warning if the user doesn't add the grid 
 // as a child to anything.
 #[require(Transform)]
 pub struct Grid<N: Neighborhood> {
@@ -1217,8 +1215,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     .map(|other| other.pos - chunk.min())
                     .collect();
 
-                let paths =
-                    dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
+                let paths = dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
 
                 for (goal_pos, path) in paths.into_iter() {
                     let world_start = node.pos;
