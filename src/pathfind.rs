@@ -6,17 +6,7 @@ use bevy::{
 use ndarray::ArrayView3;
 
 use crate::{
-    astar::{astar_graph, astar_grid},
-    chunk::Chunk,
-    dijkstra::dijkstra_grid,
-    grid::Grid,
-    nav::NavCell,
-    nav_mask::NavMaskData,
-    neighbor::Neighborhood,
-    node::Node,
-    path::Path,
-    raycast::bresenham_path,
-    thetastar::thetastar_grid,
+    astar::{astar_graph, astar_grid}, chunk::Chunk, dijkstra::dijkstra_grid, grid::Grid, hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path, raycast::bresenham_path, thetastar::thetastar_grid
 };
 
 /// AStar pathfinding
@@ -190,8 +180,7 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
 
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
-            let path = hpa()
-                &grid.neighborhood,
+            let path = hpa(
                 grid,
                 start_node.pos,
                 goal_node.pos,
@@ -200,7 +189,14 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                 blocking,
                 mask,
             );
+
+            if let Some(path) = path {
+                return Some(path);
+            }
         }
+    }
+
+    None
 }
 
 

@@ -216,7 +216,7 @@ fn input(
             log::info!("Pathfinding to: {:?}", goal);
             commands.entity(player).insert(
                 Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::Waypoints)
+                    .mode(PathfindMode::Refined)
                     .mask(nav_mask),
             );
         }

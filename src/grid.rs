@@ -20,7 +20,7 @@ use crate::{
     neighbor::Neighborhood,
     node::Node,
     path::Path,
-    pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path},
+    pathfind::{pathfind, pathfind_astar, pathfind_new, pathfind_thetastar, reroute_path},
     position_in_cubic_window,
     prelude::NavMask,
     timed, MovementCost,
@@ -1456,7 +1456,8 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, blocking, &mask, partial, true, false)
+
+        pathfind_new(self, start, goal, blocking, &mask, partial, true, false)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
