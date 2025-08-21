@@ -18,6 +18,7 @@ pub mod filter;
 mod flood_fill;
 mod graph;
 pub mod grid;
+mod hpa;
 mod macros;
 pub mod nav;
 pub mod nav_mask;

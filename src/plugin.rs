@@ -144,7 +144,6 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
                 .in_set(PathingSet),
         )
         .insert_resource(NorthstarPluginSettings::default())
-        .insert_resource(BlockingMask::default())
         .insert_resource(BlockingMap::default())
         .insert_resource(Stats::default())
         .insert_resource(DirectionMap::default())
@@ -161,9 +160,6 @@ impl<N: 'static + Neighborhood> Plugin for NorthstarPlugin<N> {
 /// You can use this set to schedule systems before or after the pathfinding systems.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PathingSet;
-
-#[derive(Resource, Default)]
-struct BlockingMask(pub NavMaskLayer);
 
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
@@ -192,7 +188,7 @@ fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
     query: Query<(Entity, &AgentPos, &Pathfind), With<NeedsPathfinding>>,
-    blocking_mask: Res<BlockingMask>,
+    blocking: Res<BlockingMap>,
     settings: Res<NorthstarPluginSettings>,
     //mut queue: Local<VecDeque<Entity>>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -216,28 +212,25 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let mask =
-            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
-
         let mode = pathfind
             .mode
             .unwrap_or(settings.pathfind_settings.default_mode);
 
         let path = match mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
             }
             PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+                grid.pathfind_coarse(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
             }
             PathfindMode::Waypoints => {
-                grid.pathfind_waypoints(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+                grid.pathfind_waypoints(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
             }
             PathfindMode::ThetaStar => {
-                grid.pathfind_thetastar(start.0, pathfind.goal, Some(&mask), pathfind.partial)
+                grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
             }
         };
 
@@ -280,7 +273,6 @@ fn next_position<N: Neighborhood + 'static>(
     >,
     grid: Single<&Grid<N>>,
     mut blocking_map: ResMut<BlockingMap>,
-    blocking_mask: ResMut<BlockingMask>,
     mut direction: ResMut<DirectionMap>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
@@ -313,9 +305,6 @@ fn next_position<N: Neighborhood + 'static>(
                 continue;
             }
 
-            let mask =
-                prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
-
             let next = if grid.collision() {
                 #[cfg(feature = "stats")]
                 let start = Instant::now();
@@ -326,7 +315,7 @@ fn next_position<N: Neighborhood + 'static>(
                     &mut path,
                     position.0,
                     &blocking_map.0,
-                    &mask,
+                    pathfind.mask.as_ref().unwrap_or(&NavMask::default()),
                     &direction.0,
                     grid.avoidance_distance() as usize,
                 );
@@ -360,12 +349,6 @@ fn next_position<N: Neighborhood + 'static>(
 
                 if grid.collision() {
                     // If we have a blocking mask, insert the next position as impassable
-                    blocking_mask
-                        .0
-                        .insert_mask(next, NavCellMask::ImpassableOverride)
-                        .unwrap();
-                    blocking_mask.0.remove_mask(position.0).unwrap();
-
                     blocking_map.0.remove(&position.0);
                     blocking_map.0.insert(next, entity);
                 }
@@ -465,7 +448,7 @@ fn avoidance<N: Neighborhood + 'static>(
 
             //let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
             let new_path =
-                grid.pathfind_astar_radius(position, *avoidance_goal, radius, Some(mask), false);
+                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking_map, Some(mask), false);
 
             // Replace the first few positions of path until the avoidance goal
             if let Some(new_path) = new_path {
@@ -528,7 +511,7 @@ fn avoidance<N: Neighborhood + 'static>(
 fn reroute_path<N: Neighborhood + 'static>(
     mut query: Query<(Entity, &AgentPos, &Pathfind, &Path), With<AvoidanceFailed>>,
     grid: Single<&Grid<N>>,
-    blocking_mask: Res<BlockingMask>,
+    blocking_map: Res<BlockingMap>,
     mut commands: Commands,
     settings: Res<NorthstarPluginSettings>,
     #[cfg(feature = "stats")] mut stats: ResMut<Stats>,
@@ -558,10 +541,7 @@ fn reroute_path<N: Neighborhood + 'static>(
             PathfindMode::ThetaStar => false,
         };
 
-        let mask =
-            prepare_navigation_mask(pathfind.mask.as_ref(), &blocking_mask, grid.collision());
-
-        let new_path = grid.reroute_path(path, position.0, pathfind.goal, Some(&mask), refined);
+        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking_map.0, pathfind.mask.as_ref(), refined);
 
         if let Some(new_path) = new_path {
             // if the last position in the path is not the goal...
@@ -590,21 +570,16 @@ fn reroute_path<N: Neighborhood + 'static>(
 
 fn update_blocking_map(
     mut blocking_map: ResMut<BlockingMap>,
-    mut blocking_mask: ResMut<BlockingMask>,
     query: Query<(Entity, &AgentPos), With<Blocking>>,
 ) {
     blocking_map.0.clear();
-    let mut new_layer = NavMaskLayerData::new();
 
     for (entity, position) in query.iter() {
         blocking_map.0.insert(position.0, entity);
-        new_layer.insert_mask(position.0, NavCellMask::ImpassableOverride);
     }
-
-    blocking_mask.0 = new_layer.into();
 }
 
-fn prepare_navigation_mask(
+/*fn prepare_navigation_mask(
     user_mask: Option<&NavMask>,
     blocking_mask: &BlockingMask,
     collision_enabled: bool,
@@ -615,4 +590,4 @@ fn prepare_navigation_mask(
         (true, blocking_layer) => base_mask.with_additional_layer(blocking_layer.clone()),
         _ => base_mask,
     }
-}
+}*/

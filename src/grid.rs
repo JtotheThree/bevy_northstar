@@ -4,10 +4,7 @@ use rayon::prelude::*;
 use std::sync::Arc;
 
 use bevy::{
-    log,
-    math::{IVec3, UVec3},
-    platform::collections::{HashMap, HashSet},
-    prelude::Component, transform::components::Transform,
+    ecs::entity::Entity, log, math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}, prelude::Component, transform::components::Transform
 };
 use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
 
@@ -1397,6 +1394,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         path: &Path,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         refined: bool,
     ) -> Option<Path> {
@@ -1409,7 +1407,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        reroute_path(self, path, start, goal, &mask, refined)
+        reroute_path(self, path, start, goal, blocking, &mask, refined)
     }
 
     /// Checks if a path exists from `start` to `goal` using the fastest algorithm.
@@ -1426,7 +1424,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
-        pathfind(self, start, goal, &NavMaskData::new(), false, false, false).is_some()
+        pathfind(self, start, goal, &HashMap::new(), &NavMaskData::new(), false, false, false).is_some()
     }
 
     /// Generate an HPA* path from `start` to `goal`.
@@ -1445,6 +1443,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1457,7 +1456,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, true, false)
+        pathfind(self, start, goal, blocking, &mask, partial, true, false)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1478,6 +1477,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1491,7 +1491,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, false, false)
+        pathfind(self, start, goal, blocking, &mask, partial, false, false)
     }
 
     /// Generate a path using HPA* pathfinding that ONLY returns waypoints needed to avoid walls.
@@ -1509,6 +1509,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1522,7 +1523,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, &mask, partial, false, true)
+        pathfind(self, start, goal, blocking, &mask, partial, false, true)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.
@@ -1543,6 +1544,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1561,6 +1563,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &self.grid.view(),
             start,
             goal,
+            blocking,
             &mask,
             partial,
         )
@@ -1586,6 +1589,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         radius: u32,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1633,7 +1637,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let goal_local = (goal.as_ivec3() - min).as_uvec3();
 
         // Remap blocking positions into local view
-        /*let blocking_local: HashMap<UVec3, Entity> = blocking
+        let blocking_local: HashMap<UVec3, Entity> = blocking
         .iter()
         .filter_map(|(pos, &ent)| {
             let pos_i = pos.as_ivec3();
@@ -1642,7 +1646,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             }
             Some(((pos_i - min).as_uvec3(), ent))
         })
-        .collect();*/
+        .collect();
 
         let mask_local = mask.translate_by(-min);
 
@@ -1652,6 +1656,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &view,
             start_local,
             goal_local,
+            &blocking_local,
             &mask_local,
             partial,
         );
@@ -1681,6 +1686,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         start: UVec3,
         goal: UVec3,
+        blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
         partial: bool,
     ) -> Option<Path> {
@@ -1699,6 +1705,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &self.grid.view(),
             start,
             goal,
+            blocking,
             &mask,
             partial,
         )
@@ -1723,7 +1730,7 @@ fn compute_cell_neighbors<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use bevy::math::UVec3;
+    use bevy::{math::UVec3, platform::collections::HashMap};
 
     use crate::{
         dir::Dir,
@@ -2034,8 +2041,8 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), None, false);
-        let raw_path = grid.pathfind_astar(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), None, false);
+        let path = grid.pathfind(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), &HashMap::new(), None, false);
+        let raw_path = grid.pathfind_astar(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), &HashMap::new(), None, false);
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
@@ -2144,7 +2151,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(7, 7, 0), UVec3::new(121, 121, 0), None, false);
+        let path = grid.pathfind(UVec3::new(7, 7, 0), UVec3::new(121, 121, 0), &HashMap::new(), None, false);
 
         assert!(path.is_some());
         assert!(!path.unwrap().is_empty());
@@ -2160,7 +2167,7 @@ mod tests {
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&grid_settings);
 
         grid.build();
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(31, 31, 3), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(31, 31, 3), &HashMap::new(), None, false);
 
         assert!(path.is_some());
     }
@@ -2171,7 +2178,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), None, false);
+        let path = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), &HashMap::new(), None, false);
 
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 10);
@@ -2315,7 +2322,7 @@ mod tests {
         assert_graph_node_invariants(&grid);
 
         // There should be a path from (0,0,0) to (15,15,0)
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
         assert!(path.is_some(), "Path should exist in empty grid");
 
         // Block a vertical wall at x=8
@@ -2332,20 +2339,20 @@ mod tests {
         );
 
         // Now there should be no path from left to right
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
 
         assert!(path.is_none(), "Path should not exist after wall");
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
+        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
 
         // Open a gap in the wall at (8,8)
         grid.set_nav(UVec3::new(8, 8, 0), Nav::Passable(1));
         grid.build();
 
         // Now a path should exist again, and should pass through (8,8,0)
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
         assert!(path.is_some(), "Path should exist after opening gap");
         let path = path.unwrap();
         assert!(
@@ -2365,7 +2372,7 @@ mod tests {
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), None, false);
+        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
     }
 
     #[test]
@@ -2387,7 +2394,7 @@ mod tests {
             "Grid should need build after marking dirty"
         );
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), &HashMap::new(), None, false);
 
         assert!(path.is_none(), "Path should not exist after marking dirty");
 
@@ -2437,7 +2444,7 @@ mod tests {
             })
             .expect("Portal edge to (10,10,0) should exist");
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(11, 11, 0), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(11, 11, 0), &HashMap::new(), None, false);
 
         assert!(path.is_some(), "Path should exist with portal");
     }
@@ -2488,11 +2495,11 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(12, 4, 2), None, false);
+        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(12, 4, 2), &HashMap::new(), None, false);
 
         assert!(path.is_some(), "Path should exist with portal");
 
-        let path = grid.pathfind(UVec3::new(12, 4, 2), UVec3::new(0, 0, 0), None, false);
+        let path = grid.pathfind(UVec3::new(12, 4, 2), UVec3::new(0, 0, 0), &HashMap::new(), None, false);
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
     }

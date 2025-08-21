@@ -64,8 +64,8 @@ required-features = ["stats"]
 [[example]]
 name = "basic"
 
-[[example]]
-name = "nav_mask"
+#[[example]]
+#name = "nav_mask"
 
 [[example]]
 name = "freeform_movement"

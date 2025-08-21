@@ -13,9 +13,6 @@ use rand::seq::IndexedRandom;
 
 mod shared;
 
-#[derive(Resource)]
-struct TestCostNavMask(NavMask);
-
 fn main() {
     App::new()
         // Bevy default plugins
@@ -70,30 +67,13 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
-        .insert_resource(TestCostNavMask(NavMask::new()))
         .run();
 }
 
 fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut test_cost_mask: ResMut<TestCostNavMask>,
 ) {
-    test_cost_mask.0 = NavMask::new();
-    let layer = NavMaskLayer::new();
-
-    layer
-        .insert_region(
-            Region3d {
-                min: UVec3::new(64, 64, 0),
-                max: UVec3::new(128, 128, 0),
-            },
-            NavCellMask::ModifyCost(250),
-        )
-        .unwrap();
-
-    test_cost_mask.0.add_layer(layer).unwrap();
-
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
 
@@ -208,7 +188,6 @@ fn spawn_minions(
     asset_server: Res<AssetServer>,
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
-    test_cost_mask: Res<TestCostNavMask>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
@@ -249,27 +228,22 @@ fn spawn_minions(
             PathfindMode::Refined => {
                 pathfind = pathfind
                     .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Coarse => {
                 pathfind = pathfind
                     .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::AStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Waypoints => {
                 pathfind = pathfind
                     .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::ThetaStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone());
             }
         }
 
@@ -401,7 +375,6 @@ fn set_new_goal(
     mut minions: Query<Entity, (Without<Path>, Without<Pathfind>)>,
     walkable: Res<shared::Walkable>,
     config: Res<shared::Config>,
-    test_cost_mask: Res<TestCostNavMask>,
 ) {
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
@@ -412,27 +385,22 @@ fn set_new_goal(
             PathfindMode::Refined => {
                 pathfind = pathfind
                     .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Coarse => {
                 pathfind = pathfind
                     .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::AStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Waypoints => {
                 pathfind = pathfind
                     .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::ThetaStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone())
             }
         }
 
@@ -446,7 +414,6 @@ fn handle_pathfinding_failed(
     minions: Query<Entity, Or<(With<PathfindingFailed>, With<RerouteFailed>)>>,
     config: Res<shared::Config>,
     walkable: Res<shared::Walkable>,
-    test_cost_mask: Res<TestCostNavMask>,
 ) {
     // Pathfinding failed, normally we might have our AI come up with a new plan,
     // but for this example, we'll just reroute to a new random goal.
@@ -460,27 +427,22 @@ fn handle_pathfinding_failed(
             PathfindMode::Refined => {
                 pathfind = pathfind
                     .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Coarse => {
                 pathfind = pathfind
                     .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::AStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::Waypoints => {
                 pathfind = pathfind
                     .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
             }
             PathfindMode::ThetaStar => {
                 pathfind = pathfind
                     .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone())
             }
         }
 

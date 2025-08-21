@@ -1,5 +1,5 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
@@ -29,6 +29,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
@@ -89,6 +90,10 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         for neighbor in neighbors {
             if !in_bounds_3d(neighbor, min, max) {
                 continue;
+            }
+
+            if blocking.contains_key(&neighbor) {
+                continue; // Skip blocked positions
             }
 
             let neighbor_cell = &grid[[
@@ -211,6 +216,7 @@ mod tests {
             goal,
             64,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();

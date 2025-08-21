@@ -1,9 +1,7 @@
 //! This module defines pathfinding functions which can be called directly.
 
 use bevy::{
-    log,
-    math::UVec3,
-    platform::collections::{HashMap, HashSet},
+    ecs::entity::Entity, log, math::UVec3, platform::collections::{HashMap, HashSet}
 };
 use ndarray::ArrayView3;
 
@@ -41,6 +39,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
@@ -63,7 +62,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
         return None;
     }
 
-    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, mask);
+    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask);
 
     if let Some(mut path) = path {
         path.path.pop_front();
@@ -93,6 +92,7 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
@@ -124,17 +124,14 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         return None;
     }
 
-    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, mask)
+    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask)
 }
 
-/// HPA* pathfinding.
-// Keeping this internal for now since Grid has it's own helper function to call this
-// and [`Grid`] is required for it.
-#[inline(always)]
-pub(crate) fn pathfind<N: Neighborhood>(
+pub(crate) fn pathfind_new<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
     partial: bool,
     refined: bool,
@@ -170,6 +167,88 @@ pub(crate) fn pathfind<N: Neighborhood>(
             goal,
             100,
             partial,
+            blocking,
+            mask,
+        );
+
+        if let Some(mut path) = path {
+            path.path.pop_front();
+            return Some(path);
+        } else {
+            return None;
+        }
+    }
+
+    // Find viable nodes in the start and goal chunks
+    let (start_nodes, start_paths) =
+        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
+    let (goal_nodes, goal_paths) =
+        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
+
+    let mut path: Vec<UVec3> = Vec::new();
+    let mut cost = 0;
+
+    for start_node in &start_nodes {
+        for goal_node in goal_nodes.clone() {
+            let path = hpa()
+                &grid.neighborhood,
+                grid,
+                start_node.pos,
+                goal_node.pos,
+                100,
+                partial,
+                blocking,
+                mask,
+            );
+        }
+}
+
+
+/// HPA* pathfinding.
+// Keeping this internal for now since Grid has it's own helper function to call this
+// and [`Grid`] is required for it.
+#[inline(always)]
+pub(crate) fn pathfind<N: Neighborhood>(
+    grid: &Grid<N>,
+    start: UVec3,
+    goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
+    mask: &NavMaskData,
+    partial: bool,
+    refined: bool,
+    waypoints: bool,
+) -> Option<Path> {
+    if !grid.in_bounds(start) {
+        log::warn!("Start is out of bounds: {:?}", start);
+        return None;
+    }
+
+    // Make sure the goal is in grid bounds
+    if !grid.in_bounds(goal) {
+        log::warn!("Goal is out of bounds: {:?}", goal);
+        return None;
+    }
+
+    let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
+
+    // If the goal is impassable and partial isn't set, return none
+    if mask.get(goal_cell, goal).is_impassable() && !partial {
+        return None;
+    }
+
+    let start_chunk = grid.chunk_at_position(start)?;
+    let goal_chunk = grid.chunk_at_position(goal)?;
+
+    // If the start and goal are in the same chunk, use AStar directly
+    if start_chunk == goal_chunk {
+        let path = astar_grid(
+            &grid.neighborhood,
+            &grid.view(),
+            start,
+            goal,
+            100,
+            partial,
+            blocking,
             mask,
         );
 
@@ -563,6 +642,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     path: &Path,
     start: UVec3,
     goal: UVec3,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
     refined: bool,
 ) -> Option<Path> {
@@ -582,11 +662,11 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
     if path.graph_path.is_empty() {
         // Our only option here is to astar path to the goal
-        return pathfind_astar(&grid.neighborhood, &grid.view(), start, goal, mask, false);
+        return pathfind_astar(&grid.neighborhood, &grid.view(), start, goal, blocking, mask, false);
     }
 
     let new_path = path.graph_path.iter().find_map(|pos| {
-        let new_path = pathfind_astar(&grid.neighborhood, &grid.view(), start, *pos, mask, false);
+        let new_path = pathfind_astar(&grid.neighborhood, &grid.view(), start, *pos, blocking, mask, false);
         if new_path.is_some() && !new_path.as_ref().unwrap().is_empty() {
             new_path
         } else {
@@ -604,7 +684,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *new_path.path().last().unwrap();
 
-        let hpa = pathfind(grid, last_pos, goal, mask, false, refined, false);
+        let hpa = pathfind(grid, last_pos, goal, blocking, mask, false, refined, false);
 
         if let Some(hpa) = hpa {
             for pos in hpa.path() {

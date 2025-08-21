@@ -1,5 +1,5 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
@@ -29,6 +29,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
@@ -91,11 +92,16 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 continue;
             }
 
+            if blocking.contains_key(&neighbor) {
+                continue; // Skip blocked positions
+            }
+
             let neighbor_cell = &grid[[
                 neighbor.x as usize,
                 neighbor.y as usize,
                 neighbor.z as usize,
             ]];
+
 
             let cell = mask.get(neighbor_cell.clone(), neighbor);
 
@@ -283,6 +289,7 @@ mod tests {
             goal,
             64,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();
@@ -317,6 +324,7 @@ mod tests {
             goal,
             64,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();
@@ -377,6 +385,7 @@ mod tests {
             goal,
             64,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();
@@ -413,6 +422,7 @@ mod tests {
             goal,
             16,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();

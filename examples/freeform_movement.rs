@@ -169,12 +169,14 @@ fn input(
     player: Single<Entity, With<AgentPos>>,
     map_query: Query<shared::MapQuery>,
     debug_grid: Single<&mut DebugGrid>,
+    grid: Single<&mut Grid<OrdinalNeighborhood>>,
     mut commands: Commands,
 ) {
     let window = window.into_inner();
     let (camera, camera_transform, _) = camera.into_inner();
     let player = player.into_inner();
     let mut debug_grid = debug_grid.into_inner();
+    let grid = grid.into_inner();
 
     let map = map_query.iter().next().expect("No map found in the query");
 
@@ -200,6 +202,7 @@ fn input(
             let mask_layer = NavMaskLayer::new();
             mask_layer
                 .insert_region(
+                    &grid,
                     Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
                     NavCellMask::ModifyCost(5000),
                 )
