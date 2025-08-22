@@ -1,5 +1,5 @@
 //! This module defines the `Chunk` struct, which represents a 3D region of the grid.
-use bevy::math::UVec3;
+use bevy::math::{IVec3, UVec3};
 use ndarray::{s, Array3, ArrayView1, ArrayView2, ArrayView3};
 
 use crate::{dir::Dir, nav::NavCell};
@@ -67,6 +67,37 @@ impl Chunk {
 
     pub(crate) fn set_dirty_edge(&mut self, dir: Dir, dirty: bool) {
         self.dirty_edges[dir as usize] = dirty;
+    }
+
+    pub(crate) fn global_to_chunk(&self, pos: &UVec3) -> Option<UVec3> {
+        let local_pos: IVec3 = pos.as_ivec3() - self.min.as_ivec3();
+
+        // Check if position is within inclusive bounds [min, max]
+        if local_pos.x < 0 || local_pos.y < 0 || local_pos.z < 0 {
+            return None;
+        }
+
+        let local_u32 = UVec3::new(
+            local_pos.x as u32,
+            local_pos.y as u32,
+            local_pos.z as u32,
+        );
+
+        // For inclusive bounds, check that local position is < (max - min)
+        let chunk_size = self.max - self.min;
+        if local_u32.x >= chunk_size.x || local_u32.y >= chunk_size.y || local_u32.z >= chunk_size.z {
+            return None;
+        }
+
+        Some(local_u32)
+    }
+
+    pub(crate) fn chunk_to_global(&self, pos: &UVec3) -> UVec3 {
+        UVec3::new(
+            pos.x + self.min.x,
+            pos.y + self.min.y,
+            pos.z + self.min.z,
+        )
     }
 
     #[allow(dead_code)]

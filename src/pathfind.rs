@@ -122,7 +122,7 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
     start: UVec3,
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
-    mask: &NavMaskData,
+    mask: &mut NavMaskData,
     partial: bool,
     refined: bool,
     waypoints: bool,
@@ -180,7 +180,7 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
 
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
-            let path = hpa(
+            let node_path = hpa(
                 grid,
                 start_node.pos,
                 goal_node.pos,
@@ -190,8 +190,96 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                 mask,
             );
 
-            if let Some(path) = path {
-                return Some(path);
+            if let Some(mut node_path) = node_path {
+                let start_keys: HashSet<_> = start_paths.keys().copied().collect();
+                let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
+
+                trim_path(
+                    &mut node_path,
+                    &start_keys,
+                    &goal_keys,
+                    start_chunk,
+                    goal_chunk,
+                );
+
+                let start_pos = node_path.path.front().unwrap();
+                let goal_pos = node_path.path.back().unwrap();
+
+                // Add start_path to the node_path
+                let start_path = start_paths.get(&(start_pos - start_chunk.min())).unwrap();
+                path.extend(start_path.path().iter().map(|pos| *pos + start_chunk.min()));
+                cost += start_path.cost();
+
+                // Add the node_path to the path
+                path.extend(node_path.path());
+                cost += node_path.cost();
+
+                // Add goal path to path
+                let end_path = goal_paths.get(&(goal_pos - goal_chunk.min())).unwrap();
+                path.extend(
+                    end_path
+                        .path()
+                        .iter()
+                        .rev()
+                        .map(|pos| *pos + goal_chunk.min()),
+                );
+                cost += end_path.cost();
+
+                if path.is_empty() {
+                    return None;
+                }
+
+                // On some occassions extending the goal path can add in a duplicate goal position at the end.
+                // It's cheaper/cleaner to just clean up after it.
+                if path.len() >= 2 && path[path.len() - 1] == path[path.len() - 2] {
+                    path.pop();
+                }
+
+                // Same with the start
+                if path.len() >= 2 && path[0] == path[1] {
+                    log::warn!("Start contains duplicate nodes: {:?}", path);
+                }
+
+                log::info!("Found unrefined path: {:?}, with cost {}", path, cost);
+
+                if !refined && !waypoints {
+                    // If we're not refining, return the path as is
+                    let mut path = Path::new(path, cost);
+                    path.graph_path = node_path.path;
+                    return Some(path);
+                }
+
+                if waypoints {
+                    let waypoints_path = extract_waypoints(
+                        &grid.neighborhood,
+                        &grid.view(),
+                        &Path::new(path, cost),
+                        mask,
+                    );
+                    if waypoints_path.is_empty() {
+                        log::warn!("Waypoints path is empty, returning None");
+                        return None;
+                    }
+
+                    return Some(waypoints_path);
+                }
+
+                let mut refined_path = optimize_path(
+                    &grid.neighborhood,
+                    &grid.view(),
+                    mask,
+                    &Path::from_slice(&path, cost),
+                );
+
+                // remove the starting position from the refined path
+                refined_path.path.pop_front();
+
+                // add the graph path to the refined path
+                refined_path.graph_path = node_path.path;
+
+                log::info!("Refined path: {:?}, with cost: {:?}", refined_path.path(), refined_path.cost());
+
+                return Some(refined_path);
             }
         }
     }
@@ -356,6 +444,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 let mut refined_path = optimize_path(
                     &grid.neighborhood,
                     &grid.view(),
+                    mask,
                     &Path::from_slice(&path, cost),
                 );
 
@@ -502,6 +591,94 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
 pub(crate) fn optimize_path<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
+    mask: &NavMaskData,
+    path: &Path,
+) -> Path {
+    if path.is_empty() {
+        return path.clone();
+    }
+
+    let filtered = !neighborhood.filters().is_empty();
+
+    let mut refined_path = Vec::with_capacity(path.len());
+    let mut i = 0;
+
+    refined_path.push(path.path[i]); // Always keep the first node
+
+    while i < path.len() {
+        let mut shortcut_taken = false;
+
+        for farthest in (i + 1..path.len()).rev() {
+            let candidate = path.path[farthest];
+
+            let maybe_shortcut = bresenham_path(
+                grid,
+                path.path[i],
+                candidate,
+                neighborhood.is_ordinal(),
+                filtered,
+                false,
+            );
+
+            if let Some(shortcut) = maybe_shortcut {
+                // Calculate cost of shortcut using masked nav data
+                let shortcut_cost: u32 = shortcut
+                    .iter()
+                    .skip(1) // Skip the starting position
+                    .map(|pos| {
+                        let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                        mask.get(cell, *pos).cost
+                    })
+                    .sum();
+
+                // Calculate cost of non-shortcut path using masked nav data
+                let non_shortcut_cost: u32 = path.path
+                    .iter()
+                    .skip(i)
+                    .take(farthest - i + 1)
+                    .skip(1) // Skip the starting position
+                    .map(|pos| {
+                        let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                        mask.get(cell, *pos).cost
+                    })
+                    .sum();
+
+                // Only take shortcut if it's cheaper or equal cost
+                if shortcut_cost <= non_shortcut_cost {
+                    refined_path.extend(shortcut.into_iter().skip(1));
+                    i = farthest;
+                    shortcut_taken = true;
+                    break;
+                }
+            }
+        }
+
+        if !shortcut_taken {
+            i += 1;
+            if i < path.len() {
+                refined_path.push(path.path[i]);
+            }
+        }
+    }
+
+    // Recompute total cost of new path using masked nav data
+    let cost = refined_path
+        .iter()
+        .map(|pos| {
+            let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+            mask.get(cell, *pos).cost
+        })
+        .sum();
+
+    let mut path = Path::new(refined_path.clone(), cost);
+    path.graph_path = refined_path.into();
+    path
+}
+/*#[inline(always)]
+pub(crate) fn optimize_path<N: Neighborhood>(
+    neighborhood: &N,
+    grid: &ArrayView3<NavCell>,
+    mask: &NavMaskData,
     path: &Path,
 ) -> Path {
     if path.is_empty() {
@@ -565,7 +742,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     let mut path = Path::new(refined_path.clone(), cost);
     path.graph_path = refined_path.into();
     path
-}
+}*/
 
 // Filters and ranks nodes within a chunk based on reachability and proximity.
 #[inline(always)]

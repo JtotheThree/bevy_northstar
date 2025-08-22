@@ -143,3 +143,24 @@ fn position_in_cubic_window(pos: UVec3, center: IVec3, radius: i32, grid_shape: 
         || pos.as_ivec3().cmpeq(max).all()
         || (pos.as_ivec3() - center).abs().max_element() <= radius
 }
+
+
+pub(crate) fn are_adjacent(pos1: UVec3, pos2: UVec3, ordinal: bool) -> bool {
+    if pos1 == pos2 {
+        return false; // Same position is not adjacent
+    }
+
+    let diff = pos1.as_ivec3() - pos2.as_ivec3();
+    let abs_diff = diff.abs();
+
+    if ordinal {
+        // Ordinal movement: allow diagonal connections
+        // Adjacent if all coordinate differences are 0 or 1
+        abs_diff.x <= 1 && abs_diff.y <= 1 && abs_diff.z <= 1
+    } else {
+        // Cardinal movement: only orthogonal connections
+        // Adjacent if exactly one coordinate differs by 1, others are 0
+        let non_zero_count = (abs_diff.x > 0) as u32 + (abs_diff.y > 0) as u32 + (abs_diff.z > 0) as u32;
+        non_zero_count == 1 && abs_diff.max_element() == 1
+    }
+}

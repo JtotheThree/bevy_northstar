@@ -1444,20 +1444,20 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         blocking: &HashMap<UVec3, Entity>,
-        mask: Option<&NavMask>,
+        mask: Option<&mut NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
 
-        let mask: NavMaskData = match mask {
+        let mut mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
 
 
-        pathfind_new(self, start, goal, blocking, &mask, partial, true, false)
+        pathfind_new(self, start, goal, blocking, &mut mask, partial, true, false)
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.

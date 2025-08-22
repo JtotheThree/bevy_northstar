@@ -1,9 +1,9 @@
 use std::collections::BinaryHeap;
 use indexmap::map::Entry::{Occupied, Vacant};
 
-use bevy::{ecs::entity::Entity, math::UVec3, platform::collections::HashMap};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
-use crate::{astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, FxIndexMap, SmallestCostHolder};
+use crate::{are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, FxIndexMap, SmallestCostHolder};
 
 pub(crate) fn hpa<N: Neighborhood>(
     grid: &Grid<N>,
@@ -12,7 +12,7 @@ pub(crate) fn hpa<N: Neighborhood>(
     size_hint: usize,
     partial: bool,
     blocking: &HashMap<UVec3, Entity>,
-    mask: &NavMaskData,
+    mask: &mut NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
@@ -30,16 +30,20 @@ pub(crate) fn hpa<N: Neighborhood>(
 
             if *current_pos == goal {
                 let mut current = index;
-                let mut steps = vec![];
+                let mut node_path = vec![];
 
+                // First, collect the high-level node path
                 while current != usize::MAX {
                     let (pos, _) = visited.get_index(current).unwrap();
-                    steps.push(*pos);
+                    node_path.push(*pos);
                     current = visited.get(pos).unwrap().0;
                 }
 
-                steps.reverse();
-                return Some(Path::new(steps, current_cost));
+                node_path.reverse();
+                
+                // Now rebuild the full path from cached paths
+                let full_path = rebuild_full_path(grid, &node_path, mask);
+                return Some(Path::new(full_path, current_cost));
             }
 
             if cost > current_cost {
@@ -69,17 +73,29 @@ pub(crate) fn hpa<N: Neighborhood>(
             let mut new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
 
             let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
+            
             if mask.chunk_in_mask(neighbor_chunk.index()) {
-                // Get a view of just the chunk from the grid
-                let chunk_ref = grid.chunk_at_position(*neighbor).unwrap();
-                let chunk = grid.chunk_view(chunk_ref);
-                let path = astar_grid(grid.neighborhood(),  &grid.view(), current_pos, *neighbor, size_hint, partial, blocking, mask);
-
-                if path.is_none() {
-                    continue;
+                // Check cache first
+                if let Some(cached_path) = mask.get_cached_path(current_pos, *neighbor) {
+                    log::info!("Found cached path from {:?} to {:?}", current_pos, *neighbor);
+                    new_cost = cost + cached_path.cost();
+                } else {
+                    // Calculate new path cost
+                    let path_cost = if are_adjacent(current_pos, *neighbor, grid.neighborhood().is_ordinal()) {
+                        // Adjacent case
+                        let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
+                        mask.add_cached_path(current_pos, *neighbor, path);
+                        mask_cell.cost
+                    } else {
+                        // Distant case - need pathfinding within chunk
+                        match find_mask_path(grid, current_pos, *neighbor, size_hint, partial, blocking, mask) {
+                            Some(path_cost) => path_cost,
+                            None => continue, // Skip this neighbor if no path found
+                        }
+                    };
+                    
+                    new_cost = cost + path_cost;
                 }
-
-                new_cost = cost + path.unwrap().cost();
             }
 
             let h;
@@ -112,6 +128,77 @@ pub(crate) fn hpa<N: Neighborhood>(
     None
 }
 
+fn rebuild_full_path<N: Neighborhood>(
+    grid: &Grid<N>,
+    node_path: &[UVec3],
+    mask: &NavMaskData,
+) -> Vec<UVec3> {
+    if node_path.len() <= 1 {
+        return node_path.to_vec();
+    }
+
+    let mut full_path = vec![node_path[0]]; // Start with the first node
+
+    for window in node_path.windows(2) {
+        let from = window[0];
+        let to = window[1];
+
+        // First check if mask has a cached path
+        if let Some(cached_path) = mask.get_cached_path(from, to) {
+            // Add the cached path (skip the first element to avoid duplicates)
+            full_path.extend(cached_path.path().iter().skip(1));
+        } else if let Some(edge_path) = grid.graph().edge_path(from, to) {
+            // Use the graph's cached edge path
+            full_path.extend(edge_path.path().iter().skip(1));
+        } else if are_adjacent(from, to, grid.neighborhood().is_ordinal()) {
+            // Adjacent nodes, just add the destination
+            full_path.push(to);
+        } else {
+            // Fallback: direct connection (shouldn't happen in a well-formed graph)
+            log::warn!("No cached path found between {:?} and {:?}, using direct connection", from, to);
+            full_path.push(to);
+        }
+    }
+
+    full_path
+}
+
+fn find_mask_path<N: Neighborhood>(
+    grid: &Grid<N>,
+    current_pos: UVec3,
+    neighbor_pos: UVec3,
+    size_hint: usize,
+    partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
+    mask: &mut NavMaskData,
+) -> Option<u32> {
+    let chunk_ref = grid.chunk_at_position(neighbor_pos)?;
+    let chunk = grid.chunk_view(chunk_ref);
+    
+    let chunk_current_pos = chunk_ref.global_to_chunk(&current_pos)?;
+    let chunk_neighbor = chunk_ref.global_to_chunk(&neighbor_pos)?;
+    
+    let mut path = astar_grid(
+        grid.neighborhood(),
+        &chunk,
+        chunk_current_pos,
+        chunk_neighbor,
+        size_hint,
+        partial,
+        blocking,
+        mask,
+    )?;
+    
+    // Convert path positions back to global
+    for pos in path.as_mut().iter_mut() {
+        *pos = chunk_ref.chunk_to_global(pos);
+    }
+    
+    let path_cost = path.cost();
+    mask.add_cached_path(current_pos, neighbor_pos, path);
+    Some(path_cost)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{grid::GridSettingsBuilder, nav::Nav, prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, Region3d}};
@@ -136,17 +223,22 @@ mod tests {
             64,
             false,
             &HashMap::new(),
-            &NavMaskData::new(),
+            &mut NavMaskData::new(),
         )
         .unwrap();
 
 
         assert_eq!(path.cost(), 21);
-        assert_eq!(path.len(), 11);
+        assert_eq!(path.len(), 17);
         // Ensure first position is the start position
         assert_eq!(path.path()[0], start);
         // Ensure last position is the goal position
-        assert_eq!(path.path()[10], goal);
+        assert_eq!(path.path()[16], goal);
+
+        // Ensure that all positions in the path are adjacent
+        for window in path.path().windows(2) {
+            assert!(are_adjacent(window[0], window[1], grid.neighborhood().is_ordinal()));
+        }
     }
 
     #[test]
@@ -179,7 +271,7 @@ mod tests {
             64,
             false,
             &HashMap::new(),
-            &mask,
+            &mut mask,
         )
         .unwrap();
 
@@ -188,5 +280,9 @@ mod tests {
         // Assert that 8, 6, 0 is not in the path
         assert!(!path.path().contains(&UVec3::new(8, 6, 0)));
 
+        // Ensure that all positions in the path are adjacent
+        for window in path.path().windows(2) {
+            assert!(are_adjacent(window[0], window[1], grid.neighborhood().is_ordinal()));
+        }
     }
 }

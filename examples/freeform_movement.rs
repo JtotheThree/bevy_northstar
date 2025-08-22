@@ -61,7 +61,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
         .chunk_size(16)
-        .enable_collision()
+        //.enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
         //.add_neighbor_filter(filter::NoCornerCutting)
         .avoidance_distance(4)
@@ -204,7 +204,7 @@ fn input(
                 .insert_region(
                     &grid,
                     Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-                    NavCellMask::ModifyCost(5000),
+                    NavCellMask::ModifyCost(50000),
                 )
                 .unwrap();
 
@@ -216,9 +216,8 @@ fn input(
             log::info!("Pathfinding to: {:?}", goal);
             commands.entity(player).insert(
                 Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::Refined)
-                    .mask(nav_mask),
-            );
+                    .mode(PathfindMode::Refined),
+            ).insert(AgentMask(nav_mask));
         }
     }
 }

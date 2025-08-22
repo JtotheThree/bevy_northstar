@@ -187,7 +187,7 @@ fn tag_pathfinding_requests(mut commands: Commands, query: Query<Entity, Changed
 fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
-    query: Query<(Entity, &AgentPos, &Pathfind), With<NeedsPathfinding>>,
+    mut query: Query<(Entity, &AgentPos, &Pathfind, Option<&mut AgentMask>), With<NeedsPathfinding>>,
     blocking: Res<BlockingMap>,
     settings: Res<NorthstarPluginSettings>,
     //mut queue: Local<VecDeque<Entity>>,
@@ -198,7 +198,7 @@ fn pathfind<N: Neighborhood + 'static>(
     // Limit the number of agents processed per frame to prevent stutters
     let mut count = 0;
 
-    for (entity, start, pathfind) in &query {
+    for (entity, start, pathfind, mut agent_mask) in &mut query {
         if count >= settings.max_pathfinding_agents_per_frame {
             return;
         }
@@ -216,22 +216,29 @@ fn pathfind<N: Neighborhood + 'static>(
             .mode
             .unwrap_or(settings.pathfind_settings.default_mode);
 
+        let mut mask = if let Some(agent_mask) = agent_mask.as_mut() {
+            Some(&mut agent_mask.0)
+        } else {
+            None
+        };
+
         let path = match mode {
             PathfindMode::Refined => {
-                grid.pathfind(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
+                grid.pathfind(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
-            PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
+            /*PathfindMode::Coarse => {
+                grid.pathfind_coarse(start.0, pathfind.goal, &blocking.0, mask.as_ref(), pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
             PathfindMode::Waypoints => {
-                grid.pathfind_waypoints(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
+                grid.pathfind_waypoints(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
             PathfindMode::ThetaStar => {
-                grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, pathfind.mask.as_ref(), pathfind.partial)
-            }
+                grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
+            }*/
+            _ => continue,
         };
 
         #[cfg(feature = "stats")]
@@ -268,7 +275,7 @@ fn pathfind<N: Neighborhood + 'static>(
 #[allow(clippy::type_complexity)]
 fn next_position<N: Neighborhood + 'static>(
     mut query: Query<
-        (Entity, &mut Path, &AgentPos, &Pathfind),
+        (Entity, &mut Path, &AgentPos, &Pathfind, Option<&mut AgentMask>),
         (WithoutPathingFailures, Without<NextPos>),
     >,
     grid: Single<&Grid<N>>,
@@ -298,7 +305,7 @@ fn next_position<N: Neighborhood + 'static>(
         let entity = queue.pop_front().unwrap();
 
         // If the entity still exists and is valid
-        if let Ok((entity, mut path, position, pathfind)) = query.get_mut(entity) {
+        if let Ok((entity, mut path, position, pathfind, mut agent_mask)) = query.get_mut(entity) {
             if position.0 == pathfind.goal {
                 commands.entity(entity).try_remove::<Path>();
                 commands.entity(entity).try_remove::<Pathfind>();
@@ -309,13 +316,15 @@ fn next_position<N: Neighborhood + 'static>(
                 #[cfg(feature = "stats")]
                 let start = Instant::now();
 
+                let default_mask = NavMask::default();
+                let mask = agent_mask.as_ref().map(|m| &m.0).unwrap_or(&default_mask);
                 let success = avoidance(
                     grid,
                     entity,
                     &mut path,
                     position.0,
                     &blocking_map.0,
-                    pathfind.mask.as_ref().unwrap_or(&NavMask::default()),
+                    mask,
                     &direction.0,
                     grid.avoidance_distance() as usize,
                 );
@@ -509,7 +518,7 @@ fn avoidance<N: Neighborhood + 'static>(
 // If the reroute fails, it will insert a `RerouteFailed` component to the entity.
 // Once an entity has a reroute failure, no pathfinding will be attempted until the user handles reinserts the `Pathfind` component.
 fn reroute_path<N: Neighborhood + 'static>(
-    mut query: Query<(Entity, &AgentPos, &Pathfind, &Path), With<AvoidanceFailed>>,
+    mut query: Query<(Entity, &AgentPos, &Pathfind, &Path, Option<&mut AgentMask>), With<AvoidanceFailed>>,
     grid: Single<&Grid<N>>,
     blocking_map: Res<BlockingMap>,
     mut commands: Commands,
@@ -518,7 +527,7 @@ fn reroute_path<N: Neighborhood + 'static>(
 ) {
     let grid = grid.into_inner();
 
-    for (count, (entity, position, pathfind, path)) in query.iter_mut().enumerate() {
+    for (count, (entity, position, pathfind, path, agent_mask)) in query.iter_mut().enumerate() {
         // TODO: This doesn't really tie in with the main pathfinding agent counts. This will stil help limit how many are rereouting for now.
         // There's no point bridging it for the moment since this really needs to be reworked into an async system to really prevent stutters.
         if count >= settings.max_pathfinding_agents_per_frame {
@@ -541,7 +550,7 @@ fn reroute_path<N: Neighborhood + 'static>(
             PathfindMode::ThetaStar => false,
         };
 
-        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking_map.0, pathfind.mask.as_ref(), refined);
+        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking_map.0, agent_mask.as_ref().map(|m| &m.0), refined);
 
         if let Some(new_path) = new_path {
             // if the last position in the path is not the goal...

@@ -8,7 +8,7 @@ use bevy::{
 use ndarray::ArrayView3;
 
 use crate::{
-    grid::Grid, nav::{Nav, NavCell, Portal}, prelude::Neighborhood, MovementCost
+    grid::Grid, nav::{Nav, NavCell, Portal}, path::Path, prelude::Neighborhood, MovementCost
 };
 
 /// Mask for a single cell over [`NavCell`].
@@ -71,10 +71,7 @@ impl NavMask {
     /// Creates a new empty NavMask.
     pub fn new() -> Self {
         Self {
-            data: Arc::new(Mutex::new(NavMaskData {
-                layers: Vec::new(),
-                translation: IVec3::ZERO,
-            })),
+            data: Arc::new(Mutex::new(NavMaskData::new())),
         }
     }
 
@@ -183,6 +180,7 @@ impl From<&NavMask> for NavMaskData {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskData {
     pub(crate) layers: Vec<NavMaskLayer>,
+    pub(crate) cached_paths: HashMap<(UVec3, UVec3), Path>,
     translation: IVec3,
 }
 
@@ -190,12 +188,21 @@ impl NavMaskData {
     pub(crate) fn new() -> Self {
         Self {
             layers: Vec::new(),
+            cached_paths: HashMap::new(),
             translation: IVec3::ZERO,
         }
     }
 
     pub(crate) fn add_layer(&mut self, layer: NavMaskLayer) {
         self.layers.push(layer);
+    }
+
+    pub(crate) fn add_cached_path(&mut self, start: UVec3, end: UVec3, path: Path) {
+        self.cached_paths.insert((start, end), path);
+    }
+
+    pub(crate) fn get_cached_path(&self, start: UVec3, end: UVec3) -> Option<&Path> {
+        self.cached_paths.get(&(start, end))
     }
 
     pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
