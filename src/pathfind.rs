@@ -199,13 +199,13 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
             );
 
             if let Some(mut node_path) = node_path {
-                for pos in &node_path.path {
+                /*for pos in &node_path.path {
                     if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
                         if cell.is_impassable() {
                             log::error!("Path goes through impassable cell at {:?}", pos);
                         }
                     }
-                }
+                }*/
 
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
                 let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
@@ -298,13 +298,13 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                 refined_path.path.pop_front();
 
                 // Debug test, ensure that NONE of the positions appear in the mask
-                for pos in &refined_path.path {
+                /*for pos in &refined_path.path {
                     if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
                         if cell.is_impassable() {
                             log::error!("Refined path goes through impassable cell at {:?}", pos);
                         }
                     }
-                }
+                }*/
 
                 // add the graph path to the refined path
                 refined_path.graph_path = node_path.path;
@@ -566,6 +566,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
                 neighborhood.is_ordinal(),
                 filtered,
                 true,
+                mask,
             ) {
                 for &pos in shortcut.iter().skip(1) {
                     let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
@@ -590,6 +591,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
                     neighborhood.is_ordinal(),
                     filtered,
                     true,
+                    mask,
                 ) {
                     for &pos in step.iter().skip(1) {
                         let cell_val =
@@ -660,6 +662,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
                 neighborhood.is_ordinal(),
                 filtered,
                 false,
+                mask,
             );
 
             if let Some(shortcut) = maybe_shortcut {
@@ -792,6 +795,7 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 
+    // Print all key values in the mask
     let min = chunk.min().as_ivec3();
     //let max = chunk.max().as_ivec3();
 
@@ -809,6 +813,18 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
         100,
         &mask_local,
     );
+
+   // Debug check: convert local positions to global before checking mask
+    /*for path in paths.values() {
+        for local_pos in &path.path {
+            let global_pos = *local_pos + chunk.min(); // Convert to global coordinates
+            let cell_val = grid.view()[[global_pos.x as usize, global_pos.y as usize, global_pos.z as usize]].clone();
+            let masked_cell = mask.get(cell_val.clone(), global_pos).unwrap_or(cell_val); // Now using global mask with global pos
+            if masked_cell.is_impassable() {
+                log::error!("START PATH goes through impassable cell at {:?} (local: {:?})", global_pos, local_pos);
+            }
+        }
+    }*/
 
     let filtered_nodes = nodes
         .iter()

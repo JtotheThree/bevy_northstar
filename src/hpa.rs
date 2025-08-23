@@ -24,6 +24,9 @@ pub(crate) fn hpa<N: Neighborhood>(
     let mut visited: FxIndexMap<UVec3, (usize, u32)> = FxIndexMap::default();
     visited.insert(start, (usize::MAX, 0));
 
+    // Performance optimization if the navigation mask layer count is 0
+    let masked = mask.layer_count() > 0;
+
     while let Some(SmallestCostHolder { cost, index, .. }) = to_visit.pop() {
         let (neighbors, current_pos) = {
             let (current_pos, &(_, current_cost)) = visited.get_index(index).unwrap();
@@ -42,24 +45,24 @@ pub(crate) fn hpa<N: Neighborhood>(
                 node_path.reverse();
 
                 // Debug test, ensure that NONE of the positions appear in the mask
-                for pos in &node_path {
+                /*for pos in &node_path {
                     if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
                         if cell.is_impassable() {
                             log::error!("Path goes through impassable cell at {:?}", pos);
                         }
                     }
-                }
+                }*/
                 
                 // Now rebuild the full path from cached paths
                 let full_path = rebuild_full_path(grid, &node_path, mask);
 
-                for pos in &full_path {
+                /*for pos in &full_path {
                     if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
                         if cell.is_impassable() {
                             log::error!("Full path goes through impassable cell at {:?}", pos);
                         }
                     }
-                }
+                }*/
 
                 return Some(Path::new(full_path, current_cost));
             }
@@ -82,9 +85,55 @@ pub(crate) fn hpa<N: Neighborhood>(
 
             let neighbor_cell = grid.navcell(*neighbor);
             let new_cost;
-            
+
+            if !masked {
+                // Not masked - use default graph edge cost
+                if neighbor_cell.is_impassable() {
+                    continue;
+                }
+                new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
+            } else {
+                // Check if the neighbor node is in a mask affected chunk
+                let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
+
+                if mask.chunk_in_mask(neighbor_chunk.index()) {
+                    let mask_cell = mask.get(neighbor_cell.clone(), *neighbor).unwrap_or(neighbor_cell.clone());
+
+                    if mask_cell.is_impassable() {
+                        continue;
+                    }
+
+                    // Check the cache first
+                    if let Some(cached_path) = mask.get_cached_path(current_pos, *neighbor) {
+                        new_cost = cost + cached_path.cost();
+                    } else {
+                        // Calculate new path cost
+                        let path_cost = if are_adjacent(current_pos, *neighbor, grid.neighborhood().is_ordinal()) {
+                            // Adjacent case
+                            let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
+                            mask.add_cached_path(current_pos, *neighbor, path);
+                            mask_cell.cost
+                        } else {
+                            // Distant case - need pathfinding within chunk
+                            match find_mask_path(grid, current_pos, *neighbor, size_hint, partial, blocking, mask) {
+                                Some(path_cost) => path_cost,
+                                None => continue,
+                            }
+                        };
+                        
+                        new_cost = cost + path_cost;
+                    }
+                } else {
+                    // Not masked - use default graph edge cost
+                    if neighbor_cell.is_impassable() {
+                        continue;
+                    }
+                    new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
+                }
+            }
+
             // Check mask once and handle both cases
-            if let Some(mask_cell) = mask.get(neighbor_cell.clone(), *neighbor) {
+            /*if let Some(mask_cell) = mask.get(neighbor_cell.clone(), *neighbor) {
                 // Neighbor is masked
                 if mask_cell.is_impassable() {
                     continue;
@@ -124,7 +173,7 @@ pub(crate) fn hpa<N: Neighborhood>(
                     continue;
                 }
                 new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
-            }
+            }*/
 
             let h;
             let n;
@@ -205,6 +254,9 @@ fn find_mask_path<N: Neighborhood>(
     
     let chunk_current_pos = chunk_ref.global_to_chunk(&current_pos)?;
     let chunk_neighbor = chunk_ref.global_to_chunk(&neighbor_pos)?;
+
+    let min = chunk_ref.min().as_ivec3();
+    let mask_local = mask.translate_by(-min);
     
     let mut path = astar_grid(
         grid.neighborhood(),
@@ -214,7 +266,7 @@ fn find_mask_path<N: Neighborhood>(
         size_hint,
         partial,
         blocking,
-        mask,
+        &mask_local,
     )?;
     
     // Convert path positions back to global

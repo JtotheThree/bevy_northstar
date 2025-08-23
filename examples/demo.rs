@@ -127,7 +127,7 @@ fn startup(
         .insert_region(
             &grid,
             Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-            NavCellMask::ImpassableOverride,
+            NavCellMask::ModifyCost(500000),
         )
         .unwrap();
 
@@ -238,6 +238,13 @@ fn spawn_minions(
 
     while count < 128 {
         let position = walkable.tiles.choose(&mut rand::rng()).unwrap();
+
+        // Temporary hack to make sure minions don't spawn in the testing nav mask region.
+        if position.x >= 64.0 * 8.0 && position.y >= 64.0 * 8.0 && 
+           position.x <= 84.0 * 8.0 && position.y <= 84.0 * 8.0 {
+            continue
+        }
+
         let goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
         let transform = Vec3::new(position.x, position.y, 4.0) + offset.extend(0.0);

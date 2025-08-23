@@ -2,7 +2,7 @@
 use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
-use crate::nav::NavCell;
+use crate::{nav::NavCell, nav_mask::NavMaskData};
 
 /// Yielding function for tracing a line in a grid.
 pub(crate) fn trace_line<F>(
@@ -165,10 +165,14 @@ pub fn bresenham_path(
     ordinal: bool,
     filtered: bool,
     aliased: bool,
+    mask: &NavMaskData,
 ) -> Option<Vec<UVec3>> {
     let mut path = Vec::with_capacity(32);
     let success = trace_line(grid, start, goal, ordinal, filtered, aliased, |pos| {
-        if grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable() {
+        let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+        let masked_cell = mask.get(cell.clone(), pos).unwrap_or(cell);
+
+        if masked_cell.is_impassable() {
             false
         } else {
             path.push(pos);
@@ -191,10 +195,7 @@ mod tests {
         grid::{
             ChunkSettings, CollisionSettings, GridInternalSettings, GridSettings, NavSettings,
             NeighborhoodSettings,
-        },
-        nav::NavCell,
-        prelude::*,
-        raycast::{bresenham_path, has_line_of_sight},
+        }, nav::NavCell, nav_mask::NavMaskData, prelude::*, raycast::{bresenham_path, has_line_of_sight}
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -241,6 +242,7 @@ mod tests {
             grid.neighborhood.is_ordinal(),
             false,
             false,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_some());
@@ -257,6 +259,7 @@ mod tests {
             grid.neighborhood.is_ordinal(),
             false,
             true,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_some());
@@ -274,6 +277,7 @@ mod tests {
             grid.neighborhood.is_ordinal(),
             false,
             false,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_none());

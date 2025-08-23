@@ -80,7 +80,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add the debug map as a child of the entity containing the Grid.
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
-        DebugGridBuilder::new(8, 8).enable_cells().build(),
+        DebugGridBuilder::new(8, 8).enable_cells().enable_chunks().enable_entrances().build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
     ));
@@ -141,12 +141,15 @@ fn spawn_player(
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
-    let position = UVec3::new(64, 64, 0);
+    let position = UVec3::new(60, 60, 0);
     let translation = Vec3::new(
         offset.x + (position.x as f32 * grid_size.x) + (tile_size.x / 2.0),
         offset.y + (position.y as f32 * grid_size.y) + (tile_size.y / 2.0),
         1.0,
     );
+
+    let mut debug_path = DebugPath::new(Color::srgb(0.0, 1.0, 0.0));
+    debug_path.draw_unrefined = true;
 
     commands.spawn((
         Player,
@@ -155,7 +158,7 @@ fn spawn_player(
             ..Default::default()
         },
         AgentPos(position),
-        DebugPath::new(Color::srgb(0.0, 1.0, 0.0)),
+        debug_path,
         AgentOfGrid(grid_entity),
         Transform::from_translation(translation),
         ChildOf(layer_entity),
@@ -203,7 +206,7 @@ fn input(
             mask_layer
                 .insert_region(
                     &grid,
-                    Region3d::new(UVec3::new(78, 78, 0), UVec3::new(112, 112, 0)),
+                    Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
                     NavCellMask::ImpassableOverride,
                     //NavCellMask::ModifyCost(50000),
                 )
@@ -217,7 +220,7 @@ fn input(
             log::info!("Pathfinding to: {:?}", goal);
             commands.entity(player).insert(
                 Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::Refined),
+                    .mode(PathfindMode::Coarse),
             ).insert(AgentMask(nav_mask));
         }
     }

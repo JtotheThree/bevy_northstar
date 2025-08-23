@@ -195,6 +195,8 @@ impl NavMaskData {
 
     pub(crate) fn add_layer(&mut self, layer: NavMaskLayer) {
         self.layers.push(layer);
+        // TODO: We can maybe improve this in the future by only removing paths that are affected by the new layer
+        self.cached_paths.clear();
     }
 
     pub(crate) fn add_cached_path(&mut self, start: UVec3, end: UVec3, path: Path) {
@@ -265,6 +267,10 @@ impl NavMaskData {
 
     pub(crate) fn clear(&mut self) {
         self.layers.clear();
+    }
+
+    pub(crate) fn layer_count(&self) -> usize {
+        self.layers.len()
     }
 }
 
