@@ -150,12 +150,12 @@ fn startup(
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
-            .enable_chunks()
-            .enable_cells()
-            .enable_entrances()
-            .enable_cached_paths()
-            .enable_show_connections_on_hover()
-            .with_debug_mask(nav_mask)
+            //.enable_chunks()
+            //.enable_cells()
+            //.enable_entrances()
+            //.enable_cached_paths()
+            //.enable_show_connections_on_hover()
+            //.with_debug_mask(nav_mask)
             .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
@@ -288,7 +288,7 @@ fn spawn_minions(
                 ..Default::default()
             })
             .insert(Name::new(format!("{color:?}")))
-            .insert(DebugPath::new(color))
+            //.insert(DebugPath::new(color))
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))

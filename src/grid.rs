@@ -1451,13 +1451,19 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        let mut mask: NavMaskData = match mask {
-            Some(nav_mask) => nav_mask.clone().into(),
-            None => NavMaskData::new(),
-        };
-
-
-        pathfind_new(self, start, goal, blocking, &mut mask, partial, true, false)
+        match mask {
+            Some(nav_mask) => {
+                if let Ok(mut mask_data) = nav_mask.data.lock() {
+                    pathfind_new(self, start, goal, blocking, &mut mask_data, partial, true, false)
+                } else {
+                    None
+                }
+            },
+            None => {
+                let mut empty_mask = NavMaskData::new();
+                pathfind_new(self, start, goal, blocking, &mut empty_mask, partial, true, false)
+            }
+        }
     }
 
     /// Generate a coarse (unrefined) HPA* path from `start` to `goal`.
@@ -1486,13 +1492,19 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        // Lock and get the underlying data from the NavMask
-        let mut mask: NavMaskData = match mask {
-            Some(nav_mask) => nav_mask.clone().into(),
-            None => NavMaskData::new(),
-        };
-
-        pathfind_new(self, start, goal, blocking, &mut mask, partial, false, false)
+        match mask {
+            Some(nav_mask) => {
+                if let Ok(mut mask_data) = nav_mask.data.lock() {
+                    pathfind_new(self, start, goal, blocking, &mut mask_data, partial, false, false)
+                } else {
+                    None
+                }
+            },
+            None => {
+                let mut empty_mask = NavMaskData::new();
+                pathfind_new(self, start, goal, blocking, &mut empty_mask, partial, false, false)
+            }
+        }
     }
 
     /// Generate a path using HPA* pathfinding that ONLY returns waypoints needed to avoid walls.
@@ -1518,13 +1530,19 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        // Lock and get the underlying data from the NavMask
-        let mut mask: NavMaskData = match mask {
-            Some(nav_mask) => nav_mask.clone().into(),
-            None => NavMaskData::new(),
-        };
-
-        pathfind_new(self, start, goal, blocking, &mut mask, partial, false, true)
+        match mask {
+            Some(nav_mask) => {
+                if let Ok(mut mask_data) = nav_mask.data.lock() {
+                    pathfind_new(self, start, goal, blocking, &mut mask_data, partial, false, true)
+                } else {
+                    None
+                }
+            },
+            None => {
+                let mut empty_mask = NavMaskData::new();
+                pathfind_new(self, start, goal, blocking, &mut empty_mask, partial, false, true)
+            }
+        }
     }
 
     /// Generate a traditional A* path from `start` to `goal`.
