@@ -108,7 +108,7 @@ impl NavMask {
     /// * `pos` - The position in the grid to get the masked [`NavCell`].
     /// # Returns
     /// A [`Result`] containing the masked [`NavCell`] or an error message if the lock is poisoned.
-    pub fn get(&self, prev: NavCell, pos: UVec3) -> Result<NavCell, String> {
+    pub fn get(&self, prev: NavCell, pos: UVec3) -> Result<Option<NavCell>, String> {
         let data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
         Ok(data.get(prev, pos))
     }
@@ -205,11 +205,11 @@ impl NavMaskData {
         self.cached_paths.get(&(start, end))
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+    /*pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
         let translated_pos = pos.as_ivec3() - self.translation;
 
         if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
-            return prev;
+            return None;
         }
 
         let translated_pos = translated_pos.as_uvec3();
@@ -217,6 +217,33 @@ impl NavMaskData {
         self.layers
             .iter()
             .fold(prev, |cell, layer| layer.get(cell, translated_pos))
+    }*/
+
+    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
+        let translated_pos = pos.as_ivec3() - self.translation;
+
+        if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
+            return None;
+        }
+
+        let translated_pos = translated_pos.as_uvec3();
+
+        let mut result = prev;
+        let mut has_any_mask = false;
+
+        for layer in &self.layers {
+            let data = layer.data.lock().unwrap();
+            if let Some(mask) = data.mask.get(&translated_pos) {
+                result = process_mask(result, mask);
+                has_any_mask = true;
+            }
+        }
+
+        if has_any_mask {
+            Some(result)
+        } else {
+            None
+        }
     }
 
     pub(crate) fn chunk_in_mask(&self, chunk_index: (usize, usize, usize)) -> bool {
@@ -352,7 +379,7 @@ impl NavMaskLayer {
         Ok(data.mask.is_empty())
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
+    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
         if let Ok(data) = self.data.lock() {
             data.get(prev, pos)
         } else {
@@ -429,12 +456,12 @@ impl NavMaskLayerData {
         self.chunks.clear();
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
-        let mut cell = prev;
+    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
         if let Some(mask) = self.mask.get(&pos) {
-            cell = process_mask(cell, mask);
+            Some(process_mask(prev, mask));
         }
-        cell
+        
+        None
     }
 }
 

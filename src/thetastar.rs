@@ -102,7 +102,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            let cell = mask.get(neighbor_cell.clone(), neighbor);
+            let cell = mask.get(neighbor_cell.clone(), neighbor).unwrap_or(neighbor_cell.clone());
 
             if cell.is_impassable() {
                 continue;

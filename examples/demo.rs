@@ -13,6 +13,9 @@ use rand::seq::IndexedRandom;
 
 mod shared;
 
+#[derive(Resource)]
+struct AllNavMask(NavMask);
+
 fn main() {
     App::new()
         // Bevy default plugins
@@ -67,12 +70,14 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
+        .insert_resource(AllNavMask(NavMask::new()))
         .run();
 }
 
 fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut all_nav_mask: ResMut<AllNavMask>,
 ) {
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
@@ -113,6 +118,24 @@ fn startup(
         .avoidance_distance(4)
         .build();
 
+    let grid = Grid::<OrdinalNeighborhood>::new(&grid_settings);
+
+    // Create a nav mask to test with
+    // Create a nav_mask layer to bench 
+    let mask_layer = NavMaskLayer::new();
+    mask_layer
+        .insert_region(
+            &grid,
+            Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+            NavCellMask::ImpassableOverride,
+        )
+        .unwrap();
+
+    let nav_mask = NavMask::new();
+    nav_mask.add_layer(mask_layer).ok();
+
+    all_nav_mask.0 = nav_mask.clone();
+
     // Insert the grid as a child of the map entity. This won't currently affect anything, but in the future
     // we may want to have the grid as a child of the map entity so that multiple grids can be supported.
     map_entity.insert((
@@ -120,7 +143,7 @@ fn startup(
             render_chunk_size: UVec2::new(32, 32),
             ..Default::default()
         },
-        Grid::<OrdinalNeighborhood>::new(&grid_settings),
+        grid,
     ));
 
     // Add the debug map as a child of the entity containing the Grid.
@@ -128,9 +151,11 @@ fn startup(
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
             .enable_chunks()
+            .enable_cells()
             .enable_entrances()
             .enable_cached_paths()
             .enable_show_connections_on_hover()
+            .with_debug_mask(nav_mask)
             .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
@@ -188,6 +213,7 @@ fn spawn_minions(
     asset_server: Res<AssetServer>,
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
+    all_nav_mask: Res<AllNavMask>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
@@ -206,6 +232,7 @@ fn spawn_minions(
             }
         }
     }
+
 
     let mut count = 0;
 
@@ -264,7 +291,8 @@ fn spawn_minions(
                 0,
             )))
             .insert(pathfind)
-            .insert(ChildOf(layer_entity));
+            .insert(ChildOf(layer_entity))
+            .insert(AgentMask(all_nav_mask.0.clone()));
 
         count += 1;
     }

@@ -40,9 +40,27 @@ pub(crate) fn hpa<N: Neighborhood>(
                 }
 
                 node_path.reverse();
+
+                // Debug test, ensure that NONE of the positions appear in the mask
+                for pos in &node_path {
+                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
+                        if cell.is_impassable() {
+                            log::error!("Path goes through impassable cell at {:?}", pos);
+                        }
+                    }
+                }
                 
                 // Now rebuild the full path from cached paths
                 let full_path = rebuild_full_path(grid, &node_path, mask);
+
+                for pos in &full_path {
+                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
+                        if cell.is_impassable() {
+                            log::error!("Full path goes through impassable cell at {:?}", pos);
+                        }
+                    }
+                }
+
                 return Some(Path::new(full_path, current_cost));
             }
 
@@ -63,39 +81,49 @@ pub(crate) fn hpa<N: Neighborhood>(
             }
 
             let neighbor_cell = grid.navcell(*neighbor);
-
-            let mask_cell = mask.get(neighbor_cell.clone(), *neighbor);
-
-            if mask_cell.is_impassable() {
-                continue;
-            }
-
-            let mut new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
-
-            let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
+            let new_cost;
             
-            if mask.chunk_in_mask(neighbor_chunk.index()) {
-                // Check cache first
-                if let Some(cached_path) = mask.get_cached_path(current_pos, *neighbor) {
-                    log::info!("Found cached path from {:?} to {:?}", current_pos, *neighbor);
-                    new_cost = cost + cached_path.cost();
-                } else {
-                    // Calculate new path cost
-                    let path_cost = if are_adjacent(current_pos, *neighbor, grid.neighborhood().is_ordinal()) {
-                        // Adjacent case
-                        let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
-                        mask.add_cached_path(current_pos, *neighbor, path);
-                        mask_cell.cost
-                    } else {
-                        // Distant case - need pathfinding within chunk
-                        match find_mask_path(grid, current_pos, *neighbor, size_hint, partial, blocking, mask) {
-                            Some(path_cost) => path_cost,
-                            None => continue, // Skip this neighbor if no path found
-                        }
-                    };
-                    
-                    new_cost = cost + path_cost;
+            // Check mask once and handle both cases
+            if let Some(mask_cell) = mask.get(neighbor_cell.clone(), *neighbor) {
+                // Neighbor is masked
+                if mask_cell.is_impassable() {
+                    continue;
                 }
+
+                // Only compute chunk if we need it for caching logic
+                let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
+                
+                if mask.chunk_in_mask(neighbor_chunk.index()) {
+                    // Check cache first
+                    if let Some(cached_path) = mask.get_cached_path(current_pos, *neighbor) {
+                        new_cost = cost + cached_path.cost();
+                    } else {
+                        // Calculate new path cost
+                        let path_cost = if are_adjacent(current_pos, *neighbor, grid.neighborhood().is_ordinal()) {
+                            // Adjacent case
+                            let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
+                            mask.add_cached_path(current_pos, *neighbor, path);
+                            mask_cell.cost
+                        } else {
+                            // Distant case - need pathfinding within chunk
+                            match find_mask_path(grid, current_pos, *neighbor, size_hint, partial, blocking, mask) {
+                                Some(path_cost) => path_cost,
+                                None => continue,
+                            }
+                        };
+                        
+                        new_cost = cost + path_cost;
+                    }
+                } else {
+                    // Masked but chunk not in mask - use mask cell cost
+                    new_cost = cost + mask_cell.cost;
+                }
+            } else {
+                // Not masked - use default graph edge cost
+                if neighbor_cell.is_impassable() {
+                    continue;
+                }
+                new_cost = cost + grid.graph().edge_cost(current_pos, *neighbor).unwrap();
             }
 
             let h;

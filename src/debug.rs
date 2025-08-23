@@ -203,7 +203,9 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         if let Ok(masked_cell) =
                             mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
                         {
-                            cell = masked_cell;
+                            if let Some(masked_cell) = masked_cell {
+                                cell = masked_cell;
+                            }
                         }
                     }
 

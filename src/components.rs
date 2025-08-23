@@ -472,6 +472,12 @@ impl DebugGridBuilder {
         self
     }
 
+    /// Initializes the debug grid to display a specific [`NavMask`].
+    pub fn with_debug_mask(mut self, debug_mask: NavMask) -> Self {
+        self.debug_mask = Some(debug_mask);
+        self
+    }
+
     /// Builds the final [`DebugGrid`] component with the configured settings to be inserted into your map entity.
     /// You need to call this methdod to finalize the builder and create the component.
     pub fn build(self) -> DebugGrid {

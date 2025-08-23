@@ -226,19 +226,18 @@ fn pathfind<N: Neighborhood + 'static>(
             PathfindMode::Refined => {
                 grid.pathfind(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
-            /*PathfindMode::Coarse => {
-                grid.pathfind_coarse(start.0, pathfind.goal, &blocking.0, mask.as_ref(), pathfind.partial)
+            PathfindMode::Coarse => {
+                grid.pathfind_coarse(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
             PathfindMode::AStar => {
-                grid.pathfind_astar(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
+                grid.pathfind_astar(start.0, pathfind.goal, &blocking.0, mask.as_deref(), pathfind.partial)
             }
             PathfindMode::Waypoints => {
                 grid.pathfind_waypoints(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
             PathfindMode::ThetaStar => {
-                grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
-            }*/
-            _ => continue,
+                grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, mask.as_deref(), pathfind.partial)
+            }
         };
 
         #[cfg(feature = "stats")]

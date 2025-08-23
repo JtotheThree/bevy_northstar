@@ -48,11 +48,15 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
 
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
-    if mask.get(goal_cell, goal).is_impassable() && !partial {
-        return None;
+    if let Some(mask_cell) = mask.get(goal_cell, goal) {
+        if mask_cell.is_impassable() && !partial {
+            return None;
+        }
     }
 
+    //let start_time = std::time::Instant::now();
     let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask);
+    //log::info!("ASTAR took {:?}", start_time.elapsed());
 
     if let Some(mut path) = path {
         path.path.pop_front();
@@ -109,9 +113,11 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // if goal is in the blocking mask, return None
-    if mask.get(goal_cell, goal).is_impassable() && !partial {
-        //log::error!("Goal is in the blocking mask");
-        return None;
+    if let Some(mask_cell) = mask.get(goal_cell, goal) {
+        if mask_cell.is_impassable() && !partial {
+            //log::error!("Goal is in the blocking mask");
+            return None;
+        }
     }
 
     thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask)
@@ -141,8 +147,10 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
-    if mask.get(goal_cell, goal).is_impassable() && !partial {
-        return None;
+    if let Some(mask_cell) = mask.get(goal_cell, goal) {
+        if mask_cell.is_impassable() && !partial {
+            return None;
+        }
     }
 
     let start_chunk = grid.chunk_at_position(start)?;
@@ -191,6 +199,14 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
             );
 
             if let Some(mut node_path) = node_path {
+                for pos in &node_path.path {
+                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
+                        if cell.is_impassable() {
+                            log::error!("Path goes through impassable cell at {:?}", pos);
+                        }
+                    }
+                }
+
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
                 let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
 
@@ -207,7 +223,8 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
 
                 // Add start_path to the node_path
                 let start_path = start_paths.get(&(start_pos - start_chunk.min())).unwrap();
-                path.extend(start_path.path().iter().map(|pos| *pos + start_chunk.min()));
+                // skip(1) skips the start position, we don't want to return that ever
+                path.extend(start_path.path().iter().skip(1).map(|pos| *pos + start_chunk.min()));
                 cost += start_path.cost();
 
                 // Add the node_path to the path
@@ -237,10 +254,14 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
 
                 // Same with the start
                 if path.len() >= 2 && path[0] == path[1] {
-                    log::warn!("Start contains duplicate nodes: {:?}", path);
+                    log::warn!("Start contains duplicate nodes: {:?} <-> {:?}", path[0], path[1]);
                 }
 
-                log::info!("Found unrefined path: {:?}, with cost {}", path, cost);
+                if path[0] == start {
+                    log::warn!("Path shouldn't have the start position in it!!!");
+                }
+
+                //log::info!("Found unrefined path: {:?}, with cost {}", path, cost);
 
                 if !refined && !waypoints {
                     // If we're not refining, return the path as is
@@ -271,13 +292,24 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                     &Path::from_slice(&path, cost),
                 );
 
+                //log::info!("HPA refinement took {:?}", start_time.elapsed());
+
                 // remove the starting position from the refined path
                 refined_path.path.pop_front();
+
+                // Debug test, ensure that NONE of the positions appear in the mask
+                for pos in &refined_path.path {
+                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
+                        if cell.is_impassable() {
+                            log::error!("Refined path goes through impassable cell at {:?}", pos);
+                        }
+                    }
+                }
 
                 // add the graph path to the refined path
                 refined_path.graph_path = node_path.path;
 
-                log::info!("Refined path: {:?}, with cost: {:?}", refined_path.path(), refined_path.cost());
+                //log::info!("Refined path: {:?}, with cost: {:?}", refined_path.path(), refined_path.cost());
 
                 return Some(refined_path);
             }
@@ -316,8 +348,10 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
-    if mask.get(goal_cell, goal).is_impassable() && !partial {
-        return None;
+    if let Some(mask_cell) = mask.get(goal_cell, goal) {
+        if mask_cell.is_impassable() && !partial {
+            return None;
+        }
     }
 
     let start_chunk = grid.chunk_at_position(start)?;
@@ -535,7 +569,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
             ) {
                 for &pos in shortcut.iter().skip(1) {
                     let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
-                    let masked_cell = mask.get(cell_val, pos);
+                    let masked_cell = mask.get(cell_val.clone(), pos).unwrap_or(cell_val);
                     total_cost += masked_cell.cost;
                 }
 
@@ -560,7 +594,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
                     for &pos in step.iter().skip(1) {
                         let cell_val =
                             grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
-                        let masked_cell = mask.get(cell_val, pos);
+                        let masked_cell = mask.get(cell_val.clone(), pos).unwrap_or(cell_val);
                         total_cost += masked_cell.cost;
                     }
                 }
@@ -599,9 +633,17 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     }
 
     let filtered = !neighborhood.filters().is_empty();
-
     let mut refined_path = Vec::with_capacity(path.len());
     let mut i = 0;
+
+    // Pre-compute all cells to avoid repeated grid access
+    let path_cells: Vec<NavCell> = path.path
+        .iter()
+        .map(|pos| {
+            let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+            mask.get(cell.clone(), *pos).unwrap_or(cell)
+        })
+        .collect();
 
     refined_path.push(path.path[i]); // Always keep the first node
 
@@ -621,29 +663,24 @@ pub(crate) fn optimize_path<N: Neighborhood>(
             );
 
             if let Some(shortcut) = maybe_shortcut {
-                // Calculate cost of shortcut using masked nav data
+                // Calculate shortcut cost - still need to compute this for masked cells
                 let shortcut_cost: u32 = shortcut
                     .iter()
-                    .skip(1) // Skip the starting position
+                    .skip(1)
                     .map(|pos| {
                         let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
-                        mask.get(cell, *pos).cost
+                        mask.get(cell.clone(), *pos).unwrap_or(cell).cost
                     })
                     .sum();
 
-                // Calculate cost of non-shortcut path using masked nav data
-                let non_shortcut_cost: u32 = path.path
+                // Use pre-computed cells for non-shortcut cost
+                let non_shortcut_cost: u32 = path_cells
                     .iter()
-                    .skip(i)
-                    .take(farthest - i + 1)
-                    .skip(1) // Skip the starting position
-                    .map(|pos| {
-                        let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
-                        mask.get(cell, *pos).cost
-                    })
+                    .skip(i + 1)
+                    .take(farthest - i)
+                    .map(|cell| cell.cost)
                     .sum();
 
-                // Only take shortcut if it's cheaper or equal cost
                 if shortcut_cost <= non_shortcut_cost {
                     refined_path.extend(shortcut.into_iter().skip(1));
                     i = farthest;
@@ -661,12 +698,12 @@ pub(crate) fn optimize_path<N: Neighborhood>(
         }
     }
 
-    // Recompute total cost of new path using masked nav data
+    // Use pre-computed approach for final cost calculation
     let cost = refined_path
         .iter()
         .map(|pos| {
             let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
-            mask.get(cell, *pos).cost
+            mask.get(cell.clone(), *pos).unwrap_or(cell).cost
         })
         .sum();
 

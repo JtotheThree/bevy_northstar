@@ -1479,7 +1479,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         blocking: &HashMap<UVec3, Entity>,
-        mask: Option<&NavMask>,
+        mask: Option<&mut NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1487,12 +1487,12 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         // Lock and get the underlying data from the NavMask
-        let mask: NavMaskData = match mask {
+        let mut mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, blocking, &mask, partial, false, false)
+        pathfind_new(self, start, goal, blocking, &mut mask, partial, false, false)
     }
 
     /// Generate a path using HPA* pathfinding that ONLY returns waypoints needed to avoid walls.
@@ -1511,7 +1511,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         start: UVec3,
         goal: UVec3,
         blocking: &HashMap<UVec3, Entity>,
-        mask: Option<&NavMask>,
+        mask: Option<&mut NavMask>,
         partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1519,12 +1519,12 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         // Lock and get the underlying data from the NavMask
-        let mask: NavMaskData = match mask {
+        let mut mask: NavMaskData = match mask {
             Some(nav_mask) => nav_mask.clone().into(),
             None => NavMaskData::new(),
         };
 
-        pathfind(self, start, goal, blocking, &mask, partial, false, true)
+        pathfind_new(self, start, goal, blocking, &mut mask, partial, false, true)
     }
 
     /// Generate a traditional A* path from `start` to `goal`.

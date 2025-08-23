@@ -203,8 +203,9 @@ fn input(
             mask_layer
                 .insert_region(
                     &grid,
-                    Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-                    NavCellMask::ModifyCost(50000),
+                    Region3d::new(UVec3::new(78, 78, 0), UVec3::new(112, 112, 0)),
+                    NavCellMask::ImpassableOverride,
+                    //NavCellMask::ModifyCost(50000),
                 )
                 .unwrap();
 
