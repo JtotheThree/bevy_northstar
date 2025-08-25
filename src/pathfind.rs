@@ -697,8 +697,6 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
         }
     }
 
-    log::info!("Found total_cost: {}", total_cost);
-
     Path::new(waypoints_path, total_cost)
 }
 

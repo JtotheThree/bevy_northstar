@@ -111,7 +111,7 @@ fn startup(
     let mut map_entity = commands.spawn((TiledMapHandle(map_handle), anchor));
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
-        .chunk_size(32)
+        .chunk_size(16)
         .enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
         .add_neighbor_filter(filter::NoCornerCutting)
