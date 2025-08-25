@@ -40,10 +40,11 @@ bevy_ecs_tilemap = { version = "0.16" }
 bevy_ecs_tiled = { version = "0.7.3", features = ["user_properties"] }
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
-criterion = { version = "0.6.0", features = ["html_reports"] }
+tiled = { version = "0.14,0" }
+criterion = { version = "0.7.0", features = ["html_reports"] }
 pprof = { version = "0.15.0", features = ["flamegraph"] }
 
-rand = "0.9.1"
+rand = "0.9.2"
 
 [target.'cfg(not(target_os = "windows"))']
 [[bench]]
@@ -64,8 +65,8 @@ required-features = ["stats"]
 [[example]]
 name = "basic"
 
-#[[example]]
-#name = "nav_mask"
+[[example]]
+name = "nav_mask"
 
 [[example]]
 name = "freeform_movement"

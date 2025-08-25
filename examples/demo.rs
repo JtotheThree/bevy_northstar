@@ -114,7 +114,7 @@ fn startup(
         .chunk_size(16)
         .enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
-        //.add_neighbor_filter(filter::NoCornerCutting)
+        .add_neighbor_filter(filter::NoCornerCutting)
         .avoidance_distance(4)
         .build();
 
@@ -127,7 +127,8 @@ fn startup(
         .insert_region(
             &grid,
             Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-            NavCellMask::ModifyCost(500000),
+            NavCellMask::ModifyCost(50000),
+            //NavCellMask::ImpassableOverride,
         )
         .unwrap();
 
@@ -288,7 +289,7 @@ fn spawn_minions(
                 ..Default::default()
             })
             .insert(Name::new(format!("{color:?}")))
-            //.insert(DebugPath::new(color))
+            .insert(DebugPath::new(color))
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))

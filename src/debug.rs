@@ -4,11 +4,7 @@ use std::fmt::Debug;
 use bevy::{color::palettes::css, math::Vec2, platform::collections::HashMap, prelude::*};
 
 use crate::{
-    components::{DebugCursor, DebugGrid, DebugNode, DebugPath},
-    grid::Grid,
-    neighbor::Neighborhood,
-    path::Path,
-    prelude::{AgentOfGrid, DebugDepthYOffsets, DebugOffset},
+    components::{DebugCursor, DebugGrid, DebugNode, DebugPath}, grid::Grid, nav_mask::NavMaskResult, neighbor::Neighborhood, path::Path, prelude::{AgentOfGrid, DebugDepthYOffsets, DebugOffset}
 };
 
 /// Required to calculate how to draw the debug gizmos
@@ -200,12 +196,11 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
 
                     if let Some(mask) = &debug_grid.debug_mask {
-                        if let Ok(masked_cell) =
-                            mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
-                        {
-                            if let Some(masked_cell) = masked_cell {
+                        match mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth)) {
+                            NavMaskResult::Masked(masked_cell) => {
                                 cell = masked_cell;
                             }
+                            _ => {}
                         }
                     }
 

@@ -34,10 +34,16 @@ fn main() {
 }
 
 fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
+    // We need a grid to pass to NavMaskLayer. It needs to know the chunk layout so it can handle caching.
+    let grid_settings = GridSettingsBuilder::new_3d(32, 32, 32).build();
+    let mut grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+    grid.build();
+
     // Maybe different units will have penalties for crossing water tiles while other might not?
     let water_layer = NavMaskLayer::new();
     water_layer
         .insert_region(
+            &grid,
             Region3d::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
             NavCellMask::ModifyCost(5),
         )
@@ -47,6 +53,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     let red_faction_not_allowed_layer = NavMaskLayer::new();
     red_faction_not_allowed_layer
         .insert_region(
+            &grid,
             Region3d::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
             NavCellMask::ImpassableOverride,
         )
@@ -56,6 +63,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     let blue_faction_not_allowed_layer = NavMaskLayer::new();
     blue_faction_not_allowed_layer
         .insert_region(
+            &grid,
             Region3d::new(UVec3::new(16, 16, 16), UVec3::new(20, 20, 20)),
             NavCellMask::ImpassableOverride,
         )
@@ -127,46 +135,55 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     let blue_faction_pos = UVec3::new(12, 12, 12);
 
     // Test a water cell
-    let masked_water_cell = red_faction_mask.get(grid_cell.clone(), water_pos).unwrap();
-    assert_eq!(masked_water_cell.nav(), Nav::Passable(6));
-    log::info!(
-        "Water Movement Cost - Original: {:?}, Masked: {:?}",
-        grid_cell.nav(),
-        masked_water_cell.nav()
-    );
+    match red_faction_mask.get(grid_cell.clone(), water_pos) {
+        NavMaskResult::Masked(masked_cell) => {
+            assert_eq!(masked_cell.nav(), Nav::Passable(6));
+            log::info!(
+                "Water Movement Cost - Original: {:?}, Masked: {:?}",
+                grid_cell.nav(),
+                masked_cell.nav()
+            );
+        }
+        _ => panic!("Expected Masked result"),
+    }
 
     // Test that the red faction agent cannot pass through the blue faction's no-go region
-    let masked_red_faction_cell = red_faction_mask
-        .get(grid_cell.clone(), blue_faction_pos)
-        .unwrap();
-    assert_eq!(masked_red_faction_cell.nav(), Nav::Impassable);
-    log::info!(
-        "Red Faction Agent to Blue Faction Area - Original: {:?}, Masked: {:?}",
-        grid_cell.nav(),
-        masked_red_faction_cell.nav()
-    );
+    match red_faction_mask.get(grid_cell.clone(), blue_faction_pos) {
+        NavMaskResult::Masked(masked_cell) => {
+            assert_eq!(masked_cell.nav(), Nav::Impassable);
+            log::info!(
+                "Red Faction Agent to Blue Faction Area - Original: {:?}, Masked: {:?}",
+                grid_cell.nav(),
+                masked_cell.nav()
+            );
+        }
+        _ => panic!("Expected Masked result"),
+    }
 
     // Test that the red faction agent can pass through its own territory
-    let masked_red_faction_own_cell = red_faction_mask
-        .get(grid_cell.clone(), red_faction_pos)
-        .unwrap();
-    assert_eq!(masked_red_faction_own_cell.nav(), Nav::Passable(1));
-    log::info!(
-        "Red Faction Agent to Red Faction Area - Original: {:?}, Masked: {:?}",
-        grid_cell.nav(),
-        masked_red_faction_own_cell.nav()
-    );
+    match red_faction_mask.get(grid_cell.clone(), red_faction_pos) {
+        NavMaskResult::NotMasked => {
+            // This is expected since the mask does not modify this area.
+            log::info!(
+                "Red Faction Agent to Red Faction Area - Original: {:?}, Masked: NotMasked",
+                grid_cell.nav()
+            );
+        }
+        _ => panic!("Expected Masked result"),
+    }
 
     // Test that the blue faction agent cannot pass through the red faction's no-go region
-    let masked_blue_faction_cell = blue_faction_mask
-        .get(grid_cell.clone(), red_faction_pos)
-        .unwrap();
-    assert_eq!(masked_blue_faction_cell.nav(), Nav::Impassable);
-    log::info!(
-        "Blue Faction Agent to Red Faction Area - Original: {:?}, Masked: {:?}",
-        grid_cell.nav(),
-        masked_blue_faction_cell.nav()
-    );
+    match blue_faction_mask.get(grid_cell.clone(), red_faction_pos) {
+        NavMaskResult::Masked(masked_cell) => {
+            assert_eq!(masked_cell.nav(), Nav::Impassable);
+            log::info!(
+                "Blue Faction Agent to Red Faction Area - Original: {:?}, Masked: {:?}",
+                grid_cell.nav(),
+                masked_cell.nav()
+            );
+        }
+        _ => panic!("Expected Masked result"),
+    }
 }
 
 fn app_exit(mut exit: EventWriter<AppExit>) {

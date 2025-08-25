@@ -3,10 +3,10 @@ use std::time::Duration;
 use bevy::math::UVec3;
 use criterion::{criterion_group, criterion_main, Criterion};
 
+use tiled;
+
 use bevy_northstar::{
-    grid::{Grid, GridSettingsBuilder},
-    nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d},
-    prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
+    grid::{Grid, GridSettingsBuilder}, nav::{Nav, NavCell}, nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d}, pathfind::PathfindRequest, prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d}
 };
 
 mod profiler;
@@ -16,25 +16,51 @@ mod profiler;
 // We could probably use the demo map for this.
 
 fn benchmarks(c: &mut Criterion) {
+    // Let's load the demo map so we can use it to get some actual real world benchmarks
+    let mut loader = tiled::Loader::new();
+    let map = loader.load_tmx_map("assets/demo_128.tmx").unwrap();
+
     let mut group = c.benchmark_group("pathfinding");
 
-    let grid_settings = GridSettingsBuilder::new_2d(64, 64).chunk_size(32).build();
+    let grid_settings = GridSettingsBuilder::new_2d(128, 128).chunk_size(16).default_impassable().build();
 
     let mut grid: Grid<OrdinalNeighborhood> = Grid::new(&grid_settings);
 
+    for layer in map.layers() {
+        if let Some(tiled_layer) = layer.as_tile_layer() {
+            for y in 0..128 {
+                for x in 0..128 {
+                    let tile = tiled_layer.get_tile(x, y);
+                    if let Some(tile) = tile {
+                        // Let's make tiles with an id of 1 impassable
+                        if tile.id() == 14 {
+                            grid.set_nav(
+                                UVec3::new(x as u32, y as u32, 0),
+                                Nav::Passable(1)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
     group.sample_size(10);
 
-    group.bench_function("build_grid_64x64", |b| b.iter(|| grid.build()));
+    group.bench_function("build_grid_128x128_tilemap", |b| b.iter(|| grid.build()));
 
-    group.bench_function("pathfind_64x64", |b| {
-        b.iter(|| grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(63, 63, 0), None, false))
+    let mut request = PathfindRequest::new(UVec3::new(3, 2, 0), UVec3::new(108, 20, 0));
+    group.bench_function("hpa_refined_128x128_tilemap", |b| {
+        b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    group.bench_function("raw_pathfind_64x64", |b| {
-        b.iter(|| grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(63, 63, 0), None, false))
+    let mut request = PathfindRequest::new(UVec3::new(3, 2, 0), UVec3::new(108, 20, 0)).astar();
+    group.bench_function("astar_128x128_tilemap", |b| {
+        b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let grid_settings = GridSettingsBuilder::new_2d(512, 512).chunk_size(32).build();
+    /*let grid_settings = GridSettingsBuilder::new_2d(512, 512).chunk_size(32).build();
 
     let mut grid: Grid<OrdinalNeighborhood> = Grid::new(&grid_settings);
 
@@ -130,7 +156,7 @@ fn benchmarks(c: &mut Criterion) {
 
     group.bench_function("raw_pathfind_128x128x4", |b| {
         b.iter(|| grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(127, 127, 3), None, false))
-    });
+    });*/
 
     group.finish();
 }

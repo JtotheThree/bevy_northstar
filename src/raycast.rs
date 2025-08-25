@@ -2,7 +2,7 @@
 use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
-use crate::{nav::NavCell, nav_mask::NavMaskData};
+use crate::{nav::NavCell, nav_mask::{NavMask, NavMaskData}};
 
 /// Yielding function for tracing a line in a grid.
 pub(crate) fn trace_line<F>(
@@ -155,10 +155,28 @@ pub fn has_line_of_sight(
 /// * `ordinal` - Whether to use ordinal or cardinal movement.
 /// * `filtered` - Whether to apply neighborhood filters.
 /// * `aliased` - Setting to true allows aliasing which means it might be jagged. If this is false the path will be rejected if it can't reach to goal without aliazing.
+/// * `mask` - Optional [`NavMask`] to use for the path tracing.
 ///
 /// # Returns
 /// An `Option<Vec<UVec3>>` containing the path if successful, or `None` if the path could not be traced.
 pub fn bresenham_path(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+    filtered: bool,
+    aliased: bool,
+    mask: Option<&NavMask>,
+) -> Option<Vec<UVec3>> {
+    // Lock and get the underyling mask data
+    let mask: NavMaskData = match mask {
+            Some(nav_mask) => nav_mask.clone().into(),
+            None => NavMaskData::new(),
+    };
+    bresenham_path_internal(grid, start, goal, ordinal, filtered, aliased, &mask)
+}
+
+pub(crate) fn bresenham_path_internal(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
@@ -195,7 +213,7 @@ mod tests {
         grid::{
             ChunkSettings, CollisionSettings, GridInternalSettings, GridSettings, NavSettings,
             NeighborhoodSettings,
-        }, nav::NavCell, nav_mask::NavMaskData, prelude::*, raycast::{bresenham_path, has_line_of_sight}
+        }, nav::NavCell, nav_mask::NavMaskData, prelude::*, raycast::{bresenham_path_internal, has_line_of_sight}
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -235,7 +253,7 @@ mod tests {
 
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
@@ -252,7 +270,7 @@ mod tests {
 
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
@@ -270,7 +288,7 @@ mod tests {
         grid.set_nav(UVec3::new(5, 5, 0), Nav::Impassable);
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),

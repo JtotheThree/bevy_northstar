@@ -6,9 +6,7 @@ use std::time::Instant;
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
 use crate::{
-    nav_mask::{NavMaskLayer, NavMaskLayerData},
-    prelude::*,
-    WithoutPathingFailures,
+    pathfind::PathfindRequest, prelude::*, WithoutPathingFailures
 };
 
 /// Sets default settings for the Pathfind component.
@@ -212,17 +210,27 @@ fn pathfind<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start_time = Instant::now();
 
-        let mode = pathfind
+        let algorithm = pathfind
             .mode
             .unwrap_or(settings.pathfind_settings.default_mode);
 
-        let mut mask = if let Some(agent_mask) = agent_mask.as_mut() {
+        let mask = if let Some(agent_mask) = agent_mask.as_mut() {
             Some(&mut agent_mask.0)
         } else {
             None
         };
 
-        let path = match mode {
+        let path = grid.pathfind(&mut PathfindRequest {
+            start: start.0,
+            goal: pathfind.goal,
+            blocking: Some(&blocking.0),
+            mask,
+            partial: pathfind.partial,
+            algorithm,
+            search_range: None,
+        });
+
+        /*let path = match algorithm {
             PathfindMode::Refined => {
                 grid.pathfind(start.0, pathfind.goal, &blocking.0, mask, pathfind.partial)
             }
@@ -238,7 +246,7 @@ fn pathfind<N: Neighborhood + 'static>(
             PathfindMode::ThetaStar => {
                 grid.pathfind_thetastar(start.0, pathfind.goal, &blocking.0, mask.as_deref(), pathfind.partial)
             }
-        };
+        };*/
 
         #[cfg(feature = "stats")]
         let elapsed_time = start_time.elapsed().as_secs_f64();
@@ -304,7 +312,7 @@ fn next_position<N: Neighborhood + 'static>(
         let entity = queue.pop_front().unwrap();
 
         // If the entity still exists and is valid
-        if let Ok((entity, mut path, position, pathfind, mut agent_mask)) = query.get_mut(entity) {
+        if let Ok((entity, mut path, position, pathfind, agent_mask)) = query.get_mut(entity) {
             if position.0 == pathfind.goal {
                 commands.entity(entity).try_remove::<Path>();
                 commands.entity(entity).try_remove::<Pathfind>();

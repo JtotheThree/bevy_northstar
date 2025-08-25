@@ -2,14 +2,24 @@
 use std::{hash::Hash, sync::{Arc, Mutex}};
 
 use bevy::{
-    math::{IVec3, UVec3},
-    platform::collections::{HashMap, HashSet},
+    math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}
 };
 use ndarray::ArrayView3;
 
 use crate::{
     grid::Grid, nav::{Nav, NavCell, Portal}, path::Path, prelude::Neighborhood, MovementCost
 };
+
+/// Result of a navigation mask query.
+#[derive(Debug)]
+pub enum NavMaskResult {
+    /// The mask contains the cell, returning the modified cell.
+    Masked(NavCell),
+    /// The mask does not contain the cell
+    NotMasked,
+    /// The mask is locked and cannot be accessed.
+    Locked,
+}
 
 /// Mask for a single cell over [`NavCell`].
 /// You can use this to override or modify the cost of the underlying [`NavCell`] in the [`crate::grid::Grid`].
@@ -103,14 +113,22 @@ impl NavMask {
 
     /// Gets the masked [`NavCell`] for the given position.
     /// # Arguments
-    /// * `prev` - Provide the previous [`NavCell`] so the it can be returned if the mask layers do not contain a mask for that position.
+    /// * `original` - Provide the original [`NavCell`] so it can be masked if required.
     ///   This is mostly to avoid double cell lookup and having to potentially unwrap millions of cells.
     /// * `pos` - The position in the grid to get the masked [`NavCell`].
     /// # Returns
     /// A [`Result`] containing the masked [`NavCell`] or an error message if the lock is poisoned.
-    pub fn get(&self, prev: NavCell, pos: UVec3) -> Result<Option<NavCell>, String> {
-        let data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
-        Ok(data.get(prev, pos))
+    pub fn get(&self, original: NavCell, pos: UVec3) -> NavMaskResult {
+        match self.data.lock() {
+            Ok(data) => {
+                if let Some(masked) = data.get(original, pos) {
+                    NavMaskResult::Masked(masked)
+                } else {
+                    NavMaskResult::NotMasked
+                }
+            }
+            Err(_) => NavMaskResult::Locked,
+        }
     }
 
     /// Returns a new NavMask with the translation applied.
@@ -385,14 +403,6 @@ impl NavMaskLayer {
         Ok(data.mask.is_empty())
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
-        if let Ok(data) = self.data.lock() {
-            data.get(prev, pos)
-        } else {
-            panic!("NavMaskLayer lock poisoned")
-        }
-    }
-
     #[allow(dead_code)]
     fn into_data(self) -> NavMaskLayerData {
         self.into()
@@ -460,14 +470,6 @@ impl NavMaskLayerData {
     pub fn clear(&mut self) {
         self.mask.clear();
         self.chunks.clear();
-    }
-
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
-        if let Some(mask) = self.mask.get(&pos) {
-            Some(process_mask(prev, mask));
-        }
-        
-        None
     }
 }
 

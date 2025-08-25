@@ -38,7 +38,7 @@ pub mod prelude {
     pub use crate::filter;
     pub use crate::grid::{Grid, GridSettingsBuilder};
     pub use crate::nav::{Nav, Portal};
-    pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d};
+    pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, NavMaskResult, Region3d};
     pub use crate::neighbor::*;
     pub use crate::path::Path;
     pub use crate::plugin::{

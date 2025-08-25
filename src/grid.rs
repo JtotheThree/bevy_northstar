@@ -20,9 +20,9 @@ use crate::{
     neighbor::Neighborhood,
     node::Node,
     path::Path,
-    pathfind::{pathfind, pathfind_astar, pathfind_new, pathfind_thetastar, reroute_path},
+    pathfind::{pathfind, pathfind_astar, pathfind_new, pathfind_thetastar, reroute_path, PathfindRequest},
     position_in_cubic_window,
-    prelude::NavMask,
+    prelude::{NavMask, PathfindMode},
     timed, MovementCost,
 };
 
@@ -1439,7 +1439,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
     ///
-    pub fn pathfind(
+    pub fn pathfind_old(
         &self,
         start: UVec3,
         goal: UVec3,
@@ -1729,6 +1729,167 @@ impl<N: Neighborhood + Default> Grid<N> {
             partial,
         )
     }
+
+    /// Manually get a path from the grid.
+    /// Arguments:
+    /// * `request` - Provide a [`PathfindRequest`] containing the customization options for the pathfinding.
+    /// # Returns 
+    /// A [`Path`] if successful, or `None` if no viable path could be found.
+    pub fn pathfind(&self, request: &mut PathfindRequest) -> Option<Path> {
+        if self.needs_build() {
+            log::error!("Grid is dirty and needs to be built/rebuilt before pathfinding can be performed.");
+            return None;
+        }
+
+        let start_time = std::time::Instant::now();
+
+        let empty_blocking = HashMap::new();
+        let blocking = request.blocking.unwrap_or(&empty_blocking);
+
+        let path = match request.algorithm {
+            PathfindMode::Refined => {
+                match request.mask.as_mut() {
+                    Some(nav_mask) => {
+                        if let Ok(mut data) = nav_mask.data.lock() {
+                            pathfind_new(
+                                self, request.start, request.goal, blocking,
+                                &mut *data, request.partial, true, false,
+                            )
+                        } else {
+                            None // Return None if lock is contended, don't wait
+                        }
+                    },
+                    None => {
+                        let mut empty_mask = NavMaskData::new();
+                        pathfind_new(
+                            self, request.start, request.goal, blocking,
+                            &mut empty_mask, request.partial, true, false,
+                        )
+                    }
+                }
+            },
+            PathfindMode::Coarse => {
+                match request.mask.take() {
+                    Some(nav_mask) => {
+                        let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
+                        pathfind_new(
+                            self,
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &mut *data,
+                            request.partial,
+                            false,
+                            false,
+                        )
+                    },
+                    None => {
+                        let mut empty_mask = NavMaskData::new();
+                        pathfind_new(
+                            self,
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &mut empty_mask,
+                            request.partial,
+                            false,
+                            false,
+                        )
+                    }
+                }
+            },
+            PathfindMode::AStar => {
+                match &request.mask {
+                    Some(nav_mask) => {
+                        let data = nav_mask.data.lock().expect("Failed to lock NavMask data");
+                        pathfind_astar(
+                            &self.neighborhood,
+                            &self.grid.view(),
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &*data,
+                            request.partial,
+                        )
+                    },
+                    None => {
+                        let empty_mask = NavMaskData::new();
+                        pathfind_astar(
+                            &self.neighborhood,
+                            &self.grid.view(),
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &empty_mask,
+                            request.partial,
+                        )
+                    }
+                }
+            },
+            PathfindMode::Waypoints => {
+                match request.mask.take() {
+                    Some(nav_mask) => {
+                        let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
+                        pathfind_new(
+                            self,
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &mut *data,
+                            request.partial,
+                            false,
+                            true,
+                        )
+                    },
+                    None => {
+                        let mut empty_mask = NavMaskData::new();
+                        pathfind_new(
+                            self,
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &mut empty_mask,
+                            request.partial,
+                            false,
+                            true,
+                        )
+                    }
+                }
+            },
+            PathfindMode::ThetaStar => {
+                match &request.mask {
+                    Some(nav_mask) => {
+                        let data = nav_mask.data.lock().expect("Failed to lock NavMask data");
+                        pathfind_thetastar(
+                            &self.neighborhood,
+                            &self.grid.view(),
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &*data,
+                            request.partial,
+                        )
+                    },
+                    None => {
+                        let empty_mask = NavMaskData::new();
+                        pathfind_thetastar(
+                            &self.neighborhood,
+                            &self.grid.view(),
+                            request.start,
+                            request.goal,
+                            blocking,
+                            &empty_mask,
+                            request.partial,
+                        )
+                    }
+                }
+            },
+        };
+
+        log::info!("Pathfinding took {:?}", start_time.elapsed());
+
+        path
+    }
 }
 
 fn compute_cell_neighbors<N: Neighborhood>(
@@ -1749,17 +1910,13 @@ fn compute_cell_neighbors<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use bevy::{math::UVec3, platform::collections::HashMap};
+    use bevy::math::UVec3;
 
     use crate::{
-        dir::Dir,
-        grid::{
+        dir::Dir, grid::{
             ChunkSettings, CollisionSettings, Grid, GridInternalSettings, GridSettings,
             GridSettingsBuilder, NavCell, NavSettings, NeighborhoodSettings,
-        },
-        nav::{Nav, Portal},
-        neighbor::OrdinalNeighborhood3d,
-        prelude::{CardinalNeighborhood, OrdinalNeighborhood},
+        }, nav::{Nav, Portal}, neighbor::OrdinalNeighborhood3d, pathfind::PathfindRequest, prelude::{CardinalNeighborhood, OrdinalNeighborhood}
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -2060,8 +2217,8 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), &HashMap::new(), None, false);
-        let raw_path = grid.pathfind_astar(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)));
+        let raw_path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar());
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
@@ -2170,7 +2327,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(7, 7, 0), UVec3::new(121, 121, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(7, 7, 0), UVec3::new(121, 121, 0)));
 
         assert!(path.is_some());
         assert!(!path.unwrap().is_empty());
@@ -2186,7 +2343,7 @@ mod tests {
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&grid_settings);
 
         grid.build();
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(31, 31, 3), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(31, 31, 3)));
 
         assert!(path.is_some());
     }
@@ -2197,7 +2354,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar());
 
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 10);
@@ -2341,7 +2498,7 @@ mod tests {
         assert_graph_node_invariants(&grid);
 
         // There should be a path from (0,0,0) to (15,15,0)
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)));
         assert!(path.is_some(), "Path should exist in empty grid");
 
         // Block a vertical wall at x=8
@@ -2358,20 +2515,20 @@ mod tests {
         );
 
         // Now there should be no path from left to right
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)));
 
         assert!(path.is_none(), "Path should not exist after wall");
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
+        let _ = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
 
         // Open a gap in the wall at (8,8)
         grid.set_nav(UVec3::new(8, 8, 0), Nav::Passable(1));
         grid.build();
 
         // Now a path should exist again, and should pass through (8,8,0)
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)));
         assert!(path.is_some(), "Path should exist after opening gap");
         let path = path.unwrap();
         assert!(
@@ -2391,7 +2548,7 @@ mod tests {
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind_astar(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0), &HashMap::new(), None, false);
+        let _ = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
     }
 
     #[test]
@@ -2413,7 +2570,7 @@ mod tests {
             "Grid should need build after marking dirty"
         );
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)));
 
         assert!(path.is_none(), "Path should not exist after marking dirty");
 
@@ -2463,7 +2620,7 @@ mod tests {
             })
             .expect("Portal edge to (10,10,0) should exist");
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(11, 11, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(11, 11, 0)));
 
         assert!(path.is_some(), "Path should exist with portal");
     }
@@ -2514,11 +2671,11 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(UVec3::new(0, 0, 0), UVec3::new(12, 4, 2), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(12, 4, 2)));
 
         assert!(path.is_some(), "Path should exist with portal");
 
-        let path = grid.pathfind(UVec3::new(12, 4, 2), UVec3::new(0, 0, 0), &HashMap::new(), None, false);
+        let path = grid.pathfind(&mut PathfindRequest::new(UVec3::new(12, 4, 2), UVec3::new(0, 0, 0)));
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
     }

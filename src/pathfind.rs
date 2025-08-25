@@ -6,8 +6,93 @@ use bevy::{
 use ndarray::ArrayView3;
 
 use crate::{
-    astar::{astar_graph, astar_grid}, chunk::Chunk, dijkstra::dijkstra_grid, grid::Grid, hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path, raycast::bresenham_path, thetastar::thetastar_grid
+    astar::{astar_graph, astar_grid}, chunk::Chunk, components::PathfindMode, dijkstra::dijkstra_grid, grid::Grid, hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path, prelude::NavMask, raycast::bresenham_path_internal, thetastar::thetastar_grid
 };
+
+
+/// Builder struct for pathfinding arguments
+#[derive(Debug)]
+pub struct PathfindRequest<'a> {
+    pub(crate) start: UVec3,
+    pub(crate) goal: UVec3,
+    pub(crate) blocking: Option<&'a HashMap<UVec3, Entity>>,
+    pub(crate) mask: Option<&'a mut NavMask>,
+    pub(crate) partial: bool,
+    pub(crate) algorithm: PathfindMode,
+    pub(crate) search_range: Option<u32>,
+}
+
+impl<'a> PathfindRequest<'a> {
+    /// Create a new pathfinding request
+    pub fn new(start: UVec3, goal: UVec3) -> Self {
+        Self {
+            start,
+            goal,
+            blocking: None,
+            mask: None,
+            partial: false,
+            algorithm: PathfindMode::Refined,
+            search_range: None,
+        }
+    }
+
+    /// Sets the pathfinding request to return the closest path if a full path to the goal isn't possible.
+    pub fn partial(mut self) -> Self {
+        self.partial = true;
+        self
+    }
+
+    /// Limits the search range for the pathfinding request.
+    pub fn search_range(mut self, search_range: u32) -> Self {
+        self.search_range = Some(search_range);
+        self
+    }
+
+    /// Sets the [`PathfindMode`] algorithm for the pathfinding request.
+    /// You can use this or the helper methods like astar(), coarse(), etc.
+    pub fn algorithm(mut self, algorithm: PathfindMode) -> Self {
+        self.algorithm = algorithm;
+        self
+    }
+
+    /// Coarse HPA* pathfinding mode. Uses cached data, path won't be the shortest path, but the performance is extremely fast
+    pub fn coarse(mut self) -> Self {
+        self.algorithm = PathfindMode::Coarse;
+        self
+    }
+
+    /// HPA* Any-Angle waypoint mode. Calculates the HPA* path, but only returns the specific positions the agent needs to avoid walls.
+    /// This is meant for games with fluid realtime movement.
+    pub fn waypoints(mut self) -> Self {
+        self.algorithm = PathfindMode::Waypoints;
+        self
+    }
+
+    /// A* pathfinding mode. Uses the standard A* algorithm.
+    pub fn astar(mut self) -> Self {
+        self.algorithm = PathfindMode::AStar;
+        self
+    }
+
+    /// Refined is the default so this isn't really needed.
+    /// Gets an HPA* path and then refines with it with a line tracing algorithm.
+    pub fn refined(mut self) -> Self {
+        self.algorithm = PathfindMode::Refined;
+        self
+    }
+
+    /// Provides a blocking hashmap, this is used for dynamic obstacles (i.e. collision)
+    pub fn blocking(mut self, blocking: &'a HashMap<UVec3, Entity>) -> Self {
+        self.blocking = Some(blocking);
+        self
+    }
+
+    /// Provide a navigation mask for this pathfinding call
+    pub fn mask(mut self, mask: &'a mut NavMask) -> Self {
+        self.mask = Some(mask);
+        self
+    }
+}
 
 /// AStar pathfinding
 ///
@@ -559,7 +644,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
         let mut found = false;
         for farthest in (i + 1..path.len()).rev() {
             let candidate = path.path[farthest];
-            if let Some(shortcut) = bresenham_path(
+            if let Some(shortcut) = bresenham_path_internal(
                 grid,
                 path.path[i],
                 candidate,
@@ -584,7 +669,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
             // No shortcut found, advance by one
             i += 1;
             if i < path.len() && waypoints_path.last() != Some(&path.path[i]) {
-                if let Some(step) = bresenham_path(
+                if let Some(step) = bresenham_path_internal(
                     grid,
                     *waypoints_path.last().unwrap(),
                     path.path[i],
@@ -655,7 +740,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
         for farthest in (i + 1..path.len()).rev() {
             let candidate = path.path[farthest];
 
-            let maybe_shortcut = bresenham_path(
+            let maybe_shortcut = bresenham_path_internal(
                 grid,
                 path.path[i],
                 candidate,
