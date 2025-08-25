@@ -240,24 +240,46 @@ impl NavMaskData {
     }*/
 
     pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
-        let translated_pos = pos.as_ivec3() - self.translation;
-
-        if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
+        if self.layers.is_empty() {
             return None;
         }
+        
+        let mut pos = pos;
 
-        let translated_pos = translated_pos.as_uvec3();
+        if self.translation != IVec3::ZERO {
+            let translated_pos = pos.as_ivec3() - self.translation;
+
+            if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
+                return None;
+            }
+
+            pos = translated_pos.as_uvec3();
+        }
+
+
+        // Lock all layers once
+        let layer_guards: Vec<_> = self.layers.iter()
+            .map(|layer| layer.data.lock().unwrap())
+            .collect();
+
 
         let mut result = prev;
         let mut has_any_mask = false;
 
-        for layer in &self.layers {
+        for guard in &layer_guards {
+            if let Some(mask) = guard.mask.get(&pos) {
+                result = process_mask(result, mask);
+                has_any_mask = true;
+            }
+        }
+
+        /*for layer in &self.layers {
             let data = layer.data.lock().unwrap();
             if let Some(mask) = data.mask.get(&translated_pos) {
                 result = process_mask(result, mask);
                 has_any_mask = true;
             }
-        }
+        }*/
 
         if has_any_mask {
             Some(result)

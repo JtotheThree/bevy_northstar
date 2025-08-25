@@ -220,7 +220,7 @@ fn input(
             log::info!("Pathfinding to: {:?}", goal);
             commands.entity(player).insert(
                 Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::Waypoints),
+                    .mode(PathfindMode::AStar),
             ).insert(AgentMask(nav_mask));
         }
     }
@@ -244,14 +244,22 @@ fn move_player(
             map.anchor,
         );
 
-        let next_translation = Vec3::new(world_pos.x, world_pos.y, 1.0);
-
-        let direction = next_translation - transform.translation;
+        let target = Vec3::new(world_pos.x, world_pos.y, 1.0);
+        let direction = target - transform.translation;
         let distance = direction.length();
 
-        if distance > 2.0 {
-            let movement = direction.normalize() * 100.0 * time.delta_secs();
-            transform.translation += movement;
+        if distance > 0.5 {
+            let movement_distance = 100.0 * time.delta_secs();
+            if movement_distance >= distance {
+                // Would overshoot, so snap instead
+                transform.translation = target;
+                agent_pos.0 = next_pos.0;
+                commands.entity(entity).remove::<NextPos>();
+            } else {
+                // Normal movement
+                let normalized_direction = direction / distance; // Avoid normalize() for better precision
+                transform.translation += normalized_direction * movement_distance;
+            }
         } else {
             agent_pos.0 = next_pos.0;
             commands.entity(entity).remove::<NextPos>();

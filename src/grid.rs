@@ -1741,8 +1741,6 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        let start_time = std::time::Instant::now();
-
         let empty_blocking = HashMap::new();
         let blocking = request.blocking.unwrap_or(&empty_blocking);
 
@@ -1885,8 +1883,6 @@ impl<N: Neighborhood + Default> Grid<N> {
                 }
             },
         };
-
-        log::info!("Pathfinding took {:?}", start_time.elapsed());
 
         path
     }

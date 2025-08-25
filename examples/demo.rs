@@ -111,7 +111,7 @@ fn startup(
     let mut map_entity = commands.spawn((TiledMapHandle(map_handle), anchor));
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
-        .chunk_size(16)
+        .chunk_size(32)
         .enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
         .add_neighbor_filter(filter::NoCornerCutting)
@@ -151,9 +151,9 @@ fn startup(
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
-            //.enable_chunks()
+            .enable_chunks()
             //.enable_cells()
-            //.enable_entrances()
+            .enable_entrances()
             //.enable_cached_paths()
             //.enable_show_connections_on_hover()
             //.with_debug_mask(nav_mask)

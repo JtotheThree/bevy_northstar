@@ -74,6 +74,13 @@ impl<'a> PathfindRequest<'a> {
         self
     }
 
+    /// ThetaStar any-angle pathfinding. Only returns the specific positions the agent needs to avoid walls.
+    /// This is meant for games with fluid realtime movement.
+    pub fn thetastar(mut self) -> Self {
+        self.algorithm = PathfindMode::ThetaStar;
+        self
+    }
+
     /// Refined is the default so this isn't really needed.
     /// Gets an HPA* path and then refines with it with a line tracing algorithm.
     pub fn refined(mut self) -> Self {
@@ -737,8 +744,25 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     while i < path.len() {
         let mut shortcut_taken = false;
 
+        let search_limit = if path.len() < 100 {
+            (i + 25).min(path.len()) // Smaller limit for short paths
+        } else if path.len() < 500 {
+            (i + 50).min(path.len()) // Medium limit
+        } else {
+            (i + 75).min(path.len()) // Larger limit for very long paths
+        };
+
+
         for farthest in (i + 1..path.len()).rev() {
             let candidate = path.path[farthest];
+
+            let distance = ((candidate.x as i32 - path.path[i].x as i32).abs() + 
+                        (candidate.y as i32 - path.path[i].y as i32).abs() + 
+                        (candidate.z as i32 - path.path[i].z as i32).abs()) as u32;
+            
+            if distance > search_limit as u32 {
+                continue;
+            }
 
             let maybe_shortcut = bresenham_path_internal(
                 grid,
