@@ -9,9 +9,20 @@ use bevy::{
 use ndarray::ArrayView3;
 
 use crate::{
-    astar::astar_grid, chunk::Chunk, components::PathfindMode, dijkstra::dijkstra_grid, grid::Grid,
-    hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path,
-    prelude::{NavMask, Pathfind}, raycast::bresenham_path_internal, thetastar::thetastar_grid,
+    astar::astar_grid,
+    chunk::Chunk,
+    components::PathfindMode,
+    dijkstra::dijkstra_grid,
+    grid::Grid,
+    hpa::hpa,
+    nav::NavCell,
+    nav_mask::NavMaskData,
+    neighbor::Neighborhood,
+    node::Node,
+    path::Path,
+    prelude::{NavMask, Pathfind},
+    raycast::bresenham_path_internal,
+    thetastar::thetastar_grid,
 };
 
 /// Builder struct for pathfinding arguments
@@ -986,7 +997,6 @@ pub(crate) fn reroute_path<N: Neighborhood>(
         return None;
     }
 
-
     if path.graph_path.is_empty() {
         // Our only option here is to try a new path to the goal
         // We can unwrap here because this is internal and the caller has at least inserted the default
@@ -1001,7 +1011,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                     mask,
                     pathfind.partial,
                 );
-            },
+            }
             PathfindMode::Waypoints | PathfindMode::ThetaStar => {
                 return pathfind_thetastar(
                     &grid.neighborhood,

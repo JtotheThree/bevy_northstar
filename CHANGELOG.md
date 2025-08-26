@@ -1,12 +1,11 @@
-## v0.4.0
+q## v0.4.0
 // TODO Before merge:
-   Test PassableOverride, I think we'll need to remove that
-   Check into reroute_path after switching over to the new HPA* algo, it's causing issues
    Look into ImpassableOverride caching, is it getting added for HPA??
    Add search area to pathfind
    Add bounding box? as a Nav Mask?
    Review docs
    Update book
+
 
 ## v0.3.2
 

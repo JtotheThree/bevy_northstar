@@ -564,9 +564,11 @@ fn reroute_path<N: Neighborhood + 'static>(
 
         let mut pathfind = pathfind.clone();
 
-        pathfind.mode = Some(pathfind
-            .mode
-            .unwrap_or(settings.pathfind_settings.default_mode));
+        pathfind.mode = Some(
+            pathfind
+                .mode
+                .unwrap_or(settings.pathfind_settings.default_mode),
+        );
 
         let new_path = grid.reroute_path(
             path,

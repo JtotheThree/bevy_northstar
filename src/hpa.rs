@@ -83,11 +83,14 @@ pub(crate) fn hpa<N: Neighborhood>(
                 let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
 
                 if mask.chunk_in_mask(neighbor_chunk.index()) {
-                    let mask_cell = mask
-                        .get(neighbor_cell.clone(), *neighbor)
-                        .unwrap_or(neighbor_cell.clone());
+                    let (cell_cost, is_impassable) =
+                        if let Some(masked_cell) = mask.get(neighbor_cell.clone(), *neighbor) {
+                            (masked_cell.cost, masked_cell.is_impassable())
+                        } else {
+                            (neighbor_cell.cost, neighbor_cell.is_impassable()) // No clone here!
+                        };
 
-                    if mask_cell.is_impassable() {
+                    if is_impassable {
                         continue;
                     }
 
@@ -102,9 +105,9 @@ pub(crate) fn hpa<N: Neighborhood>(
                             grid.neighborhood().is_ordinal(),
                         ) {
                             // Adjacent case
-                            let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
+                            let path = Path::new(vec![current_pos, *neighbor], cell_cost);
                             mask.add_cached_path(current_pos, *neighbor, path);
-                            mask_cell.cost
+                            cell_cost
                         } else {
                             // Distant case - need pathfinding within chunk
                             match find_mask_path(

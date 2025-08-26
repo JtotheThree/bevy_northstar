@@ -33,6 +33,8 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
 ) -> Option<Path> {
+    let masked = mask.layers.len() > 0;
+
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
@@ -103,15 +105,22 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            let cell = mask
-                .get(neighbor_cell.clone(), neighbor)
-                .unwrap_or(neighbor_cell.clone());
+            let (cost_value, is_impassable) = if masked {
+                if let Some(masked_cell) = mask.get(neighbor_cell.clone(), neighbor) {
+                    (masked_cell.cost, masked_cell.is_impassable())
+                } else {
+                    (neighbor_cell.cost, neighbor_cell.is_impassable())
+                }
+            } else {
+                (neighbor_cell.cost, neighbor_cell.is_impassable())
+            };
 
-            if cell.is_impassable() {
+            if is_impassable {
                 continue;
             }
 
-            let new_cost = cost + cell.cost;
+            let new_cost = cost + cost_value;
+
             let h;
             let n;
             match visited.entry(neighbor) {

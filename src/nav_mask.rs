@@ -35,7 +35,7 @@ pub enum NavMaskResult {
 pub enum NavCellMask {
     /// Overrides anything below this as impassable
     ImpassableOverride,
-     /// Overrides anything below this as a portal.
+    /// Overrides anything below this as a portal.
     PortalOverride(Portal),
     /// Modifies the cost of the cell.
     /// If the cell is impassable, this will not change it.
@@ -270,7 +270,6 @@ impl NavMaskData {
             .iter()
             .map(|layer| layer.data.lock().unwrap())
             .collect();
-
 
         for guard in &layer_guards {
             if let Some(mask) = guard.mask.get(&lookup_pos) {

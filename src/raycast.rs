@@ -38,6 +38,8 @@ where
     let mut last_dir: Option<IVec3> = None;
     let mut last_corner = start;
 
+    let mut cached_cell: Option<(NavCell, UVec3)> = None;
+
     while current != goal {
         if current.x >= bounds.x || current.y >= bounds.y || current.z >= bounds.z {
             return false;
@@ -158,13 +160,36 @@ where
             ));
         }
 
-        if filtered
+        if filtered {
+            // Only access grid if we don't have the current cell cached
+            let current_cell = if let Some((cached, pos)) = &cached_cell {
+                if *pos == current {
+                    cached
+                } else {
+                    let cell =
+                        grid[[current.x as usize, current.y as usize, current.z as usize]].clone();
+                    cached_cell = Some((cell.clone(), current));
+                    &cached_cell.as_ref().unwrap().0
+                }
+            } else {
+                let cell =
+                    grid[[current.x as usize, current.y as usize, current.z as usize]].clone();
+                cached_cell = Some((cell.clone(), current));
+                &cached_cell.as_ref().unwrap().0
+            };
+
+            if !current_cell.neighbor_iter(current).any(|n| n == next) {
+                return false;
+            }
+        }
+
+        /*if filtered
             && !grid[[current.x as usize, current.y as usize, current.z as usize]]
                 .neighbor_iter(current)
                 .any(|n| n == next)
         {
             return false;
-        }
+        }*/
 
         current = next;
     }
@@ -261,13 +286,20 @@ pub(crate) fn bresenham_path_internal(
         aliased,
         bounds,
         |pos| {
-            let mut cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+            let cell = &grid[[pos.x as usize, pos.y as usize, pos.z as usize]];
 
-            if masked {
-                cell = mask.get(cell.clone(), pos).unwrap_or(cell);
-            }
+            let final_cell = if masked {
+                // Only clone when we actually need to modify
+                if let Some(modified) = mask.get(cell.clone(), pos) {
+                    modified
+                } else {
+                    cell.clone()
+                }
+            } else {
+                cell.clone()
+            };
 
-            if cell.is_impassable() {
+            if final_cell.is_impassable() {
                 false
             } else {
                 path.push(pos);
@@ -275,6 +307,7 @@ pub(crate) fn bresenham_path_internal(
             }
         },
     );
+
     if success {
         Some(path)
     } else {
