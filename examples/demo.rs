@@ -128,7 +128,7 @@ fn startup(
             &grid,
             Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
             //NavCellMask::PassableOverride(1),
-            NavCellMask::ImpassableOverride,
+            NavCellMask::ModifyCost(50000),
         )
         .unwrap();
 

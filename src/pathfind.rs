@@ -759,17 +759,8 @@ pub(crate) fn optimize_path<N: Neighborhood>(
             (i + 75).min(path.len()) // Larger limit for very long paths
         };
 
-        for farthest in (i + 1..path.len()).rev() {
+        for farthest in (i + 1..search_limit).rev() {
             let candidate = path.path[farthest];
-
-            let distance = ((candidate.x as i32 - path.path[i].x as i32).abs()
-                + (candidate.y as i32 - path.path[i].y as i32).abs()
-                + (candidate.z as i32 - path.path[i].z as i32).abs())
-                as u32;
-
-            if distance > search_limit as u32 {
-                continue;
-            }
 
             let maybe_shortcut = bresenham_path_internal(
                 grid,
