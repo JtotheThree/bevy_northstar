@@ -126,7 +126,7 @@ fn benchmarks(c: &mut Criterion) {
     let mut mask = NavMask::new();
     let layer = NavMaskLayer::new();
     layer
-        .insert_region(
+        .insert_region_fill(
             &grid,
             Region3d::new(UVec3::new(60, 0, 0), UVec3::new(80, 127, 0)),
             NavCellMask::ModifyCost(5),

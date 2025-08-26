@@ -42,7 +42,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     // Maybe different units will have penalties for crossing water tiles while other might not?
     let water_layer = NavMaskLayer::new();
     water_layer
-        .insert_region(
+        .insert_region_fill(
             &grid,
             Region3d::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
             NavCellMask::ModifyCost(5),
@@ -52,7 +52,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     // We don't want our red faction units to path through blue faction teritory.
     let red_faction_not_allowed_layer = NavMaskLayer::new();
     red_faction_not_allowed_layer
-        .insert_region(
+        .insert_region_fill(
             &grid,
             Region3d::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
             NavCellMask::ImpassableOverride,
@@ -62,7 +62,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     // We don't want our blue faction units to path through red faction teritory.
     let blue_faction_not_allowed_layer = NavMaskLayer::new();
     blue_faction_not_allowed_layer
-        .insert_region(
+        .insert_region_fill(
             &grid,
             Region3d::new(UVec3::new(16, 16, 16), UVec3::new(20, 20, 20)),
             NavCellMask::ImpassableOverride,

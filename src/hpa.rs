@@ -305,7 +305,7 @@ mod tests {
 
         let layer = NavMaskLayer::new();
         layer
-            .insert_region(
+            .insert_region_fill(
                 &grid,
                 Region3d::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
                 NavCellMask::ModifyCost(5000),

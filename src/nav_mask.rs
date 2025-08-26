@@ -349,14 +349,32 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to insert in the region.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_region<N: Neighborhood>(
+    pub fn insert_region_fill<N: Neighborhood>(
         &self,
         grid: &Grid<N>,
         region: Region3d,
         mask: NavCellMask,
     ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        data.insert_region(grid, region, mask);
+        data.insert_region_fill(grid, region, mask);
+        Ok(())
+    }
+
+    /// Inserts a [`NavCellMask`] on the outlines of a region.
+    /// You can use this to box in an agent to an area etc.
+    /// # Arguments
+    /// * `region` - The [`Region3d`] in the grid to insert the mask. You can also use this in 2d with no z range.
+    /// * `mask` - The [`NavCellMask`] to insert in the region.
+    /// # Returns
+    /// [`Result`] will fail if the mutex is poisoned.
+    pub fn insert_region_outline<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        region: Region3d,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
+        let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
+        data.insert_region_outline(grid, region, mask);
         Ok(())
     }
 
@@ -471,7 +489,7 @@ impl NavMaskLayerData {
         self.chunks.insert(chunk.index());
     }
 
-    pub fn insert_region<N: Neighborhood>(
+    pub fn insert_region_fill<N: Neighborhood>(
         &mut self,
         grid: &Grid<N>,
         region: Region3d,
@@ -481,6 +499,33 @@ impl NavMaskLayerData {
             self.mask.insert(pos, mask.clone());
             let chunk = grid.chunk_at_position(pos).unwrap();
             self.chunks.insert(chunk.index());
+        }
+    }
+
+    pub fn insert_region_outline<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        region: Region3d,
+        mask: NavCellMask,
+    ) {
+        // Insert the outline of the region
+        for x in region.min.x..region.max.x {
+            for y in region.min.y..region.max.y {
+                for z in region.min.z..region.max.z {
+                    let pos = UVec3::new(x, y, z);
+                    if pos.x == region.min.x
+                        || pos.x == region.max.x - 1
+                        || pos.y == region.min.y
+                        || pos.y == region.max.y - 1
+                        || pos.z == region.min.z
+                        || pos.z == region.max.z - 1
+                    {
+                        self.mask.insert(pos, mask.clone());
+                        let chunk = grid.chunk_at_position(pos).unwrap();
+                        self.chunks.insert(chunk.index());
+                    }
+                }
+            }
         }
     }
 
