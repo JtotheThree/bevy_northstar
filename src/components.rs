@@ -53,11 +53,10 @@ pub struct Pathfind {
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
-
-    /// Optional [`NavMask`] to use for pathfinding.
-    /// You can filter out certain areas of the grid or apply movement costs.
-    #[reflect(ignore)]
-    pub mask: Option<NavMask>,
+    // Optional [`NavMask`] to use for pathfinding.
+    // You can filter out certain areas of the grid or apply movement costs.
+    /*#[reflect(ignore)]
+    pub mask: Option<NavMask>,*/
 }
 
 impl Pathfind {
@@ -113,13 +112,13 @@ impl Pathfind {
         self
     }
 
-    /// Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
-    /// This allows you to filter out certain areas of the grid or apply movement costs.
-    /// This is useful for agent specific movement costs or areas that should be avoided.
-    pub fn mask(mut self, mask: NavMask) -> Self {
-        self.mask = Some(mask);
-        self
-    }
+    // Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
+    // This allows you to filter out certain areas of the grid or apply movement costs.
+    // This is useful for agent specific movement costs or areas that should be avoided.
+    //pub fn mask(mut self, mask: NavMask) -> Self {
+    //    self.mask = Some(mask);
+    //    self
+    //}
 }
 
 /// The next position in the path inserted into an entity by the pathfinding system.
@@ -472,6 +471,12 @@ impl DebugGridBuilder {
         self
     }
 
+    /// Initializes the debug grid to display a specific [`NavMask`].
+    pub fn with_debug_mask(mut self, debug_mask: NavMask) -> Self {
+        self.debug_mask = Some(debug_mask);
+        self
+    }
+
     /// Builds the final [`DebugGrid`] component with the configured settings to be inserted into your map entity.
     /// You need to call this methdod to finalize the builder and create the component.
     pub fn build(self) -> DebugGrid {
@@ -513,3 +518,7 @@ impl GridAgents {
         &self.0
     }
 }
+
+/// The [`AgentMask`] component is used to associate a [`NavMask`] with an agent.
+#[derive(Component)]
+pub struct AgentMask(pub NavMask);

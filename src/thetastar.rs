@@ -1,5 +1,5 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
@@ -22,6 +22,7 @@ use crate::{
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn thetastar_grid<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
@@ -29,6 +30,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     goal: UVec3,
     size_hint: usize,
     partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
 ) -> Option<Path> {
     let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
@@ -91,13 +93,19 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 continue;
             }
 
+            if blocking.contains_key(&neighbor) {
+                continue; // Skip blocked positions
+            }
+
             let neighbor_cell = &grid[[
                 neighbor.x as usize,
                 neighbor.y as usize,
                 neighbor.z as usize,
             ]];
 
-            let cell = mask.get(neighbor_cell.clone(), neighbor);
+            let cell = mask
+                .get(neighbor_cell.clone(), neighbor)
+                .unwrap_or(neighbor_cell.clone());
 
             if cell.is_impassable() {
                 continue;
@@ -211,6 +219,7 @@ mod tests {
             goal,
             64,
             false,
+            &HashMap::new(),
             &NavMaskData::new(),
         )
         .unwrap();

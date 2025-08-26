@@ -14,7 +14,7 @@ use rand::seq::IndexedRandom;
 mod shared;
 
 #[derive(Resource)]
-struct TestCostNavMask(NavMask);
+struct AllNavMask(NavMask);
 
 fn main() {
     App::new()
@@ -70,30 +70,15 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(TileTexturesToUpdate::default())
-        .insert_resource(TestCostNavMask(NavMask::new()))
+        .insert_resource(AllNavMask(NavMask::new()))
         .run();
 }
 
 fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut test_cost_mask: ResMut<TestCostNavMask>,
+    mut all_nav_mask: ResMut<AllNavMask>,
 ) {
-    test_cost_mask.0 = NavMask::new();
-    let layer = NavMaskLayer::new();
-
-    layer
-        .insert_region(
-            Region3d {
-                min: UVec3::new(64, 64, 0),
-                max: UVec3::new(128, 128, 0),
-            },
-            NavCellMask::ModifyCost(250),
-        )
-        .unwrap();
-
-    test_cost_mask.0.add_layer(layer).unwrap();
-
     // Get our anchor positioning calculated
     let anchor = TilemapAnchor::Center;
 
@@ -129,9 +114,28 @@ fn startup(
         .chunk_size(16)
         .enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
-        //.add_neighbor_filter(filter::NoCornerCutting)
+        .add_neighbor_filter(filter::NoCornerCutting)
         .avoidance_distance(4)
         .build();
+
+    let grid = Grid::<OrdinalNeighborhood>::new(&grid_settings);
+
+    // Create a nav mask to test with
+    // Create a nav_mask layer to bench
+    let mask_layer = NavMaskLayer::new();
+    mask_layer
+        .insert_region(
+            &grid,
+            Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+            NavCellMask::ModifyCost(50000),
+            //NavCellMask::ImpassableOverride,
+        )
+        .unwrap();
+
+    let nav_mask = NavMask::new();
+    nav_mask.add_layer(mask_layer).ok();
+
+    all_nav_mask.0 = nav_mask.clone();
 
     // Insert the grid as a child of the map entity. This won't currently affect anything, but in the future
     // we may want to have the grid as a child of the map entity so that multiple grids can be supported.
@@ -140,7 +144,7 @@ fn startup(
             render_chunk_size: UVec2::new(32, 32),
             ..Default::default()
         },
-        Grid::<OrdinalNeighborhood>::new(&grid_settings),
+        grid,
     ));
 
     // Add the debug map as a child of the entity containing the Grid.
@@ -148,9 +152,11 @@ fn startup(
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
             .enable_chunks()
+            //.enable_cells()
             .enable_entrances()
-            .enable_cached_paths()
-            .enable_show_connections_on_hover()
+            //.enable_cached_paths()
+            //.enable_show_connections_on_hover()
+            //.with_debug_mask(nav_mask)
             .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
@@ -208,7 +214,7 @@ fn spawn_minions(
     asset_server: Res<AssetServer>,
     mut walkable: ResMut<shared::Walkable>,
     config: Res<shared::Config>,
-    test_cost_mask: Res<TestCostNavMask>,
+    all_nav_mask: Res<AllNavMask>,
 ) {
     let (grid_entity, grid) = grid.into_inner();
     let (map_size, tile_size, grid_size, anchor) = tilemap.into_inner();
@@ -232,6 +238,16 @@ fn spawn_minions(
 
     while count < 128 {
         let position = walkable.tiles.choose(&mut rand::rng()).unwrap();
+
+        // Temporary hack to make sure minions don't spawn in the testing nav mask region.
+        if position.x >= 64.0 * 8.0
+            && position.y >= 64.0 * 8.0
+            && position.x <= 84.0 * 8.0
+            && position.y <= 84.0 * 8.0
+        {
+            continue;
+        }
+
         let goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
         let transform = Vec3::new(position.x, position.y, 4.0) + offset.extend(0.0);
@@ -246,31 +262,11 @@ fn spawn_minions(
         let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as u32, (goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone());
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands
@@ -290,7 +286,8 @@ fn spawn_minions(
                 0,
             )))
             .insert(pathfind)
-            .insert(ChildOf(layer_entity));
+            .insert(ChildOf(layer_entity))
+            .insert(AgentMask(all_nav_mask.0.clone()));
 
         count += 1;
     }
@@ -401,7 +398,6 @@ fn set_new_goal(
     mut minions: Query<Entity, (Without<Path>, Without<Pathfind>)>,
     walkable: Res<shared::Walkable>,
     config: Res<shared::Config>,
-    test_cost_mask: Res<TestCostNavMask>,
 ) {
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
@@ -409,31 +405,11 @@ fn set_new_goal(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone())
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands.entity(entity).insert(pathfind);
@@ -446,7 +422,6 @@ fn handle_pathfinding_failed(
     minions: Query<Entity, Or<(With<PathfindingFailed>, With<RerouteFailed>)>>,
     config: Res<shared::Config>,
     walkable: Res<shared::Walkable>,
-    test_cost_mask: Res<TestCostNavMask>,
 ) {
     // Pathfinding failed, normally we might have our AI come up with a new plan,
     // but for this example, we'll just reroute to a new random goal.
@@ -457,31 +432,11 @@ fn handle_pathfinding_failed(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-                    .mask(test_cost_mask.0.clone())
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-                    .mask(test_cost_mask.0.clone())
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands

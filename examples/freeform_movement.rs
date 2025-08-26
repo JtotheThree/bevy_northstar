@@ -61,7 +61,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
         .chunk_size(16)
-        .enable_collision()
+        //.enable_collision()
         // You can add a neighbor filter like this. It will add a little overhead on refined paths.
         //.add_neighbor_filter(filter::NoCornerCutting)
         .avoidance_distance(4)
@@ -80,7 +80,11 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add the debug map as a child of the entity containing the Grid.
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
-        DebugGridBuilder::new(8, 8).enable_cells().build(),
+        DebugGridBuilder::new(8, 8)
+            .enable_cells()
+            .enable_chunks()
+            .enable_entrances()
+            .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
     ));
@@ -141,12 +145,15 @@ fn spawn_player(
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
-    let position = UVec3::new(64, 64, 0);
+    let position = UVec3::new(60, 60, 0);
     let translation = Vec3::new(
         offset.x + (position.x as f32 * grid_size.x) + (tile_size.x / 2.0),
         offset.y + (position.y as f32 * grid_size.y) + (tile_size.y / 2.0),
         1.0,
     );
+
+    let mut debug_path = DebugPath::new(Color::srgb(0.0, 1.0, 0.0));
+    debug_path.draw_unrefined = true;
 
     commands.spawn((
         Player,
@@ -155,13 +162,14 @@ fn spawn_player(
             ..Default::default()
         },
         AgentPos(position),
-        DebugPath::new(Color::srgb(0.0, 1.0, 0.0)),
+        debug_path,
         AgentOfGrid(grid_entity),
         Transform::from_translation(translation),
         ChildOf(layer_entity),
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn input(
     input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
@@ -169,12 +177,14 @@ fn input(
     player: Single<Entity, With<AgentPos>>,
     map_query: Query<shared::MapQuery>,
     debug_grid: Single<&mut DebugGrid>,
+    grid: Single<&mut Grid<OrdinalNeighborhood>>,
     mut commands: Commands,
 ) {
     let window = window.into_inner();
     let (camera, camera_transform, _) = camera.into_inner();
     let player = player.into_inner();
     let mut debug_grid = debug_grid.into_inner();
+    let grid = grid.into_inner();
 
     let map = map_query.iter().next().expect("No map found in the query");
 
@@ -200,8 +210,10 @@ fn input(
             let mask_layer = NavMaskLayer::new();
             mask_layer
                 .insert_region(
+                    &grid,
                     Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-                    NavCellMask::ModifyCost(5000),
+                    NavCellMask::ImpassableOverride,
+                    //NavCellMask::ModifyCost(50000),
                 )
                 .unwrap();
 
@@ -211,11 +223,10 @@ fn input(
             debug_grid.set_debug_mask(nav_mask.clone());
 
             log::info!("Pathfinding to: {:?}", goal);
-            commands.entity(player).insert(
-                Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::Waypoints)
-                    .mask(nav_mask),
-            );
+            commands
+                .entity(player)
+                .insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::AStar))
+                .insert(AgentMask(nav_mask));
         }
     }
 }
@@ -238,14 +249,22 @@ fn move_player(
             map.anchor,
         );
 
-        let next_translation = Vec3::new(world_pos.x, world_pos.y, 1.0);
-
-        let direction = next_translation - transform.translation;
+        let target = Vec3::new(world_pos.x, world_pos.y, 1.0);
+        let direction = target - transform.translation;
         let distance = direction.length();
 
-        if distance > 2.0 {
-            let movement = direction.normalize() * 100.0 * time.delta_secs();
-            transform.translation += movement;
+        if distance > 0.5 {
+            let movement_distance = 100.0 * time.delta_secs();
+            if movement_distance >= distance {
+                // Would overshoot, so snap instead
+                transform.translation = target;
+                agent_pos.0 = next_pos.0;
+                commands.entity(entity).remove::<NextPos>();
+            } else {
+                // Normal movement
+                let normalized_direction = direction / distance; // Avoid normalize() for better precision
+                transform.translation += normalized_direction * movement_distance;
+            }
         } else {
             agent_pos.0 = next_pos.0;
             commands.entity(entity).remove::<NextPos>();

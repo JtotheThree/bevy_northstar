@@ -72,6 +72,12 @@ impl Path {
         self.path.as_slices().0
     }
 
+    /// Returns a mutable slice of the path positions.
+    /// You can manually alter the path using this slice.
+    pub fn as_mut_slices(&mut self) -> &mut [UVec3] {
+        self.path.as_mut_slices().0
+    }
+
     /// Returns the HPA* high level graph path as a slice of `UVec3` positions.
     pub fn graph_path(&self) -> &[UVec3] {
         self.graph_path.as_slices().0
