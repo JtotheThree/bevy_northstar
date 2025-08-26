@@ -3,3 +3,5 @@ _old/
 .DS_Store
 tiled_types_export.json
 .vscode/settings.json
+flamegraph.svg
+perf.data*

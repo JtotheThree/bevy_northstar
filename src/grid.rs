@@ -27,7 +27,7 @@ use crate::{
     path::Path,
     pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path, PathfindRequest},
     position_in_cubic_window,
-    prelude::{NavMask, PathfindMode},
+    prelude::{NavMask, Pathfind, PathfindMode},
     timed, MovementCost,
 };
 
@@ -1399,10 +1399,9 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self,
         path: &Path,
         start: UVec3,
-        goal: UVec3,
+        pathfind: &Pathfind,
         blocking: &HashMap<UVec3, Entity>,
         mask: Option<&mut NavMask>,
-        refined: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
@@ -1413,7 +1412,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        reroute_path(self, path, start, goal, blocking, &mut mask, refined)
+        reroute_path(self, path, start, pathfind, blocking, &mut mask)
     }
 
     /// Checks if a path exists from `start` to `goal` using the fastest algorithm.

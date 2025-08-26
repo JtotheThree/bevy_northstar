@@ -47,20 +47,25 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     match mask {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
+            cell.cost = MovementCost::MAX;
         }
         NavCellMask::PortalOverride(portal) => {
             cell.nav = Nav::Portal(*portal);
+            cell.cost = portal.cost;
         }
         NavCellMask::ModifyCost(delta) => {
-            if let Nav::Passable(cost) = cell.nav {
-                // Fix: Handle negative deltas properly
-                let new_cost = if *delta < 0 {
-                    cost.saturating_sub((-*delta) as MovementCost)
-                } else {
-                    cost.saturating_add(*delta as MovementCost)
-                };
-                cell.nav = Nav::Passable(new_cost);
-                cell.cost = new_cost;
+            match cell.nav {
+                Nav::Passable(cost) => {
+                    // Fix: Handle negative deltas properly
+                    let new_cost = if *delta < 0 {
+                        cost.saturating_sub((-*delta) as MovementCost)
+                    } else {
+                        cost.saturating_add(*delta as MovementCost)
+                    };
+                    cell.nav = Nav::Passable(new_cost);
+                    cell.cost = new_cost;
+                }
+                _ => {}
             }
         }
     }
@@ -244,17 +249,20 @@ impl NavMaskData {
             return None;
         }
 
-        let mut pos = pos;
-
-        if self.translation != IVec3::ZERO {
+        let lookup_pos = if self.translation == IVec3::ZERO {
+            pos
+        } else {
             let translated_pos = pos.as_ivec3() - self.translation;
 
             if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
                 return None;
             }
 
-            pos = translated_pos.as_uvec3();
-        }
+            translated_pos.as_uvec3()
+        };
+
+        let mut result = prev;
+        let mut mask_found = false;
 
         // Lock all layers once
         let layer_guards: Vec<_> = self
@@ -263,25 +271,15 @@ impl NavMaskData {
             .map(|layer| layer.data.lock().unwrap())
             .collect();
 
-        let mut result = prev;
-        let mut has_any_mask = false;
 
         for guard in &layer_guards {
-            if let Some(mask) = guard.mask.get(&pos) {
+            if let Some(mask) = guard.mask.get(&lookup_pos) {
                 result = process_mask(result, mask);
-                has_any_mask = true;
+                mask_found = true;
             }
         }
 
-        /*for layer in &self.layers {
-            let data = layer.data.lock().unwrap();
-            if let Some(mask) = data.mask.get(&translated_pos) {
-                result = process_mask(result, mask);
-                has_any_mask = true;
-            }
-        }*/
-
-        if has_any_mask {
+        if mask_found {
             Some(result)
         } else {
             None

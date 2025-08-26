@@ -562,26 +562,18 @@ fn reroute_path<N: Neighborhood + 'static>(
         #[cfg(feature = "stats")]
         let start = Instant::now();
 
-        let mode = pathfind
-            .mode
-            .unwrap_or(settings.pathfind_settings.default_mode);
+        let mut pathfind = pathfind.clone();
 
-        // Let's reroute the path
-        let refined = match mode {
-            PathfindMode::Refined => true,
-            PathfindMode::Coarse => false,
-            PathfindMode::AStar => false,
-            PathfindMode::Waypoints => false,
-            PathfindMode::ThetaStar => false,
-        };
+        pathfind.mode = Some(pathfind
+            .mode
+            .unwrap_or(settings.pathfind_settings.default_mode));
 
         let new_path = grid.reroute_path(
             path,
             position.0,
-            pathfind.goal,
+            &pathfind,
             &blocking_map.0,
             agent_mask.as_mut().map(|m| &mut m.0),
-            refined,
         );
 
         if let Some(new_path) = new_path {
