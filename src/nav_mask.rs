@@ -35,11 +35,7 @@ pub enum NavMaskResult {
 pub enum NavCellMask {
     /// Overrides anything below this as impassable
     ImpassableOverride,
-    /// Overrides anything below this as passable.
-    /// This might have odd interactions if you override a grid NavCell that is
-    /// already impassable because it won't change the surrounding neighbors.
-    PassableOverride(MovementCost),
-    /// Overrides anything below this as a portal.
+     /// Overrides anything below this as a portal.
     PortalOverride(Portal),
     /// Modifies the cost of the cell.
     /// If the cell is impassable, this will not change it.
@@ -51,10 +47,6 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     match mask {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
-        }
-        NavCellMask::PassableOverride(cost) => {
-            cell.nav = Nav::Passable(*cost);
-            cell.cost = *cost;
         }
         NavCellMask::PortalOverride(portal) => {
             cell.nav = Nav::Portal(*portal);

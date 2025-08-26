@@ -127,8 +127,8 @@ fn startup(
         .insert_region(
             &grid,
             Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-            NavCellMask::ModifyCost(50000),
-            //NavCellMask::ImpassableOverride,
+            //NavCellMask::PassableOverride(1),
+            NavCellMask::ImpassableOverride,
         )
         .unwrap();
 
@@ -152,11 +152,11 @@ fn startup(
     map_entity.with_child((
         DebugGridBuilder::new(8, 8)
             .enable_chunks()
-            //.enable_cells()
+            .enable_cells()
             .enable_entrances()
             //.enable_cached_paths()
             //.enable_show_connections_on_hover()
-            //.with_debug_mask(nav_mask)
+            .with_debug_mask(nav_mask)
             .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
