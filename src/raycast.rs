@@ -1,10 +1,14 @@
 //! Raycasting and pathfinding utilities for 2D/3D grids.
-use bevy::{math::{IVec3, UVec3}};
+use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
-use crate::{nav::NavCell, nav_mask::{NavMask, NavMaskData}};
+use crate::{
+    nav::NavCell,
+    nav_mask::{NavMask, NavMaskData},
+};
 
 /// Yielding function for tracing a line in a grid.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn trace_line<F>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
@@ -64,32 +68,30 @@ where
             }
 
             next
+        } else if dx2 >= neg_abs_y && dz2 >= neg_abs_z {
+            err_xy -= abs.y;
+            err_xz -= abs.z;
+            UVec3::new(
+                current.x.saturating_add_signed(step.x),
+                current.y,
+                current.z,
+            )
+        } else if dx2 < abs.x {
+            err_xy += abs.x;
+            UVec3::new(
+                current.x,
+                current.y.saturating_add_signed(step.y),
+                current.z,
+            )
+        } else if is_3d && dz2 < abs.x {
+            err_xz += abs.x;
+            UVec3::new(
+                current.x,
+                current.y,
+                current.z.saturating_add_signed(step.z),
+            )
         } else {
-            if dx2 >= neg_abs_y && dz2 >= neg_abs_z {
-                err_xy -= abs.y;
-                err_xz -= abs.z;
-                UVec3::new(
-                    current.x.saturating_add_signed(step.x),
-                    current.y,
-                    current.z,
-                )
-            } else if dx2 < abs.x {
-                err_xy += abs.x;
-                UVec3::new(
-                    current.x,
-                    current.y.saturating_add_signed(step.y),
-                    current.z,
-                )
-            } else if is_3d && dz2 < abs.x {
-                err_xz += abs.x;
-                UVec3::new(
-                    current.x,
-                    current.y,
-                    current.z.saturating_add_signed(step.z),
-                )
-            } else {
-                return false;
-            }
+            return false;
         };
 
         /*
@@ -110,16 +112,16 @@ where
         /*if !aliasing {
             let dir = IVec3::new(
                 (next.x as i32 - current.x as i32).signum(),
-                (next.y as i32 - current.y as i32).signum(), 
+                (next.y as i32 - current.y as i32).signum(),
                 (next.z as i32 - current.z as i32).signum()
             );
-            
+
             if let Some(last) = last_dir {
                 if dir != last {
                     let dx = (current.x as i32 - last_corner.x as i32).abs();
                     let dy = (current.y as i32 - last_corner.y as i32).abs();
                     let dz = (current.z as i32 - last_corner.z as i32).abs();
-                    
+
                     if dx + dy + dz < 2 {
                         return false;
                     }
@@ -127,21 +129,21 @@ where
                 }
             }
             last_dir = Some(dir);
-            
+
         }*/
 
         if !aliasing && last_dir.is_some() {
             let dir = IVec3::new(
                 (next.x as i32 - current.x as i32).signum(),
-                (next.y as i32 - current.y as i32).signum(), 
-                (next.z as i32 - current.z as i32).signum()
+                (next.y as i32 - current.y as i32).signum(),
+                (next.z as i32 - current.z as i32).signum(),
             );
-            
+
             if dir != last_dir.unwrap() {
                 let dx = (current.x as i32 - last_corner.x as i32).abs();
                 let dy = (current.y as i32 - last_corner.y as i32).abs();
                 let dz = (current.z as i32 - last_corner.z as i32).abs();
-                
+
                 if dx + dy + dz < 2 {
                     return false;
                 }
@@ -151,8 +153,8 @@ where
         } else if !aliasing {
             last_dir = Some(IVec3::new(
                 (next.x as i32 - current.x as i32).signum(),
-                (next.y as i32 - current.y as i32).signum(), 
-                (next.z as i32 - current.z as i32).signum()
+                (next.y as i32 - current.y as i32).signum(),
+                (next.z as i32 - current.z as i32).signum(),
             ));
         }
 
@@ -189,9 +191,8 @@ pub fn has_line_of_sight(
 ) -> bool {
     let shape = grid.shape();
     let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
-    
 
-    trace_line(grid, start, goal, ordinal, false, true, bounds,|pos| {
+    trace_line(grid, start, goal, ordinal, false, true, bounds, |pos| {
         !grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable()
     })
 }
@@ -224,8 +225,8 @@ pub fn bresenham_path(
 ) -> Option<Vec<UVec3>> {
     // Lock and get the underyling mask data
     let mask: NavMaskData = match mask {
-            Some(nav_mask) => nav_mask.clone().into(),
-            None => NavMaskData::new(),
+        Some(nav_mask) => nav_mask.clone().into(),
+        None => NavMaskData::new(),
     };
     bresenham_path_internal(grid, start, goal, ordinal, filtered, aliased, &mask)
 }
@@ -242,27 +243,38 @@ pub(crate) fn bresenham_path_internal(
     let masked = mask.layer_count() > 0;
 
     // Try to allocate well
-    let distance = ((goal.x.abs_diff(start.x) + goal.y.abs_diff(start.y) + goal.z.abs_diff(start.z)) as usize).max(128);
+    let distance =
+        ((goal.x.abs_diff(start.x) + goal.y.abs_diff(start.y) + goal.z.abs_diff(start.z)) as usize)
+            .max(128);
     let mut path = Vec::with_capacity(distance);
 
     // Bounds
     let shape = grid.shape();
     let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
 
-    let success = trace_line(grid, start, goal, ordinal, filtered, aliased, bounds,|pos| {
-        let mut cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+    let success = trace_line(
+        grid,
+        start,
+        goal,
+        ordinal,
+        filtered,
+        aliased,
+        bounds,
+        |pos| {
+            let mut cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
 
-        if masked {
-            cell = mask.get(cell.clone(), pos).unwrap_or(cell);
-        }
+            if masked {
+                cell = mask.get(cell.clone(), pos).unwrap_or(cell);
+            }
 
-        if cell.is_impassable() {
-            false
-        } else {
-            path.push(pos);
-            true
-        }
-    });
+            if cell.is_impassable() {
+                false
+            } else {
+                path.push(pos);
+                true
+            }
+        },
+    );
     if success {
         Some(path)
     } else {
@@ -279,7 +291,11 @@ mod tests {
         grid::{
             ChunkSettings, CollisionSettings, GridInternalSettings, GridSettings, NavSettings,
             NeighborhoodSettings,
-        }, nav::NavCell, nav_mask::NavMaskData, prelude::*, raycast::{bresenham_path_internal, has_line_of_sight}
+        },
+        nav::NavCell,
+        nav_mask::NavMaskData,
+        prelude::*,
+        raycast::{bresenham_path_internal, has_line_of_sight},
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {

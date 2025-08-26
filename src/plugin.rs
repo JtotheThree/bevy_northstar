@@ -5,9 +5,7 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{
-    pathfind::PathfindRequest, prelude::*, WithoutPathingFailures
-};
+use crate::{pathfind::PathfindRequest, prelude::*, WithoutPathingFailures};
 
 /// Sets default settings for the Pathfind component.
 #[derive(Default, Debug, Copy, Clone)]
@@ -185,7 +183,10 @@ fn tag_pathfinding_requests(mut commands: Commands, query: Query<Entity, Changed
 fn pathfind<N: Neighborhood + 'static>(
     grid: Single<&Grid<N>>,
     mut commands: Commands,
-    mut query: Query<(Entity, &AgentPos, &Pathfind, Option<&mut AgentMask>), With<NeedsPathfinding>>,
+    mut query: Query<
+        (Entity, &AgentPos, &Pathfind, Option<&mut AgentMask>),
+        With<NeedsPathfinding>,
+    >,
     blocking: Res<BlockingMap>,
     settings: Res<NorthstarPluginSettings>,
     //mut queue: Local<VecDeque<Entity>>,
@@ -282,7 +283,13 @@ fn pathfind<N: Neighborhood + 'static>(
 #[allow(clippy::type_complexity)]
 fn next_position<N: Neighborhood + 'static>(
     mut query: Query<
-        (Entity, &mut Path, &AgentPos, &Pathfind, Option<&mut AgentMask>),
+        (
+            Entity,
+            &mut Path,
+            &AgentPos,
+            &Pathfind,
+            Option<&mut AgentMask>,
+        ),
         (WithoutPathingFailures, Without<NextPos>),
     >,
     grid: Single<&Grid<N>>,
@@ -463,8 +470,14 @@ fn avoidance<N: Neighborhood + 'static>(
                 + grid.avoidance_distance();
 
             //let new_path = grid.pathfind_astar(position, *avoidance_goal, blocking, false);
-            let new_path =
-                grid.pathfind_astar_radius(position, *avoidance_goal, radius, blocking_map, Some(mask), false);
+            let new_path = grid.pathfind_astar_radius(
+                position,
+                *avoidance_goal,
+                radius,
+                blocking_map,
+                Some(mask),
+                false,
+            );
 
             // Replace the first few positions of path until the avoidance goal
             if let Some(new_path) = new_path {
@@ -524,8 +537,12 @@ fn avoidance<N: Neighborhood + 'static>(
 // It will attempt to find a new full path to the goal position and insert it into the entity.
 // If the reroute fails, it will insert a `RerouteFailed` component to the entity.
 // Once an entity has a reroute failure, no pathfinding will be attempted until the user handles reinserts the `Pathfind` component.
+#[allow(clippy::type_complexity)]
 fn reroute_path<N: Neighborhood + 'static>(
-    mut query: Query<(Entity, &AgentPos, &Pathfind, &Path, Option<&mut AgentMask>), With<AvoidanceFailed>>,
+    mut query: Query<
+        (Entity, &AgentPos, &Pathfind, &Path, Option<&mut AgentMask>),
+        With<AvoidanceFailed>,
+    >,
     grid: Single<&Grid<N>>,
     blocking_map: Res<BlockingMap>,
     mut commands: Commands,
@@ -534,7 +551,8 @@ fn reroute_path<N: Neighborhood + 'static>(
 ) {
     let grid = grid.into_inner();
 
-    for (count, (entity, position, pathfind, path, agent_mask)) in query.iter_mut().enumerate() {
+    for (count, (entity, position, pathfind, path, mut agent_mask)) in query.iter_mut().enumerate()
+    {
         // TODO: This doesn't really tie in with the main pathfinding agent counts. This will stil help limit how many are rereouting for now.
         // There's no point bridging it for the moment since this really needs to be reworked into an async system to really prevent stutters.
         if count >= settings.max_pathfinding_agents_per_frame {
@@ -557,7 +575,14 @@ fn reroute_path<N: Neighborhood + 'static>(
             PathfindMode::ThetaStar => false,
         };
 
-        let new_path = grid.reroute_path(path, position.0, pathfind.goal, &blocking_map.0, agent_mask.as_ref().map(|m| &m.0), refined);
+        let new_path = grid.reroute_path(
+            path,
+            position.0,
+            pathfind.goal,
+            &blocking_map.0,
+            agent_mask.as_mut().map(|m| &mut m.0),
+            refined,
+        );
 
         if let Some(new_path) = new_path {
             // if the last position in the path is not the goal...

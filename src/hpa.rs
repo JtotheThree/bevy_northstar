@@ -1,9 +1,12 @@
-use std::collections::BinaryHeap;
 use indexmap::map::Entry::{Occupied, Vacant};
+use std::collections::BinaryHeap;
 
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
-use crate::{are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, FxIndexMap, SmallestCostHolder};
+use crate::{
+    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood,
+    path::Path, FxIndexMap, SmallestCostHolder,
+};
 
 pub(crate) fn hpa<N: Neighborhood>(
     grid: &Grid<N>,
@@ -52,7 +55,7 @@ pub(crate) fn hpa<N: Neighborhood>(
                         }
                     }
                 }*/
-                
+
                 // Now rebuild the full path from cached paths
                 let full_path = rebuild_full_path(grid, &node_path, mask);
 
@@ -97,7 +100,9 @@ pub(crate) fn hpa<N: Neighborhood>(
                 let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
 
                 if mask.chunk_in_mask(neighbor_chunk.index()) {
-                    let mask_cell = mask.get(neighbor_cell.clone(), *neighbor).unwrap_or(neighbor_cell.clone());
+                    let mask_cell = mask
+                        .get(neighbor_cell.clone(), *neighbor)
+                        .unwrap_or(neighbor_cell.clone());
 
                     if mask_cell.is_impassable() {
                         continue;
@@ -108,19 +113,31 @@ pub(crate) fn hpa<N: Neighborhood>(
                         new_cost = cost + cached_path.cost();
                     } else {
                         // Calculate new path cost
-                        let path_cost = if are_adjacent(current_pos, *neighbor, grid.neighborhood().is_ordinal()) {
+                        let path_cost = if are_adjacent(
+                            current_pos,
+                            *neighbor,
+                            grid.neighborhood().is_ordinal(),
+                        ) {
                             // Adjacent case
                             let path = Path::new(vec![current_pos, *neighbor], mask_cell.cost);
                             mask.add_cached_path(current_pos, *neighbor, path);
                             mask_cell.cost
                         } else {
                             // Distant case - need pathfinding within chunk
-                            match find_mask_path(grid, current_pos, *neighbor, size_hint, partial, blocking, mask) {
+                            match find_mask_path(
+                                grid,
+                                current_pos,
+                                *neighbor,
+                                size_hint,
+                                partial,
+                                blocking,
+                                mask,
+                            ) {
                                 Some(path_cost) => path_cost,
                                 None => continue,
                             }
                         };
-                        
+
                         new_cost = cost + path_cost;
                     }
                 } else {
@@ -141,7 +158,7 @@ pub(crate) fn hpa<N: Neighborhood>(
 
                 // Only compute chunk if we need it for caching logic
                 let neighbor_chunk = grid.chunk_at_position(*neighbor).unwrap();
-                
+
                 if mask.chunk_in_mask(neighbor_chunk.index()) {
                     // Check cache first
                     if let Some(cached_path) = mask.get_cached_path(current_pos, *neighbor) {
@@ -160,7 +177,7 @@ pub(crate) fn hpa<N: Neighborhood>(
                                 None => continue,
                             }
                         };
-                        
+
                         new_cost = cost + path_cost;
                     }
                 } else {
@@ -232,7 +249,11 @@ fn rebuild_full_path<N: Neighborhood>(
             full_path.push(to);
         } else {
             // Fallback: direct connection (shouldn't happen in a well-formed graph)
-            log::warn!("No cached path found between {:?} and {:?}, using direct connection", from, to);
+            log::warn!(
+                "No cached path found between {:?} and {:?}, using direct connection",
+                from,
+                to
+            );
             full_path.push(to);
         }
     }
@@ -251,13 +272,13 @@ fn find_mask_path<N: Neighborhood>(
 ) -> Option<u32> {
     let chunk_ref = grid.chunk_at_position(neighbor_pos)?;
     let chunk = grid.chunk_view(chunk_ref);
-    
+
     let chunk_current_pos = chunk_ref.global_to_chunk(&current_pos)?;
     let chunk_neighbor = chunk_ref.global_to_chunk(&neighbor_pos)?;
 
     let min = chunk_ref.min().as_ivec3();
     let mask_local = mask.translate_by(-min);
-    
+
     let mut path = astar_grid(
         grid.neighborhood(),
         &chunk,
@@ -268,12 +289,12 @@ fn find_mask_path<N: Neighborhood>(
         blocking,
         &mask_local,
     )?;
-    
+
     // Convert path positions back to global
-    for pos in path.as_mut().iter_mut() {
+    for pos in path.as_mut_slices().iter_mut() {
         *pos = chunk_ref.chunk_to_global(pos);
     }
-    
+
     let path_cost = path.cost();
     mask.add_cached_path(current_pos, neighbor_pos, path);
     Some(path_cost)
@@ -281,7 +302,11 @@ fn find_mask_path<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{grid::GridSettingsBuilder, nav::Nav, prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, Region3d}};
+    use crate::{
+        grid::GridSettingsBuilder,
+        nav::Nav,
+        prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, Region3d},
+    };
 
     use super::*;
 
@@ -291,7 +316,6 @@ mod tests {
         let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
         grid.set_nav(UVec3::new(1, 1, 0), Nav::Impassable);
         grid.build();
-
 
         let start = UVec3::new(2, 4, 0);
         let goal = UVec3::new(14, 12, 0);
@@ -307,7 +331,6 @@ mod tests {
         )
         .unwrap();
 
-
         assert_eq!(path.cost(), 21);
         assert_eq!(path.len(), 17);
         // Ensure first position is the start position
@@ -317,7 +340,11 @@ mod tests {
 
         // Ensure that all positions in the path are adjacent
         for window in path.path().windows(2) {
-            assert!(are_adjacent(window[0], window[1], grid.neighborhood().is_ordinal()));
+            assert!(are_adjacent(
+                window[0],
+                window[1],
+                grid.neighborhood().is_ordinal()
+            ));
         }
     }
 
@@ -328,32 +355,24 @@ mod tests {
         grid.set_nav(UVec3::new(1, 1, 0), Nav::Impassable);
         grid.build();
 
-
         let start = UVec3::new(2, 4, 0);
         let goal = UVec3::new(14, 12, 0);
 
         // Create a mask that blocks the middle area
 
         let layer = NavMaskLayer::new();
-        layer.insert_region(
-            &grid,
-            Region3d::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
-            NavCellMask::ModifyCost(5000),
-        ).ok();
+        layer
+            .insert_region(
+                &grid,
+                Region3d::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
+                NavCellMask::ModifyCost(5000),
+            )
+            .ok();
 
         let mut mask = NavMaskData::new();
         mask.add_layer(layer);
 
-        let path = hpa(
-            &grid,
-            start,
-            goal,
-            64,
-            false,
-            &HashMap::new(),
-            &mut mask,
-        )
-        .unwrap();
+        let path = hpa(&grid, start, goal, 64, false, &HashMap::new(), &mut mask).unwrap();
 
         println!("Path: {:?}", path.path());
 
@@ -362,7 +381,11 @@ mod tests {
 
         // Ensure that all positions in the path are adjacent
         for window in path.path().windows(2) {
-            assert!(are_adjacent(window[0], window[1], grid.neighborhood().is_ordinal()));
+            assert!(are_adjacent(
+                window[0],
+                window[1],
+                grid.neighborhood().is_ordinal()
+            ));
         }
     }
 }

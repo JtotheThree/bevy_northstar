@@ -76,84 +76,21 @@ impl NavCell {
         self.nav
     }
 
-    /// Returns an a vector of the neighboring positions that are passable.
-    /*pub fn neighbors(&self, pos: UVec3) -> Vec<UVec3> {
-        let origin = pos.as_ivec3();
-        let mut neighbors = Vec::with_capacity(26 + self.special_neighbors.len()); // Max 26 3D neighbors
-        
-        // Use bit manipulation to iterate only set bits
-        let mut bits = self.neighbor_bits;
-        let mut i = 0;
-        while bits != 0 {
-            if bits & 1 != 0 {
-                neighbors.push((origin + ORDINAL_3D_OFFSETS[i]).as_uvec3());
-            }
-            bits >>= 1;
-            i += 1;
-        }
-        
-        // Extend with special neighbors (no clone needed)
-        neighbors.extend_from_slice(&self.special_neighbors);
-        
-        neighbors
-    }
-
     /// Returns an iterator over the neighboring positions that are passable.
     pub fn neighbor_iter(&self, pos: UVec3) -> impl Iterator<Item = UVec3> + '_ {
-        self.neighbors(pos).into_iter()
-    }*/
-
-
-    /*pub fn neighbor_iter(&self, pos: UVec3) -> impl Iterator<Item = UVec3> + '_ {
         let origin = pos.as_ivec3();
-        let standard = ORDINAL_3D_OFFSETS
-            .iter()
-            .enumerate()
-            .filter_map(move |(i, offset)| {
-                if (self.neighbor_bits >> i) & 1 != 0 {
-                    Some((origin + *offset).as_uvec3())
-                } else {
-                    None
-                }
-            });
 
-        let special = self.special_neighbors.clone().into_iter();
-
-        standard.chain(special)
-    }*/
-
-    /*pub fn neighbor_iter(&self, pos: UVec3) -> impl Iterator<Item = UVec3> + '_ {
-        let origin = pos.as_ivec3();
-        
-        // More efficient bit iteration - skip zeros
-        let bits = self.neighbor_bits;
-        let standard = (0..32)
-            .filter_map(move |i| {
-                if (bits >> i) & 1 != 0 && i < ORDINAL_3D_OFFSETS.len() {
-                    Some((origin + ORDINAL_3D_OFFSETS[i]).as_uvec3())
-                } else {
-                    None
-                }
-            });
-
-        let special = self.special_neighbors.iter().copied();
-        standard.chain(special)
-    }*/
-
-    pub fn neighbor_iter(&self, pos: UVec3) -> impl Iterator<Item = UVec3> + '_ {
-        let origin = pos.as_ivec3();
-        
         // Mask to only consider valid offset bits
         let mut bits = self.neighbor_bits & ((1u32 << ORDINAL_3D_OFFSETS.len()) - 1);
-        
+
         let standard = std::iter::from_fn(move || {
             if bits == 0 {
                 return None;
             }
-            
+
             let i = bits.trailing_zeros() as usize;
             bits &= bits - 1; // Clear the lowest set bit
-            
+
             Some((origin + ORDINAL_3D_OFFSETS[i]).as_uvec3())
         });
 

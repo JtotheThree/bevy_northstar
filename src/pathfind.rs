@@ -1,14 +1,18 @@
 //! This module defines pathfinding functions which can be called directly.
 
 use bevy::{
-    ecs::entity::Entity, log, math::UVec3, platform::collections::{HashMap, HashSet}
+    ecs::entity::Entity,
+    log,
+    math::UVec3,
+    platform::collections::{HashMap, HashSet},
 };
 use ndarray::ArrayView3;
 
 use crate::{
-    astar::{astar_graph, astar_grid}, chunk::Chunk, components::PathfindMode, dijkstra::dijkstra_grid, grid::Grid, hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path, prelude::NavMask, raycast::bresenham_path_internal, thetastar::thetastar_grid
+    astar::astar_grid, chunk::Chunk, components::PathfindMode, dijkstra::dijkstra_grid, grid::Grid,
+    hpa::hpa, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, node::Node, path::Path,
+    prelude::NavMask, raycast::bresenham_path_internal, thetastar::thetastar_grid,
 };
-
 
 /// Builder struct for pathfinding arguments
 #[derive(Debug)]
@@ -147,7 +151,16 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     }
 
     //let start_time = std::time::Instant::now();
-    let path = astar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask);
+    let path = astar_grid(
+        neighborhood,
+        grid,
+        start,
+        goal,
+        1024,
+        partial,
+        blocking,
+        mask,
+    );
     //log::info!("ASTAR took {:?}", start_time.elapsed());
 
     if let Some(mut path) = path {
@@ -212,10 +225,23 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         }
     }
 
-    thetastar_grid(neighborhood, grid, start, goal, 1024, partial, blocking, mask)
+    thetastar_grid(
+        neighborhood,
+        grid,
+        start,
+        goal,
+        1024,
+        partial,
+        blocking,
+        mask,
+    )
 }
 
-pub(crate) fn pathfind_new<N: Neighborhood>(
+/// HPA* pathfinding.
+// Keeping this internal for now since Grid has it's own helper function to call this
+// and [`Grid`] is required for it.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn pathfind<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
@@ -291,14 +317,6 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
             );
 
             if let Some(mut node_path) = node_path {
-                /*for pos in &node_path.path {
-                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
-                        if cell.is_impassable() {
-                            log::error!("Path goes through impassable cell at {:?}", pos);
-                        }
-                    }
-                }*/
-
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
                 let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
 
@@ -315,23 +333,40 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
 
                 // Add start_path to the node_path
                 let start_path = start_paths.get(&(start_pos - start_chunk.min())).unwrap();
-                // skip(1) skips the start position, we don't want to return that ever
-                path.extend(start_path.path().iter().skip(1).map(|pos| *pos + start_chunk.min()));
+                path.extend(start_path.path().iter().map(|pos| *pos + start_chunk.min()));
                 cost += start_path.cost();
 
-                // Add the node_path to the path
-                path.extend(node_path.path());
+                // Add the node_path to the path (check for connection point overlap)
+                let node_positions = node_path.path();
+                if !path.is_empty()
+                    && !node_positions.is_empty()
+                    && path.last() == Some(&node_positions[0])
+                {
+                    // Skip the first position of node_path since it duplicates the last position of start_path
+                    path.extend(node_positions.iter().skip(1));
+                } else {
+                    path.extend(node_positions.iter());
+                }
                 cost += node_path.cost();
 
-                // Add goal path to path
+                // Add goal path to path (check for connection point overlap)
                 let end_path = goal_paths.get(&(goal_pos - goal_chunk.min())).unwrap();
-                path.extend(
-                    end_path
-                        .path()
-                        .iter()
-                        .rev()
-                        .map(|pos| *pos + goal_chunk.min()),
-                );
+                let goal_positions: Vec<UVec3> = end_path
+                    .path()
+                    .iter()
+                    .rev()
+                    .map(|pos| *pos + goal_chunk.min())
+                    .collect();
+
+                if !path.is_empty()
+                    && !goal_positions.is_empty()
+                    && path.last() == Some(&goal_positions[0])
+                {
+                    // Skip the first position of goal_path since it duplicates the last position of node_path
+                    path.extend(goal_positions.iter().skip(1));
+                } else {
+                    path.extend(goal_positions.iter());
+                }
                 cost += end_path.cost();
 
                 if path.is_empty() {
@@ -343,17 +378,6 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                 if path.len() >= 2 && path[path.len() - 1] == path[path.len() - 2] {
                     path.pop();
                 }
-
-                // Same with the start
-                if path.len() >= 2 && path[0] == path[1] {
-                    log::warn!("Start contains duplicate nodes: {:?} <-> {:?}", path[0], path[1]);
-                }
-
-                if path[0] == start {
-                    log::warn!("Path shouldn't have the start position in it!!!");
-                }
-
-                //log::info!("Found unrefined path: {:?}, with cost {}", path, cost);
 
                 if !refined && !waypoints {
                     // If we're not refining, return the path as is
@@ -384,24 +408,11 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
                     &Path::from_slice(&path, cost),
                 );
 
-                //log::info!("HPA refinement took {:?}", start_time.elapsed());
-
                 // remove the starting position from the refined path
                 refined_path.path.pop_front();
 
-                // Debug test, ensure that NONE of the positions appear in the mask
-                /*for pos in &refined_path.path {
-                    if let Some(cell) = mask.get(grid.navcell(*pos).clone(), *pos) {
-                        if cell.is_impassable() {
-                            log::error!("Refined path goes through impassable cell at {:?}", pos);
-                        }
-                    }
-                }*/
-
                 // add the graph path to the refined path
                 refined_path.graph_path = node_path.path;
-
-                //log::info!("Refined path: {:?}, with cost: {:?}", refined_path.path(), refined_path.cost());
 
                 return Some(refined_path);
             }
@@ -411,12 +422,9 @@ pub(crate) fn pathfind_new<N: Neighborhood>(
     None
 }
 
-
-/// HPA* pathfinding.
-// Keeping this internal for now since Grid has it's own helper function to call this
-// and [`Grid`] is required for it.
+/*
 #[inline(always)]
-pub(crate) fn pathfind<N: Neighborhood>(
+pub(crate) fn pathfind_old<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
@@ -586,7 +594,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     }
 
     None
-}
+} */
 
 // Some times the Graph A* will return a path that has valid but redundant nodes at the start and end
 // of the path. Leading to awkward paths where the agent appears to veers off before heading to the goal.
@@ -729,7 +737,8 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     let mut i = 0;
 
     // Pre-compute all cells to avoid repeated grid access
-    let path_cells: Vec<NavCell> = path.path
+    let path_cells: Vec<NavCell> = path
+        .path
         .iter()
         .map(|pos| {
             let cell = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
@@ -750,14 +759,14 @@ pub(crate) fn optimize_path<N: Neighborhood>(
             (i + 75).min(path.len()) // Larger limit for very long paths
         };
 
-
         for farthest in (i + 1..path.len()).rev() {
             let candidate = path.path[farthest];
 
-            let distance = ((candidate.x as i32 - path.path[i].x as i32).abs() + 
-                        (candidate.y as i32 - path.path[i].y as i32).abs() + 
-                        (candidate.z as i32 - path.path[i].z as i32).abs()) as u32;
-            
+            let distance = ((candidate.x as i32 - path.path[i].x as i32).abs()
+                + (candidate.y as i32 - path.path[i].y as i32).abs()
+                + (candidate.z as i32 - path.path[i].z as i32).abs())
+                as u32;
+
             if distance > search_limit as u32 {
                 continue;
             }
@@ -921,7 +930,7 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
         &mask_local,
     );
 
-   // Debug check: convert local positions to global before checking mask
+    // Debug check: convert local positions to global before checking mask
     /*for path in paths.values() {
         for local_pos in &path.path {
             let global_pos = *local_pos + chunk.min(); // Convert to global coordinates
@@ -976,7 +985,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     start: UVec3,
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
-    mask: &NavMaskData,
+    mask: &mut NavMaskData,
     refined: bool,
 ) -> Option<Path> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path
@@ -995,11 +1004,27 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
     if path.graph_path.is_empty() {
         // Our only option here is to astar path to the goal
-        return pathfind_astar(&grid.neighborhood, &grid.view(), start, goal, blocking, mask, false);
+        return pathfind_astar(
+            &grid.neighborhood,
+            &grid.view(),
+            start,
+            goal,
+            blocking,
+            mask,
+            false,
+        );
     }
 
     let new_path = path.graph_path.iter().find_map(|pos| {
-        let new_path = pathfind_astar(&grid.neighborhood, &grid.view(), start, *pos, blocking, mask, false);
+        let new_path = pathfind_astar(
+            &grid.neighborhood,
+            &grid.view(),
+            start,
+            *pos,
+            blocking,
+            mask,
+            false,
+        );
         if new_path.is_some() && !new_path.as_ref().unwrap().is_empty() {
             new_path
         } else {

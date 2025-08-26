@@ -74,7 +74,7 @@ impl Path {
 
     /// Returns a mutable slice of the path positions.
     /// You can manually alter the path using this slice.
-    pub fn as_mut(&mut self) -> &mut [UVec3] {
+    pub fn as_mut_slices(&mut self) -> &mut [UVec3] {
         self.path.as_mut_slices().0
     }
 

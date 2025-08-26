@@ -121,7 +121,7 @@ fn startup(
     let grid = Grid::<OrdinalNeighborhood>::new(&grid_settings);
 
     // Create a nav mask to test with
-    // Create a nav_mask layer to bench 
+    // Create a nav_mask layer to bench
     let mask_layer = NavMaskLayer::new();
     mask_layer
         .insert_region(
@@ -234,16 +234,18 @@ fn spawn_minions(
         }
     }
 
-
     let mut count = 0;
 
     while count < 128 {
         let position = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
         // Temporary hack to make sure minions don't spawn in the testing nav mask region.
-        if position.x >= 64.0 * 8.0 && position.y >= 64.0 * 8.0 && 
-           position.x <= 84.0 * 8.0 && position.y <= 84.0 * 8.0 {
-            continue
+        if position.x >= 64.0 * 8.0
+            && position.y >= 64.0 * 8.0
+            && position.x <= 84.0 * 8.0
+            && position.y <= 84.0 * 8.0
+        {
+            continue;
         }
 
         let goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
@@ -260,26 +262,11 @@ fn spawn_minions(
         let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as u32, (goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands
@@ -418,26 +405,11 @@ fn set_new_goal(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands.entity(entity).insert(pathfind);
@@ -460,26 +432,11 @@ fn handle_pathfinding_failed(
         let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
 
         match config.mode {
-            PathfindMode::Refined => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Refined)
-            }
-            PathfindMode::Coarse => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Coarse)
-            }
-            PathfindMode::AStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::AStar)
-            }
-            PathfindMode::Waypoints => {
-                pathfind = pathfind
-                    .mode(PathfindMode::Waypoints)
-            }
-            PathfindMode::ThetaStar => {
-                pathfind = pathfind
-                    .mode(PathfindMode::ThetaStar)
-            }
+            PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
+            PathfindMode::Coarse => pathfind = pathfind.mode(PathfindMode::Coarse),
+            PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
+            PathfindMode::Waypoints => pathfind = pathfind.mode(PathfindMode::Waypoints),
+            PathfindMode::ThetaStar => pathfind = pathfind.mode(PathfindMode::ThetaStar),
         }
 
         commands

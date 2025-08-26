@@ -1,13 +1,21 @@
 //! Navigation Mask for overriding cell navigation properties for a specific pathfinding request.
-use std::{hash::Hash, sync::{Arc, Mutex}};
+use std::{
+    hash::Hash,
+    sync::{Arc, Mutex},
+};
 
 use bevy::{
-    math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}
+    math::{IVec3, UVec3},
+    platform::collections::{HashMap, HashSet},
 };
 use ndarray::ArrayView3;
 
 use crate::{
-    grid::Grid, nav::{Nav, NavCell, Portal}, path::Path, prelude::Neighborhood, MovementCost
+    grid::Grid,
+    nav::{Nav, NavCell, Portal},
+    path::Path,
+    prelude::Neighborhood,
+    MovementCost,
 };
 
 /// Result of a navigation mask query.
@@ -243,7 +251,7 @@ impl NavMaskData {
         if self.layers.is_empty() {
             return None;
         }
-        
+
         let mut pos = pos;
 
         if self.translation != IVec3::ZERO {
@@ -256,12 +264,12 @@ impl NavMaskData {
             pos = translated_pos.as_uvec3();
         }
 
-
         // Lock all layers once
-        let layer_guards: Vec<_> = self.layers.iter()
+        let layer_guards: Vec<_> = self
+            .layers
+            .iter()
             .map(|layer| layer.data.lock().unwrap())
             .collect();
-
 
         let mut result = prev;
         let mut has_any_mask = false;
@@ -335,21 +343,16 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to insert at the position.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_mask<N: Neighborhood>(&self, grid: &Grid<N>, pos: UVec3, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_mask<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        pos: UVec3,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         data.insert_mask(grid, pos, mask);
         Ok(())
     }
-
-    /// Clears the mask at a single position.
-    /// # Arguments
-    /// * `pos` - The position in the grid to clear the mask.
-    /// # Returns
-    /// [`Result`] will fail if the mutex is poisoned.
-    //pub fn remove_mask<N: Neighborhood>(&self, grid: &Grid<N>, pos: UVec3) -> Result<Option<NavCellMask>, String> {
-    //    let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-    //    Ok(data.mask.remove(&pos))
-    //}
 
     /// Inserts a [`NavCellMask`] over an entire region for the layer.
     /// # Arguments
@@ -357,7 +360,12 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to insert in the region.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_region<N: Neighborhood>(&self, grid: &Grid<N>, region: Region3d, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_region<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        region: Region3d,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         data.insert_region(grid, region, mask);
         Ok(())
@@ -368,7 +376,11 @@ impl NavMaskLayer {
     /// * `masks` - A HashMap where keys are positions and values are [`NavCellMask`].
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_hashmap<N: Neighborhood>(&self, grid: &Grid<N>, masks: &HashMap<UVec3, NavCellMask>) -> Result<(), String> {
+    pub fn insert_hashmap<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        masks: &HashMap<UVec3, NavCellMask>,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         data.insert_hashmap(grid, masks);
         Ok(())
@@ -380,7 +392,12 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to apply to all positions in the HashSet.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_hashset<N: Neighborhood>(&self, grid: &Grid<N>, cells: &HashSet<UVec3>, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_hashset<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        cells: &HashSet<UVec3>,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
         data.insert_hashset(grid, cells, mask);
         Ok(())
@@ -465,7 +482,12 @@ impl NavMaskLayerData {
         self.chunks.insert(chunk.index());
     }
 
-    pub fn insert_region<N: Neighborhood>(&mut self, grid: &Grid<N>, region: Region3d, mask: NavCellMask) {
+    pub fn insert_region<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        region: Region3d,
+        mask: NavCellMask,
+    ) {
         for pos in region.iter() {
             self.mask.insert(pos, mask.clone());
             let chunk = grid.chunk_at_position(pos).unwrap();
@@ -473,7 +495,11 @@ impl NavMaskLayerData {
         }
     }
 
-    pub fn insert_hashmap<N: Neighborhood>(&mut self, grid: &Grid<N>, masks: &HashMap<UVec3, NavCellMask>) {
+    pub fn insert_hashmap<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        masks: &HashMap<UVec3, NavCellMask>,
+    ) {
         for (pos, mask) in masks {
             self.mask.insert(*pos, mask.clone());
             let chunk = grid.chunk_at_position(*pos).unwrap();
@@ -481,7 +507,12 @@ impl NavMaskLayerData {
         }
     }
 
-    pub fn insert_hashset<N: Neighborhood>(&mut self, grid: &Grid<N>, cells: &HashSet<UVec3>, mask: NavCellMask) {
+    pub fn insert_hashset<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        cells: &HashSet<UVec3>,
+        mask: NavCellMask,
+    ) {
         for pos in cells {
             self.mask.insert(*pos, mask.clone());
             let chunk = grid.chunk_at_position(*pos).unwrap();

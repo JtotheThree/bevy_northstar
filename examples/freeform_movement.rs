@@ -80,7 +80,11 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add the debug map as a child of the entity containing the Grid.
     // Set the translation to offset the the debug gizmos.
     map_entity.with_child((
-        DebugGridBuilder::new(8, 8).enable_cells().enable_chunks().enable_entrances().build(),
+        DebugGridBuilder::new(8, 8)
+            .enable_cells()
+            .enable_chunks()
+            .enable_entrances()
+            .build(),
         // Add the offset to the debug gizmo so that it aligns with your tilemap.
         DebugOffset(offset.extend(0.0)),
     ));
@@ -165,6 +169,7 @@ fn spawn_player(
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn input(
     input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
@@ -218,10 +223,10 @@ fn input(
             debug_grid.set_debug_mask(nav_mask.clone());
 
             log::info!("Pathfinding to: {:?}", goal);
-            commands.entity(player).insert(
-                Pathfind::new(UVec3::new(goal.x, goal.y, 0))
-                    .mode(PathfindMode::AStar),
-            ).insert(AgentMask(nav_mask));
+            commands
+                .entity(player)
+                .insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::AStar))
+                .insert(AgentMask(nav_mask));
         }
     }
 }

@@ -77,15 +77,12 @@ impl Chunk {
             return None;
         }
 
-        let local_u32 = UVec3::new(
-            local_pos.x as u32,
-            local_pos.y as u32,
-            local_pos.z as u32,
-        );
+        let local_u32 = UVec3::new(local_pos.x as u32, local_pos.y as u32, local_pos.z as u32);
 
         // For inclusive bounds, check that local position is < (max - min)
         let chunk_size = self.max - self.min;
-        if local_u32.x >= chunk_size.x || local_u32.y >= chunk_size.y || local_u32.z >= chunk_size.z {
+        if local_u32.x >= chunk_size.x || local_u32.y >= chunk_size.y || local_u32.z >= chunk_size.z
+        {
             return None;
         }
 
@@ -93,11 +90,7 @@ impl Chunk {
     }
 
     pub(crate) fn chunk_to_global(&self, pos: &UVec3) -> UVec3 {
-        UVec3::new(
-            pos.x + self.min.x,
-            pos.y + self.min.y,
-            pos.z + self.min.z,
-        )
+        UVec3::new(pos.x + self.min.x, pos.y + self.min.y, pos.z + self.min.z)
     }
 
     #[allow(dead_code)]

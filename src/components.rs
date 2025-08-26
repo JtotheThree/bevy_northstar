@@ -53,7 +53,6 @@ pub struct Pathfind {
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
-
     // Optional [`NavMask`] to use for pathfinding.
     // You can filter out certain areas of the grid or apply movement costs.
     /*#[reflect(ignore)]

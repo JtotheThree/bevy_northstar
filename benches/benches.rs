@@ -1,13 +1,16 @@
 use bevy::math::UVec3;
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use tiled;
-
 use bevy_northstar::{
-    filter, grid::{Grid, GridSettings, GridSettingsBuilder}, nav::Nav, nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d}, pathfind::PathfindRequest, prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d}
+    filter,
+    grid::{Grid, GridSettings, GridSettingsBuilder},
+    nav::Nav,
+    nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d},
+    pathfind::PathfindRequest,
+    prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
 };
 
-use pprof::criterion::{PProfProfiler, Output};
+use pprof::criterion::{Output, PProfProfiler};
 
 fn setup_grid(map: tiled::Map, grid_settings: GridSettings) -> Grid<OrdinalNeighborhood> {
     let mut grid: Grid<OrdinalNeighborhood> = Grid::new(&grid_settings);
@@ -20,10 +23,7 @@ fn setup_grid(map: tiled::Map, grid_settings: GridSettings) -> Grid<OrdinalNeigh
                     if let Some(tile) = tile {
                         // Let's make tiles with an id of 1 impassable
                         if tile.id() == 14 {
-                            grid.set_nav(
-                                UVec3::new(x as u32, y as u32, 0),
-                                Nav::Passable(1)
-                            );
+                            grid.set_nav(UVec3::new(x as u32, y as u32, 0), Nav::Passable(1));
                         }
                     }
                 }
@@ -32,7 +32,6 @@ fn setup_grid(map: tiled::Map, grid_settings: GridSettings) -> Grid<OrdinalNeigh
     }
 
     grid
-
 }
 
 fn benchmarks(c: &mut Criterion) {
@@ -40,11 +39,13 @@ fn benchmarks(c: &mut Criterion) {
     let mut loader = tiled::Loader::new();
     let map = loader.load_tmx_map("assets/demo_128.tmx").unwrap();
 
-    let grid_settings = GridSettingsBuilder::new_2d(128, 128).chunk_size(8).default_impassable().build();
+    let grid_settings = GridSettingsBuilder::new_2d(128, 128)
+        .chunk_size(8)
+        .default_impassable()
+        .build();
     let mut grid = setup_grid(map.clone(), grid_settings);
 
     let mut group = c.benchmark_group("build");
-
 
     group.sample_size(10);
 
@@ -85,11 +86,14 @@ fn benchmarks(c: &mut Criterion) {
     /* BENCH NEIGHBOR FILTERS */
     let mut group = c.benchmark_group("filters");
 
-    let grid_settings = GridSettingsBuilder::new_2d(128, 128).chunk_size(8).add_neighbor_filter(filter::NoCornerCutting).default_impassable().build();
+    let grid_settings = GridSettingsBuilder::new_2d(128, 128)
+        .chunk_size(8)
+        .add_neighbor_filter(filter::NoCornerCutting)
+        .default_impassable()
+        .build();
     let mut grid = setup_grid(map.clone(), grid_settings);
 
     grid.build();
-
 
     let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0));
     group.bench_function("hpa_refined_128x128_tilemap_w_filter", |b| {
@@ -108,41 +112,58 @@ fn benchmarks(c: &mut Criterion) {
 
     group.finish();
 
-
     /* BENCH NAVMASK */
     let mut group = c.benchmark_group("navmask");
 
-    let grid_settings = GridSettingsBuilder::new_2d(128, 128).chunk_size(8).default_impassable().build();
+    let grid_settings = GridSettingsBuilder::new_2d(128, 128)
+        .chunk_size(8)
+        .default_impassable()
+        .build();
     let mut grid = setup_grid(map.clone(), grid_settings);
 
     grid.build();
 
     let mut mask = NavMask::new();
     let layer = NavMaskLayer::new();
-    layer.insert_region(&grid,Region3d::new(UVec3::new(60, 0, 0), UVec3::new(80, 127, 0)), NavCellMask::ModifyCost(5)).unwrap();
+    layer
+        .insert_region(
+            &grid,
+            Region3d::new(UVec3::new(60, 0, 0), UVec3::new(80, 127, 0)),
+            NavCellMask::ModifyCost(5),
+        )
+        .unwrap();
     mask.add_layer(layer).unwrap();
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).mask(&mut mask);
+    let mut request =
+        PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).mask(&mut mask);
     group.bench_function("hpa_refined_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).coarse().mask(&mut mask);
+    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+        .coarse()
+        .mask(&mut mask);
     group.bench_function("hpa_coarse_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).astar().mask(&mut mask);
+    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+        .astar()
+        .mask(&mut mask);
     group.bench_function("astar_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).waypoints().mask(&mut mask);
+    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+        .waypoints()
+        .mask(&mut mask);
     group.bench_function("hpa_waypoints_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).thetastar().mask(&mut mask);
+    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+        .thetastar()
+        .mask(&mut mask);
     group.bench_function("thetastar_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
@@ -151,20 +172,22 @@ fn benchmarks(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("large_grids");
 
-
-    let grid_settings_3d = GridSettingsBuilder::new_3d(512, 512, 32).chunk_size(16).chunk_depth(16).build();
+    let grid_settings_3d = GridSettingsBuilder::new_3d(512, 512, 32)
+        .chunk_size(16)
+        .chunk_depth(16)
+        .build();
     let mut large_grid3d = Grid::<OrdinalNeighborhood3d>::new(&grid_settings_3d);
 
-    group.bench_function("build_grid_512x512x32_empty", |b| b.iter(|| large_grid3d.build()));
-
+    group.bench_function("build_grid_512x512x32_empty", |b| {
+        b.iter(|| large_grid3d.build())
+    });
 
     group.finish();
 }
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    //config = Criterion::default().with_profiler(profiler::FlamegraphProfiler::new(100)).sample_size(10);
+    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None))).sample_size(10);
     targets = benchmarks
 }
 

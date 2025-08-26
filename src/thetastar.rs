@@ -22,6 +22,7 @@ use crate::{
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn thetastar_grid<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
@@ -102,7 +103,9 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            let cell = mask.get(neighbor_cell.clone(), neighbor).unwrap_or(neighbor_cell.clone());
+            let cell = mask
+                .get(neighbor_cell.clone(), neighbor)
+                .unwrap_or(neighbor_cell.clone());
 
             if cell.is_impassable() {
                 continue;
