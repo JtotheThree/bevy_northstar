@@ -6,7 +6,7 @@ use std::collections::BinaryHeap;
 
 use crate::{
     graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, FxIndexMap, SmallestCostHolder,
+    path::Path, size_hint_graph, size_hint_grid, FxIndexMap, SmallestCostHolder,
 };
 
 /// A* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -28,14 +28,15 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
     partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
 ) -> Option<Path> {
+    let size_hint = size_hint_grid(neighborhood, grid.shape(), start, goal);
+
     let masked = mask.layers.len() > 0;
 
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -195,9 +196,10 @@ pub(crate) fn astar_graph<N: Neighborhood>(
     graph: &Graph,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
 ) -> Option<Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let size_hint = size_hint_graph(neighborhood, graph, start, goal);
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -299,7 +301,6 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
             false,
             &HashMap::new(),
             &NavMaskData::new(),
@@ -334,7 +335,6 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
             false,
             &HashMap::new(),
             &NavMaskData::new(),
@@ -395,7 +395,6 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
             false,
             &HashMap::new(),
             &NavMaskData::new(),
@@ -432,7 +431,6 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            16,
             false,
             &HashMap::new(),
             &NavMaskData::new(),
@@ -494,7 +492,6 @@ mod tests {
             &graph,
             UVec3::new(0, 0, 0),
             UVec3::new(2, 2, 2),
-            64,
         )
         .unwrap();
 

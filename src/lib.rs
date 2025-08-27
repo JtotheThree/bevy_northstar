@@ -164,3 +164,41 @@ pub(crate) fn are_adjacent(pos1: UVec3, pos2: UVec3, ordinal: bool) -> bool {
         non_zero_count == 1 && abs_diff.max_element() == 1
     }
 }
+
+pub(crate) fn size_hint_grid<N: neighbor::Neighborhood>(
+    neighborhood: &N,
+    grid_shape: &[usize],
+    start: UVec3,
+    goal: UVec3,
+) -> usize {
+    let manhattan_distance = neighborhood.heuristic(start, goal) as usize;
+    let grid_size = grid_shape.iter().product::<usize>();
+
+    if grid_size < 1000 || manhattan_distance < 10 {
+        return (manhattan_distance * 4).max(64).min(512);
+    }
+
+    let search_radius = (manhattan_distance as f32 * 0.3) as usize; // 30% of path length
+    let estimated_nodes_explored = manhattan_distance * search_radius;
+
+    estimated_nodes_explored
+        .max(128)
+        .min(grid_size / 4)
+        .min(8192)
+}
+
+pub(crate) fn size_hint_graph<N: neighbor::Neighborhood>(
+    neighborhood: &N,
+    graph: &graph::Graph,
+    start: UVec3,
+    goal: UVec3,
+) -> usize {
+    let manhattan_distance = neighborhood.heuristic(start, goal) as usize;
+    let graph_size = graph.nodes().len();
+
+    let estimated_nodes = (manhattan_distance * 2)
+        .max(32)
+        .min(graph_size / 2)
+        .min(1024);
+    estimated_nodes
+}

@@ -31,12 +31,13 @@ pub(crate) fn dijkstra_grid(
     start: UVec3,
     goals: &[UVec3],
     only_closest_goal: bool,
-    size_hint: usize,
     mask: &NavMaskData,
 ) -> HashMap<UVec3, Path> {
+    let size_hint = grid.shape().iter().copied().product::<usize>() / 3;
+
     let masked = mask.layers.len() > 0;
 
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -163,9 +164,10 @@ pub fn dijkstra_graph(
     start: UVec3,
     goals: &[UVec3],
     only_closest_goal: bool,
-    size_hint: usize,
 ) -> HashMap<UVec3, Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let size_hint = 64;
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -267,14 +269,7 @@ mod tests {
             UVec3::new(7, 7, 0),
         ];
 
-        let paths = dijkstra_grid(
-            &grid.view(),
-            start,
-            &goals,
-            false,
-            8 * 8 * 8,
-            &NavMaskData::new(),
-        );
+        let paths = dijkstra_grid(&grid.view(), start, &goals, false, &NavMaskData::new());
 
         assert_eq!(paths.len(), 4);
         assert_eq!(paths[&UVec3::new(7, 7, 7)].len(), 8);
@@ -326,7 +321,6 @@ mod tests {
             UVec3::new(0, 0, 0),
             &[UVec3::new(1, 1, 1), UVec3::new(2, 2, 2)],
             false,
-            3,
         );
 
         assert_eq!(paths.len(), 2);

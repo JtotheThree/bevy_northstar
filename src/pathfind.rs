@@ -140,19 +140,6 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
-    // Ensure the goal is within bounds of the grid
-    let shape = grid.shape();
-    if start.x as usize >= shape[0] || start.y as usize >= shape[1] || start.z as usize >= shape[2]
-    {
-        log::warn!("Start is out of bounds: {:?}", start);
-        return None;
-    }
-
-    if goal.x as usize >= shape[0] || goal.y as usize >= shape[1] || goal.z as usize >= shape[2] {
-        log::warn!("Goal is out of bounds: {:?}", goal);
-        return None;
-    }
-
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     if let Some(mask_cell) = mask.get(goal_cell, goal) {
@@ -162,16 +149,7 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     }
 
     //let start_time = std::time::Instant::now();
-    let path = astar_grid(
-        neighborhood,
-        grid,
-        start,
-        goal,
-        1024,
-        partial,
-        blocking,
-        mask,
-    );
+    let path = astar_grid(neighborhood, grid, start, goal, partial, blocking, mask);
     //log::info!("ASTAR took {:?}", start_time.elapsed());
 
     if let Some(mut path) = path {
@@ -206,19 +184,6 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     mask: &NavMaskData,
     partial: bool,
 ) -> Option<Path> {
-    // Ensure the goal is within bounds of the grid
-    let shape = grid.shape();
-    if start.x as usize >= shape[0] || start.y as usize >= shape[1] || start.z as usize >= shape[2]
-    {
-        log::warn!("Start is out of bounds: {:?}", start);
-        return None;
-    }
-
-    if goal.x as usize >= shape[0] || goal.y as usize >= shape[1] || goal.z as usize >= shape[2] {
-        log::warn!("Goal is out of bounds: {:?}", goal);
-        return None;
-    }
-
     // If the goal is impassibe and partial isn't set, return none
     if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
         || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !partial
@@ -236,16 +201,7 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
         }
     }
 
-    thetastar_grid(
-        neighborhood,
-        grid,
-        start,
-        goal,
-        1024,
-        partial,
-        blocking,
-        mask,
-    )
+    thetastar_grid(neighborhood, grid, start, goal, partial, blocking, mask)
 }
 
 /// HPA* pathfinding.
@@ -262,17 +218,6 @@ pub(crate) fn pathfind<N: Neighborhood>(
     refined: bool,
     waypoints: bool,
 ) -> Option<Path> {
-    if !grid.in_bounds(start) {
-        log::warn!("Start is out of bounds: {:?}", start);
-        return None;
-    }
-
-    // Make sure the goal is in grid bounds
-    if !grid.in_bounds(goal) {
-        log::warn!("Goal is out of bounds: {:?}", goal);
-        return None;
-    }
-
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
@@ -292,7 +237,6 @@ pub(crate) fn pathfind<N: Neighborhood>(
             &grid.view(),
             start,
             goal,
-            100,
             partial,
             blocking,
             mask,
@@ -317,15 +261,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
-            let node_path = hpa(
-                grid,
-                start_node.pos,
-                goal_node.pos,
-                100,
-                partial,
-                blocking,
-                mask,
-            );
+            let node_path = hpa(grid, start_node.pos, goal_node.pos, partial, blocking, mask);
 
             if let Some(mut node_path) = node_path {
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
@@ -928,7 +864,6 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
             .map(|node| node.pos - chunk.min())
             .collect::<Vec<_>>(),
         false,
-        100,
         &mask_local,
     );
 

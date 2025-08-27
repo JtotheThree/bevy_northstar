@@ -1269,7 +1269,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         .collect::<Vec<_>>();
 
                     let paths =
-                        dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
+                        dijkstra_grid(&chunk_grid, start, &goals, false, &NavMaskData::new());
 
                     paths.into_iter().map(move |(goal_pos, path)| {
                         let world_start = node.pos;
@@ -1541,7 +1541,6 @@ impl<N: Neighborhood + Default> Grid<N> {
         })
     }
 
-
     /// Manually get a path from the grid.
     /// Arguments:
     /// * `request` - Provide a [`PathfindRequest`] containing the customization options for the pathfinding.
@@ -1551,6 +1550,16 @@ impl<N: Neighborhood + Default> Grid<N> {
         if self.needs_build() {
             log::error!(
                 "Grid is dirty and needs to be built/rebuilt before pathfinding can be performed."
+            );
+            return None;
+        }
+
+        if !self.in_bounds(request.start) || !self.in_bounds(request.goal) {
+            log::error!(
+                "Start or goal position is out of bounds. Start: {:?}, Goal: {:?}, Grid Dimensions: {:?}",
+                request.start,
+                request.goal,
+                self.dimensions
             );
             return None;
         }
@@ -1574,6 +1583,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                                 false,
                             )
                         } else {
+                            log::error!("NavMask is currently locked by another thread, cannot perform pathfinding with a NavMask.");
                             None // Return None if lock is contended, don't wait
                         }
                     }

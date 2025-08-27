@@ -287,7 +287,7 @@ fn spawn_minions(
             )))
             .insert(pathfind)
             .insert(ChildOf(layer_entity));
-            //.insert(AgentMask(all_nav_mask.0.clone()));
+        //.insert(AgentMask(all_nav_mask.0.clone()));
 
         count += 1;
     }

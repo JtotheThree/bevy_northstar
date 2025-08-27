@@ -5,19 +5,20 @@ use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap
 
 use crate::{
     are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, FxIndexMap, SmallestCostHolder,
+    path::Path, size_hint_graph, FxIndexMap, SmallestCostHolder,
 };
 
 pub(crate) fn hpa<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
     partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
 ) -> Option<Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let size_hint = size_hint_graph(&grid.neighborhood, grid.graph(), start, goal);
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -114,7 +115,6 @@ pub(crate) fn hpa<N: Neighborhood>(
                                 grid,
                                 current_pos,
                                 *neighbor,
-                                size_hint,
                                 partial,
                                 blocking,
                                 mask,
@@ -208,7 +208,6 @@ fn find_mask_path<N: Neighborhood>(
     grid: &Grid<N>,
     current_pos: UVec3,
     neighbor_pos: UVec3,
-    size_hint: usize,
     partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
@@ -227,7 +226,6 @@ fn find_mask_path<N: Neighborhood>(
         &chunk,
         chunk_current_pos,
         chunk_neighbor,
-        size_hint,
         partial,
         blocking,
         &mask_local,
@@ -267,7 +265,6 @@ mod tests {
             &grid,
             start,
             goal,
-            64,
             false,
             &HashMap::new(),
             &mut NavMaskData::new(),
@@ -315,7 +312,7 @@ mod tests {
         let mut mask = NavMaskData::new();
         mask.add_layer(layer);
 
-        let path = hpa(&grid, start, goal, 64, false, &HashMap::new(), &mut mask).unwrap();
+        let path = hpa(&grid, start, goal, false, &HashMap::new(), &mut mask).unwrap();
 
         println!("Path: {:?}", path.path());
 
