@@ -22,22 +22,21 @@ use crate::{
     path::Path,
     prelude::{NavMask, Pathfind},
     raycast::bresenham_path_internal,
-    thetastar::thetastar_grid,
+    thetastar::thetastar_grid, NavRegion, SearchLimits,
 };
 
 /// Builder struct for pathfinding arguments
 #[derive(Debug)]
-pub struct PathfindRequest<'a> {
+pub struct PathfindArgs<'a> {
     pub(crate) start: UVec3,
     pub(crate) goal: UVec3,
     pub(crate) blocking: Option<&'a HashMap<UVec3, Entity>>,
     pub(crate) mask: Option<&'a mut NavMask>,
-    pub(crate) partial: bool,
     pub(crate) algorithm: PathfindMode,
-    pub(crate) search_range: Option<u32>,
+    pub(crate) limits: SearchLimits,
 }
 
-impl<'a> PathfindRequest<'a> {
+impl<'a> PathfindArgs<'a> {
     /// Create a new pathfinding request
     pub fn new(start: UVec3, goal: UVec3) -> Self {
         Self {
@@ -45,21 +44,27 @@ impl<'a> PathfindRequest<'a> {
             goal,
             blocking: None,
             mask: None,
-            partial: false,
             algorithm: PathfindMode::Refined,
-            search_range: None,
+            limits: SearchLimits::default(),
         }
     }
 
     /// Sets the pathfinding request to return the closest path if a full path to the goal isn't possible.
     pub fn partial(mut self) -> Self {
-        self.partial = true;
+        self.limits.partial = true;
         self
     }
 
-    /// Limits the search range for the pathfinding request.
-    pub fn search_range(mut self, search_range: u32) -> Self {
-        self.search_range = Some(search_range);
+    /// Limits the search to a region for the pathfinding request.
+    pub fn search_region(mut self, region: NavRegion) -> Self {
+        self.limits.boundary = Some(region);
+        self
+    }
+
+    /// Limits the path search to a maximum distance from the start.
+    /// No path will be returned if the maximum distance is exceeded.
+    pub fn max_distance(mut self, max_distance: u32) -> Self {
+        self.limits.distance = Some(max_distance);
         self
     }
 
@@ -138,18 +143,18 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    partial: bool,
+    limits: SearchLimits,
 ) -> Option<Path> {
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !partial {
+        if mask_cell.is_impassable() && !limits.partial {
             return None;
         }
     }
 
     //let start_time = std::time::Instant::now();
-    let path = astar_grid(neighborhood, grid, start, goal, partial, blocking, mask);
+    let path = astar_grid(neighborhood, grid, start, goal, blocking, mask, limits);
     //log::info!("ASTAR took {:?}", start_time.elapsed());
 
     if let Some(mut path) = path {
@@ -182,11 +187,11 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    partial: bool,
+    limits: SearchLimits,
 ) -> Option<Path> {
     // If the goal is impassibe and partial isn't set, return none
     if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
-        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !partial
+        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !limits.partial
     {
         return None;
     }
@@ -195,13 +200,13 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
 
     // if goal is in the blocking mask, return None
     if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !partial {
+        if mask_cell.is_impassable() && !limits.partial {
             //log::error!("Goal is in the blocking mask");
             return None;
         }
     }
 
-    thetastar_grid(neighborhood, grid, start, goal, partial, blocking, mask)
+    thetastar_grid(neighborhood, grid, start, goal, blocking, mask, limits)
 }
 
 /// HPA* pathfinding.
@@ -214,15 +219,15 @@ pub(crate) fn pathfind<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
-    partial: bool,
     refined: bool,
     waypoints: bool,
+    limits: SearchLimits,
 ) -> Option<Path> {
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
     if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !partial {
+        if mask_cell.is_impassable() && !limits.partial {
             return None;
         }
     }
@@ -237,9 +242,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
             &grid.view(),
             start,
             goal,
-            partial,
             blocking,
             mask,
+            limits,
         );
 
         if let Some(mut path) = path {
@@ -261,7 +266,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
-            let node_path = hpa(grid, start_node.pos, goal_node.pos, partial, blocking, mask);
+            let node_path = hpa(grid, start_node.pos, goal_node.pos, blocking, mask, limits);
 
             if let Some(mut node_path) = node_path {
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
@@ -944,7 +949,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                     pathfind.goal,
                     blocking,
                     mask,
-                    pathfind.partial,
+                    pathfind.limits,
                 );
             }
             PathfindMode::Waypoints | PathfindMode::ThetaStar => {
@@ -955,7 +960,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                     pathfind.goal,
                     blocking,
                     mask,
-                    pathfind.partial,
+                    pathfind.limits,
                 );
             }
         }
@@ -972,7 +977,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 *pos,
                 blocking,
                 mask,
-                false,
+                pathfind.limits,
             ),
             PathfindMode::Waypoints | PathfindMode::ThetaStar => pathfind_thetastar(
                 &grid.neighborhood,
@@ -981,7 +986,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 *pos,
                 blocking,
                 mask,
-                false,
+                pathfind.limits,
             ),
         };
 
@@ -1010,7 +1015,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 pathfind.goal,
                 blocking,
                 mask,
-                pathfind.partial,
+                pathfind.limits,
             ),
             PathfindMode::Waypoints | PathfindMode::ThetaStar => pathfind_thetastar(
                 &grid.neighborhood,
@@ -1019,7 +1024,7 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 pathfind.goal,
                 blocking,
                 mask,
-                pathfind.partial,
+                pathfind.limits,
             ),
         };
 

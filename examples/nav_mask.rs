@@ -44,7 +44,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     water_layer
         .insert_region_fill(
             &grid,
-            Region3d::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
+            NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
             NavCellMask::ModifyCost(5),
         )
         .unwrap();
@@ -54,7 +54,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     red_faction_not_allowed_layer
         .insert_region_fill(
             &grid,
-            Region3d::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
+            NavRegion::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
             NavCellMask::ImpassableOverride,
         )
         .unwrap();
@@ -64,7 +64,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     blue_faction_not_allowed_layer
         .insert_region_fill(
             &grid,
-            Region3d::new(UVec3::new(16, 16, 16), UVec3::new(20, 20, 20)),
+            NavRegion::new(UVec3::new(16, 16, 16), UVec3::new(20, 20, 20)),
             NavCellMask::ImpassableOverride,
         )
         .unwrap();

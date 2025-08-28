@@ -4,18 +4,30 @@ use std::collections::BinaryHeap;
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
 use crate::{
-    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, size_hint_graph, FxIndexMap, SmallestCostHolder,
+    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder
 };
 
 pub(crate) fn hpa<N: Neighborhood>(
     grid: &Grid<N>,
     start: UVec3,
     goal: UVec3,
-    partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
+    limits: SearchLimits,
 ) -> Option<Path> {
+    let bounded = limits.boundary.is_some();
+    let boundary = limits.boundary.unwrap_or(NavRegion {
+        min: UVec3::ZERO,
+        max: UVec3::ZERO,
+    });
+
+    if bounded && !boundary.in_bounds(start) {
+        return None;
+    }
+
+    let distance_limited = limits.distance.is_some();
+    let max_distance = limits.distance.unwrap_or(u32::MAX);
+
     let size_hint = size_hint_graph(&grid.neighborhood, grid.graph(), start, goal);
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
@@ -65,6 +77,14 @@ pub(crate) fn hpa<N: Neighborhood>(
         };
 
         for neighbor in neighbors.iter() {
+            if bounded && !boundary.in_bounds(*neighbor) {
+                continue;
+            }
+
+            if distance_limited && grid.neighborhood.heuristic(start, *neighbor) > max_distance {
+                continue;
+            }
+
             let neighbor_node = grid.graph().node_at(*neighbor).unwrap();
             if neighbor_node.edges().is_empty() {
                 continue;
@@ -115,9 +135,9 @@ pub(crate) fn hpa<N: Neighborhood>(
                                 grid,
                                 current_pos,
                                 *neighbor,
-                                partial,
                                 blocking,
                                 mask,
+                                limits,
                             ) {
                                 Some(path_cost) => path_cost,
                                 None => continue,
@@ -208,9 +228,9 @@ fn find_mask_path<N: Neighborhood>(
     grid: &Grid<N>,
     current_pos: UVec3,
     neighbor_pos: UVec3,
-    partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
+    limits: SearchLimits,
 ) -> Option<u32> {
     let chunk_ref = grid.chunk_at_position(neighbor_pos)?;
     let chunk = grid.chunk_view(chunk_ref);
@@ -226,9 +246,9 @@ fn find_mask_path<N: Neighborhood>(
         &chunk,
         chunk_current_pos,
         chunk_neighbor,
-        partial,
         blocking,
         &mask_local,
+        limits,
     )?;
 
     // Convert path positions back to global
@@ -246,7 +266,7 @@ mod tests {
     use crate::{
         grid::GridSettingsBuilder,
         nav::Nav,
-        prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, Region3d},
+        prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, NavRegion},
     };
 
     use super::*;
@@ -265,9 +285,9 @@ mod tests {
             &grid,
             start,
             goal,
-            false,
             &HashMap::new(),
             &mut NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -304,7 +324,7 @@ mod tests {
         layer
             .insert_region_fill(
                 &grid,
-                Region3d::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
+                NavRegion::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
                 NavCellMask::ModifyCost(5000),
             )
             .ok();
@@ -312,7 +332,7 @@ mod tests {
         let mut mask = NavMaskData::new();
         mask.add_layer(layer);
 
-        let path = hpa(&grid, start, goal, false, &HashMap::new(), &mut mask).unwrap();
+        let path = hpa(&grid, start, goal, &HashMap::new(), &mut mask, SearchLimits::default()).unwrap();
 
         println!("Path: {:?}", path.path());
 

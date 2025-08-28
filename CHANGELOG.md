@@ -1,8 +1,9 @@
 q## v0.4.0
 // TODO Before merge:
+   Provide better error handling for NavMask
    Look into ImpassableOverride caching, is it getting added for HPA??
-   Add search area to pathfind
-   Add bounding box? as a Nav Mask?
+   Add nav_mask tests back in
+   Can I make the PathindComponent just a simple wrapper to PathfindArgs? I'm pretty sure I can.
    Review docs
    Update book
 

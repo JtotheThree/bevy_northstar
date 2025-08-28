@@ -5,17 +5,15 @@ use std::{
 };
 
 use bevy::{
-    math::{IVec3, UVec3},
-    platform::collections::{HashMap, HashSet},
+    log, math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}
 };
-use ndarray::ArrayView3;
 
 use crate::{
     grid::Grid,
     nav::{Nav, NavCell, Portal},
     path::Path,
     prelude::Neighborhood,
-    MovementCost,
+    MovementCost, NavRegion,
 };
 
 /// Result of a navigation mask query.
@@ -352,7 +350,7 @@ impl NavMaskLayer {
     pub fn insert_region_fill<N: Neighborhood>(
         &self,
         grid: &Grid<N>,
-        region: Region3d,
+        region: NavRegion,
         mask: NavCellMask,
     ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
@@ -370,7 +368,7 @@ impl NavMaskLayer {
     pub fn insert_region_outline<N: Neighborhood>(
         &self,
         grid: &Grid<N>,
-        region: Region3d,
+        region: NavRegion,
         mask: NavCellMask,
     ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
@@ -484,6 +482,11 @@ impl NavMaskLayerData {
     }
 
     pub fn insert_mask<N: Neighborhood>(&mut self, grid: &Grid<N>, pos: UVec3, mask: NavCellMask) {
+        if !grid.in_bounds(pos) {
+            log::warn!("Unable to insert mask position: {:?} is out of bounds!", pos);
+            return;
+        }
+
         self.mask.insert(pos, mask);
         let chunk = grid.chunk_at_position(pos).unwrap();
         self.chunks.insert(chunk.index());
@@ -492,20 +495,18 @@ impl NavMaskLayerData {
     pub fn insert_region_fill<N: Neighborhood>(
         &mut self,
         grid: &Grid<N>,
-        region: Region3d,
+        region: NavRegion,
         mask: NavCellMask,
     ) {
         for pos in region.iter() {
-            self.mask.insert(pos, mask.clone());
-            let chunk = grid.chunk_at_position(pos).unwrap();
-            self.chunks.insert(chunk.index());
+            self.insert_mask(grid, pos, mask.clone());
         }
     }
 
     pub fn insert_region_outline<N: Neighborhood>(
         &mut self,
         grid: &Grid<N>,
-        region: Region3d,
+        region: NavRegion,
         mask: NavCellMask,
     ) {
         // Insert the outline of the region
@@ -520,9 +521,7 @@ impl NavMaskLayerData {
                         || pos.z == region.min.z
                         || pos.z == region.max.z - 1
                     {
-                        self.mask.insert(pos, mask.clone());
-                        let chunk = grid.chunk_at_position(pos).unwrap();
-                        self.chunks.insert(chunk.index());
+                        self.insert_mask(grid, pos, mask.clone());
                     }
                 }
             }
@@ -535,9 +534,7 @@ impl NavMaskLayerData {
         masks: &HashMap<UVec3, NavCellMask>,
     ) {
         for (pos, mask) in masks {
-            self.mask.insert(*pos, mask.clone());
-            let chunk = grid.chunk_at_position(*pos).unwrap();
-            self.chunks.insert(chunk.index());
+            self.insert_mask(grid, *pos, mask.clone());
         }
     }
 
@@ -548,9 +545,7 @@ impl NavMaskLayerData {
         mask: NavCellMask,
     ) {
         for pos in cells {
-            self.mask.insert(*pos, mask.clone());
-            let chunk = grid.chunk_at_position(*pos).unwrap();
-            self.chunks.insert(chunk.index());
+            self.insert_mask(grid, *pos, mask.clone());
         }
     }
 
@@ -576,74 +571,6 @@ impl From<&NavMaskLayer> for NavMaskLayerData {
     fn from(layer: &NavMaskLayer) -> Self {
         let data = layer.data.lock().unwrap();
         data.clone()
-    }
-}
-
-/// A Region3d with an iter method to iterate over all positions in the region.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Region3d {
-    /// The minimum position of the region.
-    pub min: UVec3,
-    /// The maximum position of the region (exclusive).
-    pub max: UVec3,
-}
-
-impl Region3d {
-    /// Creates a new Region3d with the given minimum and maximum positions.
-    pub fn new(min: UVec3, max: UVec3) -> Self {
-        assert!(
-            min.x <= max.x && min.y <= max.y && min.z <= max.z,
-            "Invalid region bounds"
-        );
-        Self { min, max }
-    }
-
-    /// Create a new Region3d from a grid's shape.
-    pub fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
-        let shape = grid.shape();
-        Self {
-            min: UVec3::new(0, 0, 0),
-            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
-        }
-    }
-
-    /// Returns an iterator over all positions in the region.
-    pub fn iter(&self) -> Region3dIter {
-        Region3dIter {
-            region: *self,
-            current: self.min,
-        }
-    }
-}
-
-/// An iterator over all positions in a Region3d.
-pub struct Region3dIter {
-    region: Region3d,
-    current: UVec3,
-}
-
-impl Iterator for Region3dIter {
-    type Item = UVec3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current.z > self.region.max.z {
-            return None;
-        }
-
-        let result = self.current;
-
-        self.current.x += 1;
-        if self.current.x > self.region.max.x {
-            self.current.x = self.region.min.x;
-            self.current.y += 1;
-
-            if self.current.y > self.region.max.y {
-                self.current.y = self.region.min.y;
-                self.current.z += 1;
-            }
-        }
-
-        Some(result)
     }
 }
 

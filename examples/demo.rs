@@ -126,7 +126,7 @@ fn startup(
     mask_layer
         .insert_region_fill(
             &grid,
-            Region3d::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+            NavRegion::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
             //NavCellMask::PassableOverride(1),
             NavCellMask::ModifyCost(50000),
         )
@@ -286,8 +286,8 @@ fn spawn_minions(
                 0,
             )))
             .insert(pathfind)
-            .insert(ChildOf(layer_entity));
-        //.insert(AgentMask(all_nav_mask.0.clone()));
+            .insert(ChildOf(layer_entity))
+            .insert(AgentMask(all_nav_mask.0.clone()));
 
         count += 1;
     }

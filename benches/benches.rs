@@ -5,8 +5,9 @@ use bevy_northstar::{
     filter,
     grid::{Grid, GridSettings, GridSettingsBuilder},
     nav::Nav,
-    nav_mask::{NavCellMask, NavMask, NavMaskLayer, Region3d},
-    pathfind::PathfindRequest,
+    NavRegion,
+    nav_mask::{NavCellMask, NavMask, NavMaskLayer},
+    pathfind::PathfindArgs,
     prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
 };
 
@@ -56,27 +57,27 @@ fn benchmarks(c: &mut Criterion) {
     /* BENCH EACH ALGORITHM ON THE 128x128 Demo Map */
     let mut group = c.benchmark_group("pathfinding");
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0));
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0));
     group.bench_function("hpa_refined_128x128_tilemap", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).coarse();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).coarse();
     group.bench_function("hpa_coarse_128x128_tilemap", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).astar();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).astar();
     group.bench_function("astar_128x128_tilemap", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).waypoints();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).waypoints();
     group.bench_function("hpa_waypoints_128x128_tilemap", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).thetastar();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).thetastar();
     group.bench_function("thetastar_128x128_tilemap", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
@@ -95,17 +96,17 @@ fn benchmarks(c: &mut Criterion) {
 
     grid.build();
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0));
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0));
     group.bench_function("hpa_refined_128x128_tilemap_w_filter", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).coarse();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).coarse();
     group.bench_function("hpa_coarse_128x128_tilemap_w_filter", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).astar();
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).astar();
     group.bench_function("astar_128x128_tilemap_w_filter", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
@@ -128,40 +129,40 @@ fn benchmarks(c: &mut Criterion) {
     layer
         .insert_region_fill(
             &grid,
-            Region3d::new(UVec3::new(60, 0, 0), UVec3::new(80, 127, 0)),
+            NavRegion::new(UVec3::new(60, 0, 0), UVec3::new(80, 127, 0)),
             NavCellMask::ModifyCost(5),
         )
         .unwrap();
     mask.add_layer(layer).unwrap();
 
     let mut request =
-        PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).mask(&mut mask);
+        PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0)).mask(&mut mask);
     group.bench_function("hpa_refined_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
         .coarse()
         .mask(&mut mask);
     group.bench_function("hpa_coarse_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
         .astar()
         .mask(&mut mask);
     group.bench_function("astar_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
         .waypoints()
         .mask(&mut mask);
     group.bench_function("hpa_waypoints_128x128_tilemap_w_mask", |b| {
         b.iter(|| assert!(grid.pathfind(&mut request).is_some()))
     });
 
-    let mut request = PathfindRequest::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
+    let mut request = PathfindArgs::new(UVec3::new(2, 3, 0), UVec3::new(115, 11, 0))
         .thetastar()
         .mask(&mut mask);
     group.bench_function("thetastar_128x128_tilemap_w_mask", |b| {

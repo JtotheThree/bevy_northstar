@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{debug::DebugTilemapType, nav_mask::NavMask};
+use crate::{debug::DebugTilemapType, nav_mask::NavMask, NavRegion, SearchLimits};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -46,17 +46,14 @@ pub enum PathfindMode {
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
-    /// Will attempt to return the best path if full route isn't found.
-    pub partial: bool,
 
     /// The [`PathfindMode`] to use for pathfinding.
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
-    // Optional [`NavMask`] to use for pathfinding.
-    // You can filter out certain areas of the grid or apply movement costs.
-    /*#[reflect(ignore)]
-    pub mask: Option<NavMask>,*/
+
+    /// Sets limits for the pathfinding search, see [`SearchLimits`]
+    pub limits: SearchLimits,
 }
 
 impl Pathfind {
@@ -108,7 +105,20 @@ impl Pathfind {
     /// The pathfinding system will return the best path it can find
     /// even if it can't find a full route to the goal.
     pub fn partial(mut self) -> Self {
-        self.partial = true;
+        self.limits.partial = true;
+        self
+    }
+
+    /// Limits the search to a region for the pathfinding request.
+    pub fn search_region(mut self, region: NavRegion) -> Self {
+        self.limits.boundary = Some(region);
+        self
+    }
+
+    /// Limits the pathfinding search to a maximum distance from the start.
+    /// No path will be returned if the maximum distance is exceeded.
+    pub fn max_distance(mut self, max_distance: u32) -> Self {
+        self.limits.distance = Some(max_distance);
         self
     }
 

@@ -3,10 +3,14 @@
 
 use bevy::ecs::query::Without;
 use bevy::math::{IVec3, UVec3};
+use bevy::reflect::Reflect;
 use indexmap::IndexMap;
+use ndarray::ArrayView3;
 use rustc_hash::FxHasher;
 use std::cmp::Ordering;
 use std::hash::BuildHasherDefault;
+
+use crate::nav::NavCell;
 
 mod astar;
 mod chunk;
@@ -38,7 +42,8 @@ pub mod prelude {
     pub use crate::filter;
     pub use crate::grid::{Grid, GridSettingsBuilder};
     pub use crate::nav::{Nav, Portal};
-    pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, NavMaskResult, Region3d};
+    pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, NavMaskResult};
+    pub use crate::NavRegion;
     pub use crate::neighbor::*;
     pub use crate::path::Path;
     pub use crate::plugin::{
@@ -84,6 +89,94 @@ impl<Id: PartialEq> PartialEq for SmallestCostHolder<Id> {
 }
 
 impl<Id: Eq> Eq for SmallestCostHolder<Id> {}
+
+
+/// Sets the limits for the pathfinding request.
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+pub struct SearchLimits {
+    /// Limit the search to a specific region
+    pub boundary: Option<NavRegion>,
+    /// Limits the search to abort if it exceeds a certain distance
+    pub distance: Option<u32>,
+    /// If true, the pathfinding will return the best path in the direction of the goal if it isn't reachable.
+    pub partial: bool,
+}
+
+/// A Region3d with an iter method to iterate over all positions in the region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Reflect)]
+pub struct NavRegion {
+    /// The minimum position of the region.
+    pub min: UVec3,
+    /// The maximum position of the region (exclusive).
+    pub max: UVec3,
+}
+
+impl NavRegion {
+    /// Creates a new Region3d with the given minimum and maximum positions.
+    pub fn new(min: UVec3, max: UVec3) -> Self {
+        assert!(
+            min.x <= max.x && min.y <= max.y && min.z <= max.z,
+            "Invalid region bounds"
+        );
+        Self { min, max }
+    }
+
+    /// Create a new Region3d from a grid's shape.
+    pub fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
+        let shape = grid.shape();
+        Self {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
+        }
+    }
+
+    /// Tests if a position is in bounds of the region.
+    pub fn in_bounds(&self, pos: UVec3) -> bool {
+        pos.x >= self.min.x && pos.x < self.max.x &&
+        pos.y >= self.min.y && pos.y < self.max.y &&
+        pos.z >= self.min.z && pos.z < self.max.z
+    }
+
+    /// Returns an iterator over all positions in the region.
+    pub fn iter(&self) -> NavRegionIter {
+        NavRegionIter {
+            region: *self,
+            current: self.min,
+        }
+    }
+}
+
+/// An iterator over all positions in a Region3d.
+pub struct NavRegionIter {
+    region: NavRegion,
+    current: UVec3,
+}
+
+impl Iterator for NavRegionIter {
+    type Item = UVec3;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.z > self.region.max.z {
+            return None;
+        }
+
+        let result = self.current;
+
+        self.current.x += 1;
+        if self.current.x > self.region.max.x {
+            self.current.x = self.region.min.x;
+            self.current.y += 1;
+
+            if self.current.y > self.region.max.y {
+                self.current.y = self.region.min.y;
+                self.current.z += 1;
+            }
+        }
+
+        Some(result)
+    }
+}
+
 
 /* Greedy A* implementation from the rust Pathfinding crate
   It's meant to be faster, but is actually quite a bit slower testing it in the stress demo

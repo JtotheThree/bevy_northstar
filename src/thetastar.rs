@@ -5,8 +5,7 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path,
-    raycast::has_line_of_sight, size_hint_grid, FxIndexMap, SmallestCostHolder,
+    in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight, size_hint_grid, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder
 };
 
 /// θ* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -28,10 +27,19 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    partial: bool,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
+    limits: SearchLimits,
 ) -> Option<Path> {
+    let bounded = limits.boundary.is_some();
+    let boundary = limits.boundary.unwrap_or(NavRegion {
+        min: UVec3::ZERO,
+        max: UVec3::ZERO,
+    });
+
+    let distance_limited = limits.distance.is_some();
+    let max_distance = limits.distance.unwrap_or(u32::MAX);
+
     let size_hint = size_hint_grid(neighborhood, grid.shape(), start, goal);
     let masked = mask.layers.len() > 0;
 
@@ -91,12 +99,20 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         };
 
         for neighbor in neighbors {
+            if bounded && !boundary.in_bounds(neighbor) {
+                continue;
+            }
+
             if !in_bounds_3d(neighbor, min, max) {
                 continue;
             }
 
             if blocking.contains_key(&neighbor) {
                 continue; // Skip blocked positions
+            }
+
+            if distance_limited && neighborhood.heuristic(start, neighbor) > max_distance {
+                continue;
             }
 
             let neighbor_cell = &grid[[
@@ -169,7 +185,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         }
     }
 
-    if partial {
+    if limits.partial {
         // If the goal is not reached, return the path to the closest node, but if the closest node is the start return None
         if closest_node == start {
             return None;
@@ -225,9 +241,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            false,
             &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 

@@ -25,10 +25,10 @@ use crate::{
     neighbor::Neighborhood,
     node::Node,
     path::Path,
-    pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path, PathfindRequest},
+    pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path, PathfindArgs},
     position_in_cubic_window,
     prelude::{NavMask, Pathfind, PathfindMode},
-    timed, MovementCost,
+    timed, MovementCost, SearchLimits,
 };
 
 /// Settings for how the grid is divided into chunks.
@@ -1437,7 +1437,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &mut NavMaskData::new(),
             false,
             false,
-            false,
+            SearchLimits::default(),
         )
         .is_some()
     }
@@ -1457,14 +1457,13 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
     ///
-    pub fn pathfind_astar_radius(
+    pub(crate) fn pathfind_astar_radius(
         &self,
         start: UVec3,
         goal: UVec3,
         radius: u32,
         blocking: &HashMap<UVec3, Entity>,
         mask: Option<&NavMask>,
-        partial: bool,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
@@ -1531,7 +1530,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             goal_local,
             &blocking_local,
             &mask_local,
-            partial,
+            SearchLimits::default(),
         );
 
         // Convert path result back to global positions
@@ -1546,7 +1545,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// * `request` - Provide a [`PathfindRequest`] containing the customization options for the pathfinding.
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
-    pub fn pathfind(&self, request: &mut PathfindRequest) -> Option<Path> {
+    pub fn pathfind(&self, request: &mut PathfindArgs) -> Option<Path> {
         if self.needs_build() {
             log::error!(
                 "Grid is dirty and needs to be built/rebuilt before pathfinding can be performed."
@@ -1578,9 +1577,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                                 request.goal,
                                 blocking,
                                 &mut data,
-                                request.partial,
                                 true,
                                 false,
+                                request.limits,
                             )
                         } else {
                             log::error!("NavMask is currently locked by another thread, cannot perform pathfinding with a NavMask.");
@@ -1595,9 +1594,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                             request.goal,
                             blocking,
                             &mut empty_mask,
-                            request.partial,
                             true,
                             false,
+                            request.limits,
                         )
                     }
                 }
@@ -1611,9 +1610,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &mut data,
-                        request.partial,
                         false,
                         false,
+                        request.limits,
                     )
                 }
                 None => {
@@ -1624,9 +1623,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &mut empty_mask,
-                        request.partial,
                         false,
                         false,
+                        request.limits,
                     )
                 }
             },
@@ -1640,7 +1639,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &data,
-                        request.partial,
+                        request.limits,
                     )
                 }
                 None => {
@@ -1652,7 +1651,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &empty_mask,
-                        request.partial,
+                        request.limits,
                     )
                 }
             },
@@ -1665,9 +1664,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &mut data,
-                        request.partial,
                         false,
                         true,
+                        request.limits,
                     )
                 }
                 None => {
@@ -1678,9 +1677,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &mut empty_mask,
-                        request.partial,
                         false,
                         true,
+                        request.limits,
                     )
                 }
             },
@@ -1694,7 +1693,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &data,
-                        request.partial,
+                        request.limits,
                     )
                 }
                 None => {
@@ -1706,7 +1705,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         request.goal,
                         blocking,
                         &empty_mask,
-                        request.partial,
+                        request.limits,
                     )
                 }
             },
@@ -1744,7 +1743,7 @@ mod tests {
         },
         nav::{Nav, Portal},
         neighbor::OrdinalNeighborhood3d,
-        pathfind::PathfindRequest,
+        pathfind::PathfindArgs,
         prelude::{CardinalNeighborhood, OrdinalNeighborhood},
     };
 
@@ -2046,12 +2045,12 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(10, 10, 0),
             UVec3::new(4, 4, 0),
         ));
         let raw_path = grid.pathfind(
-            &mut PathfindRequest::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar(),
+            &mut PathfindArgs::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar(),
         );
 
         assert!(path.is_some());
@@ -2161,7 +2160,7 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(7, 7, 0),
             UVec3::new(121, 121, 0),
         ));
@@ -2180,7 +2179,7 @@ mod tests {
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&grid_settings);
 
         grid.build();
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(31, 31, 3),
         ));
@@ -2195,7 +2194,7 @@ mod tests {
         grid.build();
 
         let path = grid.pathfind(
-            &mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar(),
+            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar(),
         );
 
         assert!(path.is_some());
@@ -2340,7 +2339,7 @@ mod tests {
         assert_graph_node_invariants(&grid);
 
         // There should be a path from (0,0,0) to (15,15,0)
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
         ));
@@ -2360,7 +2359,7 @@ mod tests {
         );
 
         // Now there should be no path from left to right
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
         ));
@@ -2370,7 +2369,7 @@ mod tests {
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
         let _ = grid.pathfind(
-            &mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
+            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
         );
 
         // Open a gap in the wall at (8,8)
@@ -2378,7 +2377,7 @@ mod tests {
         grid.build();
 
         // Now a path should exist again, and should pass through (8,8,0)
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(15, 15, 0),
         ));
@@ -2402,7 +2401,7 @@ mod tests {
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
         let _ = grid.pathfind(
-            &mut PathfindRequest::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
+            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
         );
     }
 
@@ -2425,7 +2424,7 @@ mod tests {
             "Grid should need build after marking dirty"
         );
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
         ));
@@ -2478,7 +2477,7 @@ mod tests {
             })
             .expect("Portal edge to (10,10,0) should exist");
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(11, 11, 0),
         ));
@@ -2532,14 +2531,14 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(0, 0, 0),
             UVec3::new(12, 4, 2),
         ));
 
         assert!(path.is_some(), "Path should exist with portal");
 
-        let path = grid.pathfind(&mut PathfindRequest::new(
+        let path = grid.pathfind(&mut PathfindArgs::new(
             UVec3::new(12, 4, 2),
             UVec3::new(0, 0, 0),
         ));

@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{pathfind::PathfindRequest, prelude::*, WithoutPathingFailures};
+use crate::{pathfind::PathfindArgs, prelude::*, WithoutPathingFailures};
 
 /// Sets default settings for the Pathfind component.
 #[derive(Default, Debug, Copy, Clone)]
@@ -221,14 +221,13 @@ fn pathfind<N: Neighborhood + 'static>(
             None
         };
 
-        let path = grid.pathfind(&mut PathfindRequest {
+        let path = grid.pathfind(&mut PathfindArgs {
             start: start.0,
             goal: pathfind.goal,
             blocking: Some(&blocking.0),
             mask,
-            partial: pathfind.partial,
             algorithm,
-            search_range: None,
+            limits: pathfind.limits,
         });
 
         /*let path = match algorithm {
@@ -476,7 +475,6 @@ fn avoidance<N: Neighborhood + 'static>(
                 radius,
                 blocking_map,
                 Some(mask),
-                false,
             );
 
             // Replace the first few positions of path until the avoidance goal
