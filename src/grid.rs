@@ -2049,9 +2049,8 @@ mod tests {
             UVec3::new(10, 10, 0),
             UVec3::new(4, 4, 0),
         ));
-        let raw_path = grid.pathfind(
-            &mut PathfindArgs::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar(),
-        );
+        let raw_path = grid
+            .pathfind(&mut PathfindArgs::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar());
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
@@ -2193,9 +2192,8 @@ mod tests {
 
         grid.build();
 
-        let path = grid.pathfind(
-            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar(),
-        );
+        let path = grid
+            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar());
 
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 10);
@@ -2368,9 +2366,8 @@ mod tests {
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind(
-            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
-        );
+        let _ = grid
+            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
 
         // Open a gap in the wall at (8,8)
         grid.set_nav(UVec3::new(8, 8, 0), Nav::Passable(1));
@@ -2400,9 +2397,8 @@ mod tests {
 
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
-        let _ = grid.pathfind(
-            &mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar(),
-        );
+        let _ = grid
+            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
     }
 
     #[test]

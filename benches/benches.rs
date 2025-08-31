@@ -5,10 +5,10 @@ use bevy_northstar::{
     filter,
     grid::{Grid, GridSettings, GridSettingsBuilder},
     nav::Nav,
-    NavRegion,
     nav_mask::{NavCellMask, NavMask, NavMaskLayer},
     pathfind::PathfindArgs,
     prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
+    NavRegion,
 };
 
 use pprof::criterion::{Output, PProfProfiler};

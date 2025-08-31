@@ -43,13 +43,13 @@ pub mod prelude {
     pub use crate::grid::{Grid, GridSettingsBuilder};
     pub use crate::nav::{Nav, Portal};
     pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, NavMaskResult};
-    pub use crate::NavRegion;
     pub use crate::neighbor::*;
     pub use crate::path::Path;
     pub use crate::plugin::{
         BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathfindSettings, PathingSet, Stats,
     };
     pub use crate::MovementCost;
+    pub use crate::NavRegion;
     pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d};
 }
 
@@ -90,7 +90,6 @@ impl<Id: PartialEq> PartialEq for SmallestCostHolder<Id> {
 
 impl<Id: Eq> Eq for SmallestCostHolder<Id> {}
 
-
 /// Sets the limits for the pathfinding request.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
 pub struct SearchLimits {
@@ -130,11 +129,14 @@ impl NavRegion {
         }
     }
 
-    /// Tests if a position is in bounds of the region.
-    pub fn in_bounds(&self, pos: UVec3) -> bool {
-        pos.x >= self.min.x && pos.x < self.max.x &&
-        pos.y >= self.min.y && pos.y < self.max.y &&
-        pos.z >= self.min.z && pos.z < self.max.z
+    /// Tests if a position is contained in the region.
+    pub fn contains(&self, pos: UVec3) -> bool {
+        pos.x >= self.min.x
+            && pos.x <= self.max.x
+            && pos.y >= self.min.y
+            && pos.y <= self.max.y
+            && pos.z >= self.min.z
+            && pos.z <= self.max.z
     }
 
     /// Returns an iterator over all positions in the region.
@@ -176,7 +178,6 @@ impl Iterator for NavRegionIter {
         Some(result)
     }
 }
-
 
 /* Greedy A* implementation from the rust Pathfinding crate
   It's meant to be faster, but is actually quite a bit slower testing it in the stress demo

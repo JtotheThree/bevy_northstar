@@ -16,6 +16,7 @@ pub struct Path {
     pub(crate) graph_path: VecDeque<UVec3>,
     cost: u32,
     is_reversed: bool,
+    is_partial: bool,
 }
 
 impl Path {
@@ -32,6 +33,7 @@ impl Path {
             graph_path: VecDeque::new(),
             cost,
             is_reversed: false,
+            is_partial: false,
         }
     }
 
@@ -48,6 +50,7 @@ impl Path {
             graph_path: VecDeque::new(),
             cost,
             is_reversed: false,
+            is_partial: false,
         }
     }
 
@@ -121,6 +124,15 @@ impl Path {
         for pos in &mut self.path {
             *pos += offset;
         }
+    }
+
+    /// Returns true if the path is a partial path that was returned because the goal could not be reached.
+    pub fn is_partial(&self) -> bool {
+        self.is_partial
+    }
+
+    pub(crate) fn set_partial(&mut self, is_partial: bool) {
+        self.is_partial = is_partial;
     }
 }
 

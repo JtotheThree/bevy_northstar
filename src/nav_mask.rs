@@ -5,7 +5,9 @@ use std::{
 };
 
 use bevy::{
-    log, math::{IVec3, UVec3}, platform::collections::{HashMap, HashSet}
+    log,
+    math::{IVec3, UVec3},
+    platform::collections::{HashMap, HashSet},
 };
 
 use crate::{
@@ -483,7 +485,10 @@ impl NavMaskLayerData {
 
     pub fn insert_mask<N: Neighborhood>(&mut self, grid: &Grid<N>, pos: UVec3, mask: NavCellMask) {
         if !grid.in_bounds(pos) {
-            log::warn!("Unable to insert mask position: {:?} is out of bounds!", pos);
+            log::warn!(
+                "Unable to insert mask position: {:?} is out of bounds!",
+                pos
+            );
             return;
         }
 

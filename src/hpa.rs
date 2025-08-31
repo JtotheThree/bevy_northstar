@@ -4,7 +4,8 @@ use std::collections::BinaryHeap;
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
 use crate::{
-    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder
+    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood,
+    path::Path, size_hint_graph, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder,
 };
 
 pub(crate) fn hpa<N: Neighborhood>(
@@ -21,7 +22,7 @@ pub(crate) fn hpa<N: Neighborhood>(
         max: UVec3::ZERO,
     });
 
-    if bounded && !boundary.in_bounds(start) {
+    if bounded && !boundary.contains(start) {
         return None;
     }
 
@@ -43,9 +44,19 @@ pub(crate) fn hpa<N: Neighborhood>(
     // Performance optimization if the navigation mask layer count is 0
     let masked = mask.layer_count() > 0;
 
+    let mut closest_node = start;
+    let mut closest_distance = grid.neighborhood.heuristic(start, goal);
+
     while let Some(SmallestCostHolder { cost, index, .. }) = to_visit.pop() {
         let (neighbors, current_pos) = {
             let (current_pos, &(_, current_cost)) = visited.get_index(index).unwrap();
+
+            // Update the closest node if this node is closer
+            let current_distance = grid.neighborhood.heuristic(*current_pos, goal);
+            if current_distance < closest_distance {
+                closest_distance = current_distance;
+                closest_node = *current_pos;
+            }
 
             if *current_pos == goal {
                 let mut current = index;
@@ -77,7 +88,7 @@ pub(crate) fn hpa<N: Neighborhood>(
         };
 
         for neighbor in neighbors.iter() {
-            if bounded && !boundary.in_bounds(*neighbor) {
+            if bounded && !boundary.contains(*neighbor) {
                 continue;
             }
 
@@ -182,6 +193,33 @@ pub(crate) fn hpa<N: Neighborhood>(
         }
     }
 
+    if limits.partial {
+        if closest_node == start {
+            return None;
+        }
+
+        // If the goal is not reached, return the path to the closest node
+        let mut current = visited.get_index_of(&closest_node).unwrap();
+        let mut node_path = vec![];
+
+        // First, collect the high-level node path
+        while current != usize::MAX {
+            let (pos, _) = visited.get_index(current).unwrap();
+            node_path.push(*pos);
+            current = visited.get(pos).unwrap().0;
+        }
+
+        node_path.reverse();
+
+        // Now rebuild the full path from cached paths
+        let full_path = rebuild_full_path(grid, &node_path, mask);
+
+        let closest_cost = visited.get(&closest_node).unwrap().1;
+        let mut path = Path::new(full_path, closest_cost);
+        path.set_partial(true);
+        return Some(path);
+    }
+
     None
 }
 
@@ -266,7 +304,8 @@ mod tests {
     use crate::{
         grid::GridSettingsBuilder,
         nav::Nav,
-        prelude::{NavCellMask, NavMaskLayer, OrdinalNeighborhood3d, NavRegion},
+        pathfind::PathfindArgs,
+        prelude::{NavCellMask, NavMaskLayer, NavRegion, OrdinalNeighborhood3d},
     };
 
     use super::*;
@@ -332,7 +371,15 @@ mod tests {
         let mut mask = NavMaskData::new();
         mask.add_layer(layer);
 
-        let path = hpa(&grid, start, goal, &HashMap::new(), &mut mask, SearchLimits::default()).unwrap();
+        let path = hpa(
+            &grid,
+            start,
+            goal,
+            &HashMap::new(),
+            &mut mask,
+            SearchLimits::default(),
+        )
+        .unwrap();
 
         println!("Path: {:?}", path.path());
 
@@ -347,5 +394,38 @@ mod tests {
                 grid.neighborhood().is_ordinal()
             ));
         }
+    }
+
+    #[test]
+    fn test_hpa_search_limits() {
+        let grid_settings = crate::grid::GridSettingsBuilder::new_3d(8, 8, 8)
+            .chunk_size(4)
+            .build();
+        let mut grid = crate::grid::Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        grid.build();
+
+        // Test max_distance
+
+        let start = UVec3::new(0, 0, 0);
+        let goal = UVec3::new(7, 7, 7);
+
+        let path = grid.pathfind(&mut PathfindArgs::new(start, goal).max_distance(5));
+
+        assert!(path.is_none());
+
+        // Test Partial Path
+        let path = grid
+            .pathfind(&mut PathfindArgs::new(start, goal).max_distance(5).partial())
+            .unwrap();
+
+        assert_eq!(path.len(), 6);
+
+        // Test Boundary
+        let path = grid.pathfind(
+            &mut PathfindArgs::new(start, goal)
+                .search_region(NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)))
+                .partial(),
+        ).unwrap();
+        assert_eq!(path.len(), 5);
     }
 }

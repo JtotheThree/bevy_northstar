@@ -22,7 +22,8 @@ use crate::{
     path::Path,
     prelude::{NavMask, Pathfind},
     raycast::bresenham_path_internal,
-    thetastar::thetastar_grid, NavRegion, SearchLimits,
+    thetastar::thetastar_grid,
+    NavRegion, SearchLimits,
 };
 
 /// Builder struct for pathfinding arguments
@@ -191,7 +192,8 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
 ) -> Option<Path> {
     // If the goal is impassibe and partial isn't set, return none
     if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
-        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable() && !limits.partial
+        || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable()
+            && !limits.partial
     {
         return None;
     }
@@ -264,6 +266,8 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
 
+    let mut best_path: Option<(Path, u32)> = None;
+
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
             let node_path = hpa(grid, start_node.pos, goal_node.pos, blocking, mask, limits);
@@ -272,6 +276,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
                 let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
 
+                // We can't trim an impartial path
                 trim_path(
                     &mut node_path,
                     &start_keys,

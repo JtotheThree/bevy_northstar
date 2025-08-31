@@ -5,7 +5,9 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph, size_hint_grid, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder
+    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood,
+    path::Path, size_hint_graph, size_hint_grid, FxIndexMap, NavRegion, SearchLimits,
+    SmallestCostHolder,
 };
 
 /// A* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -37,7 +39,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
         max: UVec3::ZERO,
     });
 
-    if bounded && !boundary.in_bounds(start) {
+    if bounded && !boundary.contains(start) {
         return None;
     }
 
@@ -104,7 +106,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
         };
 
         for neighbor in neighbors {
-            if bounded && !boundary.in_bounds(neighbor) {
+            if bounded && !boundary.contains(neighbor) {
                 continue;
             }
 
@@ -521,5 +523,80 @@ mod tests {
         assert_eq!(path.path()[0], UVec3::new(0, 0, 0));
         // Ensure the last position is the goal position
         assert_eq!(path.path()[2], UVec3::new(2, 2, 2));
+    }
+
+    #[test]
+    fn test_astar_search_limits() {
+        let grid_settings = crate::grid::GridSettingsBuilder::new_3d(8, 8, 8)
+            .chunk_size(4)
+            .build();
+        let mut grid = crate::grid::Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        grid.build();
+
+        // Test max_distance
+
+        let start = UVec3::new(0, 0, 0);
+        let goal = UVec3::new(7, 7, 7);
+
+        let mut search_limits = SearchLimits {
+            boundary: None,
+            distance: Some(5), // Limit to a max distance of 5
+            partial: false,
+        };
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        );
+
+        assert!(path.is_none());
+
+        // Test Partial
+
+        search_limits.partial = true;
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.len(), 6);
+
+        // Test boundary
+
+        search_limits.boundary = Some(NavRegion {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(4, 4, 4),
+        });
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.len(), 5);
     }
 }
