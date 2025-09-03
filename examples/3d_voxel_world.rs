@@ -26,6 +26,10 @@ impl VoxelWorldConfig for MyMainWorld {
             GRASS | _ => [3, 3, 3],
         })
     }
+
+    fn voxel_lookup_delegate(&self) -> VoxelLookupDelegate<Self::MaterialIndex> {
+        Box::new(move |_chunk_pos| create_voxel_floor())
+    }
 }
 
 fn main() {
@@ -114,7 +118,7 @@ fn setup(
         // This will allow short paths to use direct A* to create more natural paths to height changes.
         .chunk_depth(8)
         .enable_diagonal_connections()
-        // .default_impassable()
+        .default_impassable()
         // This is a great example of when to use a neighbor filter.
         // Since we're Y Sorting, we don't want to allow the player to move diagonally around walls as the sprite will z transition through the wall.
         // We use `NoCornerCuttingFlat` here instead of `NoCornerCutting` because we want to allow diagonal movement to other height levels.
@@ -147,16 +151,6 @@ fn setup(
 }
 
 fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
-    // Then we can use the `u8` consts to specify the type of voxel
-
-    // 20 by 20 floor
-    for x in 0..32 {
-        for z in 0..32 {
-            voxel_world.set_voxel(IVec3::new(x, 0, z), WorldVoxel::Solid(GRASS));
-            // Grassy floor
-        }
-    }
-
     // Some bricks
     voxel_world.set_voxel(IVec3::new(16, 1, 16), WorldVoxel::Solid(SNOWY_BRICK));
     voxel_world.set_voxel(IVec3::new(17, 1, 16), WorldVoxel::Solid(SNOWY_BRICK));
@@ -169,11 +163,28 @@ fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
     voxel_world.set_voxel(IVec3::new(16, 2, 16), WorldVoxel::Solid(SNOWY_BRICK));
 }
 
+fn create_voxel_floor() -> Box<dyn FnMut(IVec3) -> WorldVoxel + Send + Sync> {
+    Box::new(move |pos: IVec3| {
+        if pos.x > 0 && pos.z > 0 && pos.x < 32 && pos.z < 32 {
+            if pos.y < 1 {
+                return WorldVoxel::Solid(GRASS);
+            }
+            return WorldVoxel::Air;
+        }
+        return WorldVoxel::Unset;
+    })
+}
+
 fn update_cursor_cube(
     voxel_world_raycast: VoxelWorld<MyMainWorld>,
     camera_info: Query<(&Camera, &GlobalTransform), With<VoxelWorldCamera<MyMainWorld>>>,
     mut cursor_evr: EventReader<CursorMoved>,
-    mut cursor_cube: Query<(&mut Transform, &mut CursorCube)>,
+    mut cursor_cube: Query<(
+        &mut Transform,
+        &mut CursorCube,
+        &mut MeshMaterial3d<StandardMaterial>,
+    )>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ev in cursor_evr.read() {
         // Get a ray from the cursor position into the world
@@ -183,12 +194,26 @@ fn update_cursor_cube(
         };
 
         if let Some(result) = voxel_world_raycast.raycast(ray, &|(_pos, _vox)| true) {
-            let (mut transform, mut cursor_cube) = cursor_cube.single_mut().unwrap();
+            let (mut transform, mut cursor_cube, material_handle) =
+                cursor_cube.single_mut().unwrap();
             // Move the cursor cube to the position of the voxel we hit
             // Camera is by construction not in a solid voxel, so result.normal must be Some(...)
             let voxel_pos = result.position + result.normal.unwrap();
             transform.translation = voxel_pos + Vec3::new(0.5, 0.5, 0.5);
             cursor_cube.voxel_pos = voxel_pos.as_ivec3();
+            if cursor_cube.voxel_pos.x < 0
+                || cursor_cube.voxel_pos.y < 0
+                || cursor_cube.voxel_pos.z < 0
+            {
+                //indicate that this voxel position is not ment to spawn a cube
+                if let Some(mat) = materials.get_mut(&material_handle.0) {
+                    mat.base_color = Color::srgba_u8(255, 144, 124, 128);
+                }
+            } else {
+                if let Some(mat) = materials.get_mut(&material_handle.0) {
+                    mat.base_color = Color::srgba_u8(124, 144, 255, 128);
+                }
+            }
         }
     }
 }
@@ -200,6 +225,10 @@ fn mouse_button_input(
 ) {
     if buttons.just_pressed(MouseButton::Right) {
         let vox = cursor_cube.single().unwrap();
+        //don't allow the player to spawn bricks that will not be navigatable with northstar
+        if vox.voxel_pos.x < 0 || vox.voxel_pos.y < 0 || vox.voxel_pos.z < 0 {
+            return;
+        }
         voxel_world.set_voxel(vox.voxel_pos, WorldVoxel::Solid(FULL_BRICK));
     }
 }
@@ -210,7 +239,15 @@ fn manual_rebuild_grid(keys: Res<ButtonInput<KeyCode>>, grid: Single<&mut Cardin
     if keys.just_pressed(KeyCode::KeyG) {
         let mut grid = grid.into_inner();
         info!("Manual grid rebuild triggered (G)");
-
+        //mark every voxel on height 1 as passable
+        for x in 0..32 {
+            for z in 0..32 {
+                let squash_pos = UVec3::new(x, 1, z);
+                if grid.in_bounds(squash_pos) {
+                    grid.set_nav(squash_pos, Nav::Passable(1));
+                }
+            }
+        }
         grid.build();
         info!("Grid rebuilt");
     }
@@ -224,15 +261,15 @@ fn player_input_3d(
     mut commands: Commands,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
-        if let (Ok(player), Ok(cursor)) = (player_q.get_single(), cursor_q.get_single()) {
-            let pos = cursor.voxel_pos.as_uvec3();
+        if let (Ok(player), Ok(cursor)) = (player_q.single(), cursor_q.single()) {
+            let pos_i = cursor.voxel_pos;
 
-            info!("Player movement target via click: {:?}", pos);
-
-            if pos.x < 0 || pos.y < 0 || pos.z < 0 {
+            // Disallow invalid negative targets
+            if pos_i.x < 0 || pos_i.y < 0 || pos_i.z < 0 {
                 return;
             }
-
+            let pos = pos_i.as_uvec3();
+            info!("Player movement target via click: {:?}", pos);
             commands
                 .entity(player)
                 .insert(Pathfind::new_3d(pos.x, pos.y, pos.z));
