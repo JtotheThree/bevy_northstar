@@ -55,8 +55,8 @@ fn main() {
                 pathfind_error,
             ),
         )
-        .add_plugins(NorthstarPlugin::<CardinalNeighborhood3d>::default())
-        .add_plugins(NorthstarDebugPlugin::<CardinalNeighborhood3d>::default())
+        .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
+        .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood3d>::default())
         .run();
 }
 
@@ -124,7 +124,7 @@ fn setup(
         // This is a great example of when to use a neighbor filter.
         // Since we're Y Sorting, we don't want to allow the player to move diagonally around walls as the sprite will z transition through the wall.
         // We use `NoCornerCuttingFlat` here instead of `NoCornerCutting` because we want to allow diagonal movement to other height levels.
-        // .add_neighbor_filter(filter::NoCornerCuttingFlat)
+        // .add_neighbor_filter(filter::NoCornerCutting)
         .build();
     // Call `build()` to return the component.
 
@@ -135,7 +135,7 @@ fn setup(
         .enable_entrances()
         .build();
     // Spawn the grid component
-    let mut grid_ec = commands.spawn(CardinalGrid3d::new(&grid_settings));
+    let mut grid_ec = commands.spawn(OrdinalGrid3d::new(&grid_settings));
     grid_ec.with_child(debug_grid);
     let grid_entity = grid_ec.id();
 
@@ -228,6 +228,7 @@ fn mouse_button_input(
     buttons: Res<ButtonInput<MouseButton>>,
     mut voxel_world: VoxelWorld<MyMainWorld>,
     cursor_cube: Query<&CursorCube>,
+    grid: Single<&mut OrdinalGrid3d>,
 ) {
     if buttons.just_pressed(MouseButton::Right) {
         let vox = cursor_cube.single().unwrap();
@@ -235,25 +236,59 @@ fn mouse_button_input(
         if vox.voxel_pos.x < 0 || vox.voxel_pos.y < 0 || vox.voxel_pos.z < 0 {
             return;
         }
+
         voxel_world.set_voxel(vox.voxel_pos, WorldVoxel::Solid(FULL_BRICK));
+        let mut grid = grid.into_inner();
+        let above = vox.voxel_pos + IVec3::new(0, 1, 0);
+        if grid.in_bounds(above.as_uvec3()) && voxel_world.get_voxel(above).is_air() {
+            let above = above.as_uvec3();
+            grid.set_nav(above, Nav::Passable(1));
+            grid.set_nav(vox.voxel_pos.as_uvec3(), Nav::Impassable);
+            grid.build();
+        }
     }
 }
 
 // Allow manual rebuild of the navigation grid to cope with async terrain generation timing.
 // Press 'G' to (re)build the grid at any time.
-fn manual_rebuild_grid(keys: Res<ButtonInput<KeyCode>>, grid: Single<&mut CardinalGrid3d>) {
+fn manual_rebuild_grid(
+    keys: Res<ButtonInput<KeyCode>>,
+    grid: Single<&mut OrdinalGrid3d>,
+    voxel_world: VoxelWorld<MyMainWorld>,
+) {
     if keys.just_pressed(KeyCode::KeyG) {
         let mut grid = grid.into_inner();
         info!("Manual grid rebuild triggered (G)");
-        //mark every voxel on height 1 as passable
-        for x in 0..FLOOR_SIZE {
-            for z in 0..FLOOR_SIZE {
-                let squash_pos = UVec3::new(x, 1, z);
-                if grid.in_bounds(squash_pos) {
-                    grid.set_nav(squash_pos, Nav::Passable(1));
+        // Use chunk data to determine passable cells: any Air voxel directly above a Solid voxel
+        if let Some(chunk) = voxel_world.get_chunk_data(IVec3::new(0, 0, 0)) {
+            let x_max = FLOOR_SIZE.min(grid.width());
+            let y_max = grid.height();
+            let z_max = FLOOR_SIZE.min(grid.depth());
+
+            for x in 0..x_max {
+                for z in 0..z_max {
+                    // start at y = 1 so we can safely look at y-1
+                    for y in 1..y_max {
+                        // ChunkData stores a padded array; local index is world + 1
+                        let above_local = UVec3::new(x + 1, y + 1, z + 1);
+                        let below_local = UVec3::new(x + 1, y, z + 1);
+
+                        let vox_above = chunk.get_voxel(above_local);
+                        let vox_below = chunk.get_voxel(below_local);
+
+                        if vox_above.is_air() && vox_below.is_solid() {
+                            let world_pos = UVec3::new(x, y, z);
+                            if grid.in_bounds(world_pos) {
+                                grid.set_nav(world_pos, Nav::Passable(1));
+                            }
+                        }
+                    }
                 }
             }
+        } else {
+            warn!("Chunk (0,0,0) not loaded; cannot rebuild grid passability from chunk data");
         }
+
         grid.build();
         info!("Grid rebuilt");
     }
