@@ -1,3 +1,10 @@
+// Example of a 3D voxel world using Bevy Northstar
+// right click to place blocks
+// left click to move player
+// g to rebuild the navigation grid
+// orbit camera via middle mouse
+// scroll wheel to zoom
+
 use bevy::prelude::*;
 use bevy_northstar::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
