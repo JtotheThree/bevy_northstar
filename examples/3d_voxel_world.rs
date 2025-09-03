@@ -8,6 +8,10 @@ const SNOWY_BRICK: u8 = 0;
 const FULL_BRICK: u8 = 1;
 const GRASS: u8 = 2;
 
+// Animation tuning
+const LERP_SPEED: f32 = 10.0;
+const POSITION_TOLERANCE: f32 = 0.01;
+
 #[derive(Resource, Clone, Default)]
 struct MyMainWorld;
 
@@ -31,10 +35,19 @@ fn main() {
         // This should just be a path to an image in your assets folder.
         .add_plugins(VoxelWorldPlugin::with_config(MyMainWorld))
         .add_plugins(PanOrbitCameraPlugin)
+        .add_event::<AnimationWaitEvent>()
         .add_systems(Startup, (setup, create_voxel_scene))
+        .add_systems(PreUpdate, move_pathfinders)
         .add_systems(
             Update,
-            (update_cursor_cube, mouse_button_input, manual_rebuild_grid),
+            (
+                update_cursor_cube,
+                mouse_button_input,
+                manual_rebuild_grid,
+                player_input_3d,
+                animate_move,
+                pathfind_error,
+            ),
         )
         .add_plugins(NorthstarPlugin::<CardinalNeighborhood3d>::default())
         .add_plugins(NorthstarDebugPlugin::<CardinalNeighborhood3d>::default())
@@ -48,6 +61,10 @@ struct CursorCube {
 // Player marker
 #[derive(Component)]
 pub struct Player;
+
+// Event that lets other systems know to wait until animations are completed.
+#[derive(Debug, Event)]
+pub struct AnimationWaitEvent;
 
 fn setup(
     mut commands: Commands,
@@ -88,14 +105,6 @@ fn setup(
         Transform::from_xyz(16.0, 8.0, 16.0),
     ));
 
-    // player
-    commands.spawn((
-        Transform::from_xyz(9.5, 1.5, 9.5),
-        Player,
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
-    ));
-
     //Debug grid
     // Build the grid settings: cover a larger area and keep flat z-depth.
     // Adjust sizes as needed; this should roughly cover the visible/interactive terrain.
@@ -120,8 +129,21 @@ fn setup(
         .enable_entrances()
         .build();
     // Spawn the grid component
-    let mut grid_entity = commands.spawn(CardinalGrid3d::new(&grid_settings));
-    grid_entity.with_child(debug_grid);
+    let mut grid_ec = commands.spawn(CardinalGrid3d::new(&grid_settings));
+    grid_ec.with_child(debug_grid);
+    let grid_entity = grid_ec.id();
+
+    // player
+    commands.spawn((
+        Transform::from_xyz(9.5, 1.5, 9.5),
+        Player,
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
+        // Northstar agent setup
+        AgentPos(UVec3::new(9, 1, 9)),
+        AgentOfGrid(grid_entity),
+        DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
+    ));
 }
 
 fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
@@ -191,5 +213,87 @@ fn manual_rebuild_grid(keys: Res<ButtonInput<KeyCode>>, grid: Single<&mut Cardin
 
         grid.build();
         info!("Grid rebuilt");
+    }
+}
+
+// Handle click-to-move using the cursor cube's current voxel position
+fn player_input_3d(
+    buttons: Res<ButtonInput<MouseButton>>,
+    player_q: Query<Entity, With<Player>>,
+    cursor_q: Query<&CursorCube>,
+    mut commands: Commands,
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        if let (Ok(player), Ok(cursor)) = (player_q.get_single(), cursor_q.get_single()) {
+            let pos = cursor.voxel_pos.as_uvec3();
+
+            info!("Player movement target via click: {:?}", pos);
+
+            if pos.x < 0 || pos.y < 0 || pos.z < 0 {
+                return;
+            }
+
+            commands
+                .entity(player)
+                .insert(Pathfind::new_3d(pos.x, pos.y, pos.z));
+        }
+    }
+}
+
+// Advance agent logical position along the computed path when not animating
+fn move_pathfinders(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut AgentPos, &NextPos)>,
+    animation_reader: EventReader<AnimationWaitEvent>,
+) {
+    if !animation_reader.is_empty() {
+        return;
+    }
+
+    for (entity, mut position, next) in query.iter_mut() {
+        position.0 = next.0;
+        commands.entity(entity).remove::<NextPos>();
+    }
+}
+
+// Smoothly animate the player mesh toward the center of its current voxel
+fn animate_move(
+    mut query: Query<(&AgentPos, &mut Transform)>,
+    time: Res<Time>,
+    mut ev_wait: EventWriter<AnimationWaitEvent>,
+) {
+    for (position, mut transform) in query.iter_mut() {
+        let target = Vec3::new(
+            position.0.x as f32 + 0.5,
+            position.0.y as f32 + 0.5,
+            position.0.z as f32 + 0.5,
+        );
+
+        let d = (target - transform.translation).length();
+        let animating = if d > POSITION_TOLERANCE {
+            transform.translation = transform
+                .translation
+                .lerp(target, LERP_SPEED * time.delta_secs());
+            true
+        } else {
+            transform.translation = target;
+            false
+        };
+
+        if animating {
+            ev_wait.write(AnimationWaitEvent);
+        }
+    }
+}
+
+// Handle pathfinding failures cleanly
+fn pathfind_error(query: Query<Entity, With<PathfindingFailed>>, mut commands: Commands) {
+    for entity in query.iter() {
+        error!("Pathfinding failed for entity: {:?}", entity);
+        commands
+            .entity(entity)
+            .remove::<PathfindingFailed>()
+            .remove::<Pathfind>()
+            .remove::<NextPos>();
     }
 }
