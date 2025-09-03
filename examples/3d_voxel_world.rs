@@ -11,6 +11,8 @@ const GRASS: u8 = 2;
 // Animation tuning
 const LERP_SPEED: f32 = 10.0;
 const POSITION_TOLERANCE: f32 = 0.01;
+const FLOOR_SIZE: u32 = 32;
+const PLAYER_OFFSET: f32 = 0.5;
 
 #[derive(Resource, Clone, Default)]
 struct MyMainWorld;
@@ -112,7 +114,7 @@ fn setup(
     //Debug grid
     // Build the grid settings: cover a larger area and keep flat z-depth.
     // Adjust sizes as needed; this should roughly cover the visible/interactive terrain.
-    let grid_settings = GridSettingsBuilder::new_3d(32, 16, 32)
+    let grid_settings = GridSettingsBuilder::new_3d(FLOOR_SIZE, 16, FLOOR_SIZE)
         .chunk_size(8)
         // For 2.5D you will likely want a chunk depth greater than 1.
         // This will allow short paths to use direct A* to create more natural paths to height changes.
@@ -139,7 +141,11 @@ fn setup(
 
     // player
     commands.spawn((
-        Transform::from_xyz(9.5, 1.5, 9.5),
+        Transform::from_xyz(
+            9.0 + PLAYER_OFFSET,
+            1.0 + PLAYER_OFFSET,
+            9.0 + PLAYER_OFFSET,
+        ),
         Player,
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
@@ -165,7 +171,7 @@ fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
 
 fn create_voxel_floor() -> Box<dyn FnMut(IVec3) -> WorldVoxel + Send + Sync> {
     Box::new(move |pos: IVec3| {
-        if pos.x > 0 && pos.z > 0 && pos.x < 32 && pos.z < 32 {
+        if pos.x > 0 && pos.z > 0 && pos.x < FLOOR_SIZE as i32 && pos.z < FLOOR_SIZE as i32 {
             if pos.y < 1 {
                 return WorldVoxel::Solid(GRASS);
             }
@@ -240,8 +246,8 @@ fn manual_rebuild_grid(keys: Res<ButtonInput<KeyCode>>, grid: Single<&mut Cardin
         let mut grid = grid.into_inner();
         info!("Manual grid rebuild triggered (G)");
         //mark every voxel on height 1 as passable
-        for x in 0..32 {
-            for z in 0..32 {
+        for x in 0..FLOOR_SIZE {
+            for z in 0..FLOOR_SIZE {
                 let squash_pos = UVec3::new(x, 1, z);
                 if grid.in_bounds(squash_pos) {
                     grid.set_nav(squash_pos, Nav::Passable(1));
@@ -301,9 +307,9 @@ fn animate_move(
 ) {
     for (position, mut transform) in query.iter_mut() {
         let target = Vec3::new(
-            position.0.x as f32 + 0.5,
-            position.0.y as f32 + 0.5,
-            position.0.z as f32 + 0.5,
+            position.0.x as f32 + PLAYER_OFFSET,
+            position.0.y as f32 + PLAYER_OFFSET,
+            position.0.z as f32 + PLAYER_OFFSET,
         );
 
         let d = (target - transform.translation).length();
