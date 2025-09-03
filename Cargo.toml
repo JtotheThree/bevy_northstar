@@ -18,6 +18,8 @@ exclude = ["assets/*", "res/*"]
 default = ["parallel"]
 stats = []
 parallel = ["rayon", "ndarray/rayon"]
+voxel_world = ["bevy_voxel_world"]
+panorbit_cam = ["bevy_panorbit_camera"]
 
 [dependencies]
 thiserror = "2.0.12"
@@ -28,11 +30,13 @@ rustc-hash = "2.1.1"
 strum = "0.27.1"
 slab = "0.4.10"
 smallvec = "1.15.1"
+bevy_voxel_world = { version = "0.12.0", optional = true }
+bevy_panorbit_camera = { version = "0.28.0", optional = true }
 
 [dependencies.bevy]
 version = "0.16.1"
 default-features = false
-features=["bevy_render", "bevy_gizmos", "bevy_log"]
+features = ["bevy_render", "bevy_gizmos", "bevy_log"]
 
 [dev-dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools"] }
@@ -70,3 +74,6 @@ name = "nav_mask"
 [[example]]
 name = "freeform_movement"
 
+[[example]]
+name = "3d_voxel_world"
+required-features = ["voxel_world", "panorbit_cam"]
