@@ -7,7 +7,7 @@ use bevy_northstar::{
     nav::Nav,
     nav_mask::{NavCellMask, NavMask, NavMaskLayer},
     pathfind::PathfindArgs,
-    prelude::{OrdinalNeighborhood, OrdinalNeighborhood3d},
+    prelude::OrdinalNeighborhood,
     NavRegion,
 };
 
@@ -171,7 +171,8 @@ fn benchmarks(c: &mut Criterion) {
 
     group.finish();
 
-    let mut group = c.benchmark_group("large_grids");
+    // This is causing issues with github actions.
+    /*let mut group = c.benchmark_group("large_grids");
 
     let grid_settings_3d = GridSettingsBuilder::new_3d(512, 512, 32)
         .chunk_size(16)
@@ -183,7 +184,7 @@ fn benchmarks(c: &mut Criterion) {
         b.iter(|| large_grid3d.build())
     });
 
-    group.finish();
+    group.finish();*/
 }
 
 criterion_group! {

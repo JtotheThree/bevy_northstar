@@ -21,7 +21,6 @@ use crate::{
 /// * `start` - The starting position.
 /// * `goals` - The goal positions.
 /// * `only_closest_goal` - If true, only the closest goal will be returned.
-/// * `size_hint` - A hint for the size of the priority queue.
 /// * `blocking` - A map of blocking entities.
 ///
 /// ## Returns
@@ -35,7 +34,7 @@ pub(crate) fn dijkstra_grid(
 ) -> HashMap<UVec3, Path> {
     let size_hint = grid.shape().iter().copied().product::<usize>() / 3;
 
-    let masked = mask.layers.len() > 0;
+    let masked = !mask.layers.is_empty();
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {

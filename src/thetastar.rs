@@ -43,7 +43,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     let max_distance = limits.distance.unwrap_or(u32::MAX);
 
     let size_hint = size_hint_grid(neighborhood, grid.shape(), start, goal);
-    let masked = mask.layers.len() > 0;
+    let masked = !mask.layers.is_empty();
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {

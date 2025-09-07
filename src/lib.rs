@@ -269,7 +269,7 @@ pub(crate) fn size_hint_grid<N: neighbor::Neighborhood>(
     let grid_size = grid_shape.iter().product::<usize>();
 
     if grid_size < 1000 || manhattan_distance < 10 {
-        return (manhattan_distance * 4).max(64).min(512);
+        return (manhattan_distance * 4).clamp(64, 512);
     }
 
     let search_radius = (manhattan_distance as f32 * 0.3) as usize; // 30% of path length
@@ -290,9 +290,8 @@ pub(crate) fn size_hint_graph<N: neighbor::Neighborhood>(
     let manhattan_distance = neighborhood.heuristic(start, goal) as usize;
     let graph_size = graph.nodes().len();
 
-    let estimated_nodes = (manhattan_distance * 2)
+    (manhattan_distance * 2)
         .max(32)
         .min(graph_size / 2)
-        .min(1024);
-    estimated_nodes
+        .min(1024)
 }

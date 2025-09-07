@@ -225,6 +225,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
     waypoints: bool,
     limits: SearchLimits,
 ) -> Option<Path> {
+    if limits.partial {
+        log::warn!("Partial pathfinding is not supported with HPA*, use A* or Theta* instead");
+    }
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
@@ -266,8 +269,6 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let mut path: Vec<UVec3> = Vec::new();
     let mut cost = 0;
 
-    let mut best_path: Option<(Path, u32)> = None;
-
     for start_node in &start_nodes {
         for goal_node in goal_nodes.clone() {
             let node_path = hpa(grid, start_node.pos, goal_node.pos, blocking, mask, limits);
@@ -276,7 +277,6 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 let start_keys: HashSet<_> = start_paths.keys().copied().collect();
                 let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
 
-                // We can't trim an impartial path
                 trim_path(
                     &mut node_path,
                     &start_keys,
@@ -378,180 +378,6 @@ pub(crate) fn pathfind<N: Neighborhood>(
 
     None
 }
-
-/*
-#[inline(always)]
-pub(crate) fn pathfind_old<N: Neighborhood>(
-    grid: &Grid<N>,
-    start: UVec3,
-    goal: UVec3,
-    blocking: &HashMap<UVec3, Entity>,
-    mask: &NavMaskData,
-    partial: bool,
-    refined: bool,
-    waypoints: bool,
-) -> Option<Path> {
-    if !grid.in_bounds(start) {
-        log::warn!("Start is out of bounds: {:?}", start);
-        return None;
-    }
-
-    // Make sure the goal is in grid bounds
-    if !grid.in_bounds(goal) {
-        log::warn!("Goal is out of bounds: {:?}", goal);
-        return None;
-    }
-
-    let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
-
-    // If the goal is impassable and partial isn't set, return none
-    if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !partial {
-            return None;
-        }
-    }
-
-    let start_chunk = grid.chunk_at_position(start)?;
-    let goal_chunk = grid.chunk_at_position(goal)?;
-
-    // If the start and goal are in the same chunk, use AStar directly
-    if start_chunk == goal_chunk {
-        let path = astar_grid(
-            &grid.neighborhood,
-            &grid.view(),
-            start,
-            goal,
-            100,
-            partial,
-            blocking,
-            mask,
-        );
-
-        if let Some(mut path) = path {
-            path.path.pop_front();
-            return Some(path);
-        } else {
-            return None;
-        }
-    }
-
-    // Find viable nodes in the start and goal chunks
-    let (start_nodes, start_paths) =
-        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
-    let (goal_nodes, goal_paths) =
-        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
-
-    let mut path: Vec<UVec3> = Vec::new();
-    let mut cost = 0;
-
-    for start_node in &start_nodes {
-        for goal_node in goal_nodes.clone() {
-            let node_path = astar_graph(
-                &grid.neighborhood,
-                grid.graph(),
-                start_node.pos,
-                goal_node.pos,
-                100,
-            );
-
-            if let Some(mut node_path) = node_path {
-                let start_keys: HashSet<_> = start_paths.keys().copied().collect();
-                let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
-
-                trim_path(
-                    &mut node_path,
-                    &start_keys,
-                    &goal_keys,
-                    start_chunk,
-                    goal_chunk,
-                );
-
-                let start_pos = node_path.path.front().unwrap();
-                let goal_pos = node_path.path.back().unwrap();
-
-                // Add start_path to the node_path
-                let start_path = start_paths.get(&(start_pos - start_chunk.min())).unwrap();
-                path.extend(start_path.path().iter().map(|pos| *pos + start_chunk.min()));
-                cost += start_path.cost();
-
-                // Add node_path paths to path
-                for (node, next_node) in
-                    node_path.path().iter().zip(node_path.path().iter().skip(1))
-                {
-                    // Get the cached edge path between node and next node
-                    let cached_path = grid.graph().node_at(*node).unwrap().edges[next_node].clone();
-                    path.extend(cached_path.path().iter().skip(1));
-                    cost += cached_path.cost();
-                }
-
-                // Add end path to path
-                let end_path = goal_paths.get(&(goal_pos - goal_chunk.min())).unwrap();
-                path.extend(
-                    end_path
-                        .path()
-                        .iter()
-                        .rev()
-                        .map(|pos| *pos + goal_chunk.min()),
-                );
-                cost += end_path.cost();
-
-                if path.is_empty() {
-                    return None;
-                }
-
-                // On some occassions extending the goal path can add in a duplicate goal position at the end.
-                // It's cheaper/cleaner to just clean up after it.
-                if path.len() >= 2 && path[path.len() - 1] == path[path.len() - 2] {
-                    path.pop();
-                }
-
-                // Same with the start
-                if path.len() >= 2 && path[0] == path[1] {
-                    log::warn!("Start contains duplicate nodes: {:?}", path);
-                }
-
-                if !refined && !waypoints {
-                    // If we're not refining, return the path as is
-                    let mut path = Path::new(path, cost);
-                    path.graph_path = node_path.path;
-                    return Some(path);
-                }
-
-                if waypoints {
-                    let waypoints_path = extract_waypoints(
-                        &grid.neighborhood,
-                        &grid.view(),
-                        &Path::new(path, cost),
-                        mask,
-                    );
-                    if waypoints_path.is_empty() {
-                        log::warn!("Waypoints path is empty, returning None");
-                        return None;
-                    }
-
-                    return Some(waypoints_path);
-                }
-
-                let mut refined_path = optimize_path(
-                    &grid.neighborhood,
-                    &grid.view(),
-                    mask,
-                    &Path::from_slice(&path, cost),
-                );
-
-                // remove the starting position from the refined path
-                refined_path.path.pop_front();
-
-                // add the graph path to the refined path
-                refined_path.graph_path = node_path.path;
-
-                return Some(refined_path);
-            }
-        }
-    }
-
-    None
-} */
 
 // Some times the Graph A* will return a path that has valid but redundant nodes at the start and end
 // of the path. Leading to awkward paths where the agent appears to veers off before heading to the goal.
@@ -859,9 +685,7 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
 ) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
     let nodes = grid.graph().nodes_in_chunk(chunk);
 
-    // Print all key values in the mask
     let min = chunk.min().as_ivec3();
-    //let max = chunk.max().as_ivec3();
 
     let mask_local = mask.translate_by(-min);
 
@@ -876,18 +700,6 @@ fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
         false,
         &mask_local,
     );
-
-    // Debug check: convert local positions to global before checking mask
-    /*for path in paths.values() {
-        for local_pos in &path.path {
-            let global_pos = *local_pos + chunk.min(); // Convert to global coordinates
-            let cell_val = grid.view()[[global_pos.x as usize, global_pos.y as usize, global_pos.z as usize]].clone();
-            let masked_cell = mask.get(cell_val.clone(), global_pos).unwrap_or(cell_val); // Now using global mask with global pos
-            if masked_cell.is_impassable() {
-                log::error!("START PATH goes through impassable cell at {:?} (local: {:?})", global_pos, local_pos);
-            }
-        }
-    }*/
 
     let filtered_nodes = nodes
         .iter()

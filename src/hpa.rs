@@ -413,19 +413,11 @@ mod tests {
 
         assert!(path.is_none());
 
-        // Test Partial Path
-        let path = grid
-            .pathfind(&mut PathfindArgs::new(start, goal).max_distance(5).partial())
-            .unwrap();
-
-        assert_eq!(path.len(), 6);
-
         // Test Boundary
         let path = grid.pathfind(
             &mut PathfindArgs::new(start, goal)
-                .search_region(NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)))
-                .partial(),
-        ).unwrap();
-        assert_eq!(path.len(), 5);
+                .search_region(NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4))),
+        );
+        assert!(path.is_none());
     }
 }

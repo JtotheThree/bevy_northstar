@@ -1217,8 +1217,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     .map(|other| other.pos - chunk.min())
                     .collect();
 
-                let paths =
-                    dijkstra_grid(&chunk_grid, start, &goals, false, 100, &NavMaskData::new());
+                let paths = dijkstra_grid(&chunk_grid, start, &goals, false, &NavMaskData::new());
 
                 for (goal_pos, path) in paths.into_iter() {
                     let world_start = node.pos;
@@ -1429,6 +1428,10 @@ impl<N: Neighborhood + Default> Grid<N> {
             return false;
         }
 
+        if !self.in_bounds(start) || !self.in_bounds(goal) {
+            return false;
+        }
+
         pathfind(
             self,
             start,
@@ -1542,7 +1545,7 @@ impl<N: Neighborhood + Default> Grid<N> {
 
     /// Manually get a path from the grid.
     /// Arguments:
-    /// * `request` - Provide a [`PathfindRequest`] containing the customization options for the pathfinding.
+    /// * `request` - Provide a [`PathfindArgs`] containing the customization options for the pathfinding.
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
     pub fn pathfind(&self, request: &mut PathfindArgs) -> Option<Path> {

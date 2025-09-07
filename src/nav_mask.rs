@@ -54,18 +54,15 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
             cell.cost = portal.cost;
         }
         NavCellMask::ModifyCost(delta) => {
-            match cell.nav {
-                Nav::Passable(cost) => {
-                    // Fix: Handle negative deltas properly
-                    let new_cost = if *delta < 0 {
-                        cost.saturating_sub((-*delta) as MovementCost)
-                    } else {
-                        cost.saturating_add(*delta as MovementCost)
-                    };
-                    cell.nav = Nav::Passable(new_cost);
-                    cell.cost = new_cost;
-                }
-                _ => {}
+            if let Nav::Passable(cost) = cell.nav {
+                // Fix: Handle negative deltas properly
+                let new_cost = if *delta < 0 {
+                    cost.saturating_sub((-*delta) as MovementCost)
+                } else {
+                    cost.saturating_add(*delta as MovementCost)
+                };
+                cell.nav = Nav::Passable(new_cost);
+                cell.cost = new_cost;
             }
         }
     }
@@ -345,7 +342,7 @@ impl NavMaskLayer {
 
     /// Inserts a [`NavCellMask`] over an entire region for the layer.
     /// # Arguments
-    /// * `region` - The [`Region3d`] in the grid to insert the mask. You can also use this in 2d with no z range.
+    /// * `region` - The [`NavRegion`] in the grid to insert the mask. You can also use this in 2d with no z range.
     /// * `mask` - The [`NavCellMask`] to insert in the region.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
@@ -363,7 +360,7 @@ impl NavMaskLayer {
     /// Inserts a [`NavCellMask`] on the outlines of a region.
     /// You can use this to box in an agent to an area etc.
     /// # Arguments
-    /// * `region` - The [`Region3d`] in the grid to insert the mask. You can also use this in 2d with no z range.
+    /// * `region` - The [`NavRegion`] in the grid to insert the mask. You can also use this in 2d with no z range.
     /// * `mask` - The [`NavCellMask`] to insert in the region.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
