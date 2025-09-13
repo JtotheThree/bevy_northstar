@@ -12,7 +12,7 @@ pub struct Config {
 }
 
 // State used for the examples
-
+#[allow(dead_code)]
 #[derive(Clone, Debug, Default, Hash, Eq, States, PartialEq)]
 pub enum State {
     #[default]
@@ -32,6 +32,7 @@ pub struct MapQuery {
 }
 
 // Plugin used for the examples
+#[allow(dead_code)]
 pub struct SharedPlugin<N: Neighborhood + 'static> {
     _marker: std::marker::PhantomData<N>,
 }
@@ -69,6 +70,7 @@ impl<N: Neighborhood + 'static> Plugin for SharedPlugin<N> {
 // Walkable is used to store walkable tiles in the grid
 // as a utility for spawning pathfinders.
 
+#[allow(dead_code)]
 #[derive(Resource, Debug, Default)]
 pub struct Walkable {
     #[allow(dead_code)]
@@ -81,6 +83,7 @@ pub struct Walkable {
 pub struct Tick;
 
 // Generate a tick event 4x a second, unless paused.
+#[allow(dead_code)]
 pub fn tick(time: Res<Time>, mut tick_writer: EventWriter<Tick>, config: Res<Config>) {
     if config.paused {
         return;
@@ -102,6 +105,7 @@ struct CollisionText;
 #[derive(Component, Debug)]
 pub struct PathfindTypeText;
 
+#[allow(dead_code)]
 pub fn setup_hud(mut commands: Commands) {
     commands
         .spawn((
@@ -173,12 +177,14 @@ pub fn setup_hud(mut commands: Commands) {
         ));
 }
 
+#[allow(dead_code)]
 pub fn update_stat_text(stats: Res<Stats>, mut query: Query<&mut TextSpan, With<StatText>>) {
     for mut span in &mut query {
         **span = format!("{:.2}ms", stats.pathfinding.average_time * 1000.0);
     }
 }
 
+#[allow(dead_code)]
 fn update_collision_text<N: Neighborhood + 'static>(
     stats: Res<Stats>,
     mut query: Query<&mut TextSpan, With<CollisionText>>,
@@ -199,6 +205,7 @@ fn update_collision_text<N: Neighborhood + 'static>(
     }
 }
 
+#[allow(dead_code)]
 pub fn update_pathfind_type_text(
     config: Res<Config>,
     mut query: Query<&mut TextSpan, With<PathfindTypeText>>,
@@ -215,7 +222,7 @@ pub fn update_pathfind_type_text(
 }
 
 // Shared input system for all examples.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, dead_code)]
 pub fn input<N: Neighborhood + 'static>(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -313,6 +320,7 @@ pub fn input<N: Neighborhood + 'static>(
     }
 }
 
+#[allow(dead_code)]
 pub fn update_debug_cursor(
     window: Single<&Window>,
     camera: Single<(&Camera, &GlobalTransform)>,
