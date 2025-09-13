@@ -1,12 +1,16 @@
-q## v0.4.0
-// TODO Before merge:
-   Provide better error handling for NavMask
-   Look into ImpassableOverride caching, is it getting added for HPA??
-   Add nav_mask tests back in
-   Can I make the PathindComponent just a simple wrapper to PathfindArgs? I'm pretty sure I can.
-   Review docs
-   Update book
+## v0.4.0
 
+**BREAKING**
+- `Grid::pathfind` now requires `PathfindArgs` as an argument. The other pathfinding methods on Grid have been removed. `Grid::pathfind` now handles all algorithms set in the arguments.
+
+See the [migration guide](https://jtothethree.github.io/bevy_northstar/migrations/002_v0.4.0.html) for more details on how to migrate.
+
+### Features
+- *Navigation Masks*: Per Agent masks can now be created to alter the cost or make areas impassable only for that agent.
+- *Any-Angle Pathfinding*: Waypoint and Theta* algorithms. Designed for smooth movement and returns only the points needed to avoid walls. Waypoint uses HPA* and is ~10× faster than Theta* while returning similar paths.
+- Path refinement is now anti-aliased to ensure that refined paths aren't jagged.
+- Set the default plugin pathfinding algorithm with `PathfindSettings`.
+- Lots of optimization.
 
 ## v0.3.2
 

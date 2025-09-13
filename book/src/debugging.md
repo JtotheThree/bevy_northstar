@@ -77,9 +77,6 @@ Debugging paths for an entity requires you to add a `DebugPath` component to the
 Drawing the path gizmos also requires the `NorthstarDebugPlugin` to add the gizmo drawing system.
 
 ```rust,no_run
-use bevy::prelude::*;
-use bevy_northstar::prelude::*;
-
 commands.spawn((
     Name::new("Player"),
     DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),

@@ -45,11 +45,13 @@ pub mod prelude {
     pub use crate::nav_mask::{NavCellMask, NavMask, NavMaskLayer, NavMaskResult};
     pub use crate::neighbor::*;
     pub use crate::path::Path;
+    pub use crate::pathfind::PathfindArgs;
     pub use crate::plugin::{
         BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathfindSettings, PathingSet, Stats,
     };
     pub use crate::MovementCost;
     pub use crate::NavRegion;
+    pub use crate::SearchLimits;
     pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d};
 }
 

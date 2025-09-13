@@ -113,7 +113,6 @@ fn main() {
         .insert_resource(NorthstarPluginSettings {
             pathfind_settings: PathfindSettings {
                 default_mode: PathfindMode::ThetaStar,
-                ..Default::default()
             },
             ..Default::default()
         })

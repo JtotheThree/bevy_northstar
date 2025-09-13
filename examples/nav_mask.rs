@@ -47,7 +47,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
             NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
             NavCellMask::ModifyCost(5),
         )
-        .unwrap();
+        .ok();
 
     // We don't want our red faction units to path through blue faction teritory.
     let red_faction_not_allowed_layer = NavMaskLayer::new();

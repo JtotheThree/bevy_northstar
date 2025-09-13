@@ -33,7 +33,7 @@ pub struct PathfindArgs<'a> {
     pub(crate) goal: UVec3,
     pub(crate) blocking: Option<&'a HashMap<UVec3, Entity>>,
     pub(crate) mask: Option<&'a mut NavMask>,
-    pub(crate) algorithm: PathfindMode,
+    pub(crate) mode: PathfindMode,
     pub(crate) limits: SearchLimits,
 }
 
@@ -45,7 +45,7 @@ impl<'a> PathfindArgs<'a> {
             goal,
             blocking: None,
             mask: None,
-            algorithm: PathfindMode::Refined,
+            mode: PathfindMode::Refined,
             limits: SearchLimits::default(),
         }
     }
@@ -71,41 +71,41 @@ impl<'a> PathfindArgs<'a> {
 
     /// Sets the [`PathfindMode`] algorithm for the pathfinding request.
     /// You can use this or the helper methods like astar(), coarse(), etc.
-    pub fn algorithm(mut self, algorithm: PathfindMode) -> Self {
-        self.algorithm = algorithm;
+    pub fn mode(mut self, mode: PathfindMode) -> Self {
+        self.mode = mode;
         self
     }
 
     /// Coarse HPA* pathfinding mode. Uses cached data, path won't be the shortest path, but the performance is extremely fast
     pub fn coarse(mut self) -> Self {
-        self.algorithm = PathfindMode::Coarse;
+        self.mode = PathfindMode::Coarse;
         self
     }
 
     /// HPA* Any-Angle waypoint mode. Calculates the HPA* path, but only returns the specific positions the agent needs to avoid walls.
     /// This is meant for games with fluid realtime movement.
     pub fn waypoints(mut self) -> Self {
-        self.algorithm = PathfindMode::Waypoints;
+        self.mode = PathfindMode::Waypoints;
         self
     }
 
     /// A* pathfinding mode. Uses the standard A* algorithm.
     pub fn astar(mut self) -> Self {
-        self.algorithm = PathfindMode::AStar;
+        self.mode = PathfindMode::AStar;
         self
     }
 
     /// ThetaStar any-angle pathfinding. Only returns the specific positions the agent needs to avoid walls.
     /// This is meant for games with fluid realtime movement.
     pub fn thetastar(mut self) -> Self {
-        self.algorithm = PathfindMode::ThetaStar;
+        self.mode = PathfindMode::ThetaStar;
         self
     }
 
     /// Refined is the default so this isn't really needed.
     /// Gets an HPA* path and then refines with it with a line tracing algorithm.
     pub fn refined(mut self) -> Self {
-        self.algorithm = PathfindMode::Refined;
+        self.mode = PathfindMode::Refined;
         self
     }
 

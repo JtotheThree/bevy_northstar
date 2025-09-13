@@ -122,6 +122,12 @@ impl Pathfind {
         self
     }
 
+    /// Pass a [`SearchLimits`] struct to set all the limits for the pathfinding request.
+    pub fn with_limits(mut self, limits: SearchLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
     // Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
     // This allows you to filter out certain areas of the grid or apply movement costs.
     // This is useful for agent specific movement costs or areas that should be avoided.

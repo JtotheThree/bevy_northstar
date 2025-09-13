@@ -1548,6 +1548,24 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// * `request` - Provide a [`PathfindArgs`] containing the customization options for the pathfinding.
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
+    ///
+    /// Example usage:
+    /// ```
+    /// use bevy::prelude::*;
+    /// use bevy_northstar::prelude::*;
+    ///
+    /// fn pathfinding_system(grid: Single<&Grid<CardinalNeighborhood>>) {
+    ///     let grid = grid.into_inner();
+    ///
+    ///     let start = UVec3::new(0, 0, 0);
+    ///     let goal = UVec3::new(10, 10, 0);
+    ///
+    ///     let mut request = PathfindArgs::new(start, goal).mode(PathfindMode::ThetaStar);
+    ///     let path = grid.pathfind(&mut request);
+    ///
+    ///     info!("Path: {:?}", path);
+    /// }
+    /// ```
     pub fn pathfind(&self, request: &mut PathfindArgs) -> Option<Path> {
         if self.needs_build() {
             log::error!(
@@ -1569,7 +1587,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let empty_blocking = HashMap::new();
         let blocking = request.blocking.unwrap_or(&empty_blocking);
 
-        let path = match request.algorithm {
+        let path = match request.mode {
             PathfindMode::Refined => {
                 match request.mask.as_mut() {
                     Some(nav_mask) => {

@@ -13,9 +13,6 @@ pub struct PathfindSettings {
     /// Sets the default pathfinding mode.
     /// Defaults to PathfindMode::Refined
     pub default_mode: PathfindMode,
-    /// Sets the default for whether or not pathfinding should return partial paths
-    /// closets to the goal when a path to the goal cannot be found.
-    pub default_partial: bool,
 }
 
 /// General settings for the Northstar plugin.
@@ -226,7 +223,7 @@ fn pathfind<N: Neighborhood + 'static>(
             goal: pathfind.goal,
             blocking: Some(&blocking.0),
             mask,
-            algorithm,
+            mode: algorithm,
             limits: pathfind.limits,
         });
 

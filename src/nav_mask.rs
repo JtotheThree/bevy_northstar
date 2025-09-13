@@ -12,7 +12,7 @@ use bevy::{
 
 use crate::{
     grid::Grid,
-    nav::{Nav, NavCell, Portal},
+    nav::{Nav, NavCell},
     path::Path,
     prelude::Neighborhood,
     MovementCost, NavRegion,
@@ -35,8 +35,6 @@ pub enum NavMaskResult {
 pub enum NavCellMask {
     /// Overrides anything below this as impassable
     ImpassableOverride,
-    /// Overrides anything below this as a portal.
-    PortalOverride(Portal),
     /// Modifies the cost of the cell.
     /// If the cell is impassable, this will not change it.
     /// If the cell is passable, this will add the cost to the existing cost. In this way you can layer cost.
@@ -48,10 +46,6 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
             cell.cost = MovementCost::MAX;
-        }
-        NavCellMask::PortalOverride(portal) => {
-            cell.nav = Nav::Portal(*portal);
-            cell.cost = portal.cost;
         }
         NavCellMask::ModifyCost(delta) => {
             if let Nav::Passable(cost) = cell.nav {
@@ -576,35 +570,43 @@ impl From<&NavMaskLayer> for NavMaskLayerData {
     }
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
+    use crate::{grid::GridSettingsBuilder, prelude::CardinalNeighborhood};
+
     use super::*;
 
     #[test]
     fn test_nav_layer() {
+        let grid_settings = GridSettingsBuilder::new_3d(16, 16, 16).build();
+        let grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+
         let mask = NavMask::new();
 
         // Create layers directly
         let layer1 = NavMaskLayer::new();
         layer1
-            .insert_region(
-                Region3d::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
                 NavCellMask::ImpassableOverride,
             )
-            .unwrap();
+            .ok();
 
         let layer2 = NavMaskLayer::new();
         layer2
-            .insert_region(
-                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
-                NavCellMask::PassableOverride(2),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+                NavCellMask::ModifyCost(2),
             )
-            .unwrap();
+            .ok();
 
         let layer3 = NavMaskLayer::new();
         layer3
-            .insert_region(
-                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
                 NavCellMask::ModifyCost(3),
             )
             .unwrap();
@@ -616,36 +618,35 @@ mod tests {
         let layer4 = NavMaskLayer::new();
 
         let mut layer4_data: NavMaskLayerData = layer4.into_data();
-        layer4_data.insert_mask(UVec3::new(5, 5, 5), NavCellMask::ImpassableOverride);
+        layer4_data.insert_mask(&grid, UVec3::new(5, 5, 5), NavCellMask::ImpassableOverride);
 
         let updated_layer4: NavMaskLayer = layer4_data.into();
 
         mask.add_layer(updated_layer4).unwrap();
 
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(1, 1, 1))
-                .unwrap()
-                .nav,
-            Nav::Impassable
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(5, 5, 5))
-                .unwrap()
-                .nav,
-            Nav::Impassable
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(6, 6, 6))
-                .unwrap()
-                .nav,
-            Nav::Passable(5)
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(40, 40, 40))
-                .unwrap()
-                .nav,
-            Nav::Passable(1)
-        );
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(1, 1, 1)) {
+            assert_eq!(cell.nav, Nav::Impassable);
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(5, 5, 5)) {
+            assert_eq!(cell.nav, Nav::Impassable);
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(6, 6, 6)) {
+            assert_eq!(cell.nav, Nav::Passable(6));
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::NotMasked = mask.get(NavCell::default(), UVec3::new(40, 40, 40)) {
+            // This position is not masked, so we should get NotMasked
+        } else {
+            panic!("Expected not masked result");
+        }
     }
 
     #[test]
@@ -659,9 +660,9 @@ mod tests {
 
         // Test PassableOverride
         modified_cell = cell.clone();
-        modified_cell = process_mask(modified_cell, &NavCellMask::PassableOverride(5));
-        assert_eq!(modified_cell.nav, Nav::Passable(5));
-        assert_eq!(modified_cell.cost, 5);
+        modified_cell = process_mask(modified_cell, &NavCellMask::ModifyCost(5));
+        assert_eq!(modified_cell.nav, Nav::Passable(6));
+        assert_eq!(modified_cell.cost, 6);
 
         // Test ModifyCost
         modified_cell = cell.clone();
@@ -669,4 +670,4 @@ mod tests {
         modified_cell = process_mask(modified_cell, &NavCellMask::ModifyCost(-3));
         assert_eq!(modified_cell.nav, Nav::Passable(7));
     }
-}*/
+}

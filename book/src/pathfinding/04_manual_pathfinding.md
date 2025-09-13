@@ -6,7 +6,7 @@ You can use both, or choose to not add the `NorthstarPlugin` and call the pathfi
 
 If you don't use `NorthstarPlugin` you'll need to maintain your own `BlockingMap` or `HashMap<UVec3, Entity>` to pass to the `pathfind` function to provide it a list of blocked positions.
 
-All of the pathfinding calls can be done on the `Grid` component.
+All pathfinding can be done calling the `pathfind` method on the the `Grid` component.
 
 ```rust,no_run
 fn manual_pathfind(
@@ -19,17 +19,59 @@ fn manual_pathfind(
     let grid = grid.into_inner();
     let (player, grid_pos, move_action) = player.into_inner();
 
-    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, false);
+    let path = grid.pathfind(
+        PathfindArgs::new(grid_pos.0, move_action.0)
+    );
 
-    // Setting use_partial to true will allow the pathfinding to return a partial path if a complete path isn't found.
-
-    // If you're not using collision you can pass an empty hashmap for the blocking map.
-    let path = grid.pathfind(grid_pos.0, move_action.0, HashMap::new(), true);
-
-    // There are also Coarse and AStar methods
-    let path = grid.pathfind_coarse(grid_pos.0, move_action.0, blocking, false);
-    let path = grid.pathfind_astar(grid_pos.0, move_action.0, blocking, false);
+    info!("Path {:?}", path);
 }
 ```
 
 The `Grid` pathfinding methods return an `Option<Path>`. `None` will be returned if no viable path is found.
+
+## PathfindArgs
+
+`Grid::pathfind` takes `PathfindArgs` which works just like the `Pathfind` component to build the arguments for pathfinding.
+
+```rust,no_run
+let args = PathfindArgs::new(start, goal).astar().max_distance(50);
+```
+
+#### `new(start: UVec3, goal: UVec3) -> Self`
+Construct `PathfindArgs` with the starting position and the goal position.
+
+### Modes (Algorithms)
+
+* `refined()` (default)
+Uses HPA* and then refines the path with line tracing. Produces smooth, efficient paths.
+
+* `coarse()`
+Uses cached HPA* cluster data only. Extremely fast, but paths may be less accurate.
+
+* `waypoints()`
+Returns only the waypoints needed to navigate around obstacles. Useful for continuous movement systems (e.g., steering behaviors).
+
+* `astar()`
+Runs a standard grid-based A* search.
+
+* `thetastar()`
+Runs the Theta* any-angle algorithm. Produces fluid, natural-looking paths by cutting corners where possible.
+
+Or, set directly with:
+
+```
+args.mode(PathfindMode::AStar);
+```
+
+### Search Limits
+You can constrain how far or where the algorithm searches:
+
+* `partial()`
+If the goal cannot be reached, returns the closest path instead of failing.
+Note that this doesn't work with the default refined (HPA*) or waypoints algorithm as HPA* doesn't handle partial pathing well. You'll want to use this only with AStar or ThetaStar.
+
+* `max_distance(n: u32)`
+Stops searching after the set distance from the start. No path is returned if the goal is farther away. 
+
+* `search_region(region: NavRegion)`
+Restricts the search to a given region.
