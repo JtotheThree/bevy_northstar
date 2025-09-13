@@ -442,12 +442,12 @@ impl<N: Neighborhood + Default> Grid<N> {
     }
 
     /// Returns an [`ndarray::ArrayView3<NavCell>`] for read-only access to the grid data.
-    pub fn view(&self) -> ArrayView3<NavCell> {
+    pub fn view(&self) -> ArrayView3<'_, NavCell> {
         self.grid.view()
     }
 
     /// Returns an [`ndarray::ArrayView3<NavCell>`] for read-only access to the data within a given [`Chunk`].
-    pub(crate) fn chunk_view(&self, chunk: &Chunk) -> ArrayView3<NavCell> {
+    pub(crate) fn chunk_view(&self, chunk: &Chunk) -> ArrayView3<'_, NavCell> {
         chunk.view(&self.grid)
     }
 
