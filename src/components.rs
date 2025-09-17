@@ -422,6 +422,8 @@ impl DebugGrid {
 /// use bevy_northstar::prelude::*;
 ///
 /// fn setup(mut commands: Commands) {
+///    let grid_settings = GridSettingsBuilder::new_2d(16, 16).build();
+/// 
 ///    commands
 ///        .spawn(CardinalGrid::new(&grid_settings))
 ///        // Spawn the debug grid as a child of the grid entity.

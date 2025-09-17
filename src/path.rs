@@ -10,6 +10,21 @@ use std::collections::VecDeque;
 /// If using [`crate::plugin::NorthstarPlugin`] this is inserted as a component on an entity after the plugin
 /// systems have pathfound to the goal position.
 ///
+/// Example usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+/// 
+/// fn example_path(grid: Single<&Grid<CardinalNeighborhood>>) {
+///    let grid = grid.into_inner();
+/// 
+///    let start = UVec3::new(0, 0, 0);
+///    let goal = UVec3::new(10, 0, 10);
+/// 
+///    let path = grid.pathfind(&mut PathfindArgs::new(start, goal)).unwrap();
+///    assert_eq!(path.cost(), 20);
+/// }
+/// ```
 #[derive(Debug, Clone, Component, Reflect)]
 pub struct Path {
     pub(crate) path: VecDeque<UVec3>,

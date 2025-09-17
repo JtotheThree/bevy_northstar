@@ -12,10 +12,11 @@
 The crate provides:
 
 ## Features
-- **Pathfinding Options** - Choose between optimized HPA* algorithms or traditional A* per call. You can retrieve paths directly even when using the plugin systems.
+- **Pathfinding Options** - Choose between optimized HPA* algorithms or traditional A* per call. Includes Any-Angle HPA* and Theta* for continuous movement games.
 - **Supports 2D, 2.5D, and 3D Pathfinding** - Handles top-down, isometric, and layered maps with support for vertical transitions. Free 3D movement is also supported.
 - **Neighbor Filtering and Caching** - Precomputed, optionally filtered neighbors are cached to avoid redundant processing.
 - **Dynamic Changes** - Modify your tilemap and only affected areas will be recalculated during grid rebuilds.
+- **Navigation Masks** – Adjust tile costs or impassability per agent on each pathfinding request.
 - **Parallel Building** - Chunk calculations run in parallel for faster builds. Can be disabled to support WASM.
 - **Memory Efficient** - Neighbors are stored in compact bitmasks, reduced memory on large maps.
 - **Gizmo Debug View** – Visualize the HPA* grid and entity paths using debug components.

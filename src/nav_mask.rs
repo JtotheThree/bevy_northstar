@@ -68,6 +68,28 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
 /// This is useful for creating complex navigation scenarios where different agents might have different navigation properties.
 ///
 /// This is an Arc Mutex wrapper around the internal data structure to allow for shared access across threads.
+///
+/// Example Usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy::platform::collections::HashMap;
+/// use bevy_northstar::prelude::*;
+/// 
+/// #[derive(Resource, Default)]
+/// struct NavMaskLayers(HashMap<String, NavMaskLayer>);
+/// 
+/// #[derive(Resource, Default)]
+/// struct NavMasks(HashMap<String, NavMask>);
+/// 
+/// fn setup_masks(mut masks: ResMut<NavMasks>, layers: Res<NavMaskLayers>) {
+///    let mask = NavMask::new();
+///    if let Some(layer) = layers.0.get("water") {
+///        mask.add_layer(layer.clone());
+///    }
+/// 
+///    masks.0.insert("infantry".to_string(), mask);
+/// }
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct NavMask {
     pub(crate) data: Arc<Mutex<NavMaskData>>,
@@ -290,6 +312,22 @@ impl NavMaskData {
 
 /// A single navigation mask layer than can be added to a [`NavMask`].
 /// This is an Arc Mutex wrapper around the internal data structure to allow for shared access across threads.
+///
+/// Example Usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+/// 
+/// let grid_settings = GridSettingsBuilder::new_3d(16, 16, 16).build();
+/// let grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+/// 
+/// let layer = NavMaskLayer::new();
+/// layer.insert_region_fill(
+///     &grid,
+///     NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
+///     NavCellMask::ModifyCost(50),
+/// ).ok();
+/// ```
 #[derive(Clone, Default, Debug)]
 pub struct NavMaskLayer {
     data: Arc<Mutex<NavMaskLayerData>>,

@@ -27,6 +27,21 @@ use crate::{
 };
 
 /// Builder struct for pathfinding arguments
+/// 
+/// Example usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// fn example_pathfinding(grid: &Grid<CardinalNeighborhood>) {
+///     let start = UVec3::new(1, 1, 1);
+///     let goal = UVec3::new(10, 10, 10);
+///
+///     let path = grid.pathfind(
+///         &mut PathfindArgs::new(start, goal).astar()
+///     );
+/// }
+/// ```
 #[derive(Debug)]
 pub struct PathfindArgs<'a> {
     pub(crate) start: UVec3,

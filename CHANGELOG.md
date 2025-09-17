@@ -6,9 +6,9 @@
 See the [migration guide](https://jtothethree.github.io/bevy_northstar/migrations/002_v0.4.0.html) for more details on how to migrate.
 
 ### Features
-- *Navigation Masks*: Per Agent masks can now be created to alter the cost or make areas impassable only for that agent.
+- *Navigation Masks*: Per Agent masks can now be created to alter the cost or impassability only for that agent.
 - *Any-Angle Pathfinding*: Waypoint and Theta* algorithms. Designed for smooth movement and returns only the points needed to avoid walls. Waypoint uses HPA* and is ~10× faster than Theta* while returning similar paths.
-- Path refinement is now anti-aliased to ensure that refined paths aren't jagged.
+- Path refinement in HPA* is now anti-aliased to remove path jaggedness.
 - Set the default plugin pathfinding algorithm with `PathfindSettings`.
 - Lots of optimization.
 
