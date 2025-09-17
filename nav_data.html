@@ -175,7 +175,7 @@ By default, <code>GridSettingsBuilder</code> sets all cells to passable with a c
 <h2 id="portal-rampsstairs-elevators-actual-portals"><a class="header" href="#portal-rampsstairs-elevators-actual-portals">Portal: Ramps/Stairs, Elevators, Actual Portals</a></h2>
 <p>Portals allow movement between positions that wouldn't normally be adjacent under standard neighborhood rules. They're often used in 2.5D tilemaps to represent elevation changes (e.g., ramps or stairs), but they can also be used for actual teleporters.</p>
 <h3 id="rampstairs"><a class="header" href="#rampstairs">Ramp/Stairs</a></h3>
-<p><img src="../images/rampsamecell.png" alt="Ramp" /></p>
+<p><img src="images/rampsamecell.png" alt="Ramp" /></p>
 <p>In the image above, the ramp transitions the agent from Z = 0 to Z = 2, which isn’t normally allowed by OrdinalNeighborhood3d. You can create this behavior by setting a portal at the ramp tile:</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
@@ -196,7 +196,7 @@ grid.set_nav(
 <span class="boring">}
 </span></code></pre></pre>
 <p>Alternatively, place the portals on tiles adjacent to the ramp:</p>
-<p><img src="../images/ramp.png" alt="RampAlternative" /></p>
+<p><img src="images/ramp.png" alt="RampAlternative" /></p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -219,7 +219,7 @@ grid.set_nav(
 )
 <span class="boring">}
 </span></code></pre></pre>
-<img src="../images/portal.png" width="500"/>
+<img src="images/portal.png" width="500"/>
 <h3 id="animations-for-portals"><a class="header" href="#animations-for-portals">Animations For Portals</a></h3>
 <p>You'll likely want to animate transitions when agents use jumps, ramps, or portals.</p>
 <p>The <code>Path::next()</code> method is useful for this. It returns the next position in the path, which you can compare to the agent's current tile position. This lets you determine what kind of tile the agent is moving into such as a portal, a ramp. Or just test if the Z depth changes and trigger a jump animation.</p>
