@@ -123,7 +123,7 @@ opt-level = 3
 
 |bevy|bevy_northstar|
 |---|---|
-|0.16|0.2/0.3|
+|0.16|0.2/0.3/0.4|
 
 
 ## Roadmap / TODO

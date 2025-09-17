@@ -42,7 +42,7 @@ Defines a "portal" that overrides normal neighborhood movement rules. See below 
 Portals allow movement between positions that wouldn't normally be adjacent under standard neighborhood rules. They're often used in 2.5D tilemaps to represent elevation changes (e.g., ramps or stairs), but they can also be used for actual teleporters.
 
 ### Ramp/Stairs
-![Ramp](../images/rampsamecell.png)
+![Ramp](images/rampsamecell.png)
 
 In the image above, the ramp transitions the agent from Z = 0 to Z = 2, which isn’t normally allowed by OrdinalNeighborhood3d. You can create this behavior by setting a portal at the ramp tile:
 
@@ -64,7 +64,7 @@ grid.set_nav(
 
 Alternatively, place the portals on tiles adjacent to the ramp:
 
-![RampAlternative](../images/ramp.png)
+![RampAlternative](images/ramp.png)
 
 ```rust,no_run
 // Have the bottom adjacent cell to the ramp portal to the top adjacent cell to the ramp.
@@ -86,7 +86,7 @@ grid.set_nav(
 )
 ```
 
-<img src="../images/portal.png" width="500"/>
+<img src="images/portal.png" width="500"/>
 
 
 ### Animations For Portals
