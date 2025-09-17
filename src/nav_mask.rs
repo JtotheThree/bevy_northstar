@@ -74,19 +74,19 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
 /// use bevy::prelude::*;
 /// use bevy::platform::collections::HashMap;
 /// use bevy_northstar::prelude::*;
-/// 
+///
 /// #[derive(Resource, Default)]
 /// struct NavMaskLayers(HashMap<String, NavMaskLayer>);
-/// 
+///
 /// #[derive(Resource, Default)]
 /// struct NavMasks(HashMap<String, NavMask>);
-/// 
+///
 /// fn setup_masks(mut masks: ResMut<NavMasks>, layers: Res<NavMaskLayers>) {
 ///    let mask = NavMask::new();
 ///    if let Some(layer) = layers.0.get("water") {
 ///        mask.add_layer(layer.clone());
 ///    }
-/// 
+///
 ///    masks.0.insert("infantry".to_string(), mask);
 /// }
 /// ```
@@ -317,10 +317,10 @@ impl NavMaskData {
 /// ```rust
 /// use bevy::prelude::*;
 /// use bevy_northstar::prelude::*;
-/// 
+///
 /// let grid_settings = GridSettingsBuilder::new_3d(16, 16, 16).build();
 /// let grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
-/// 
+///
 /// let layer = NavMaskLayer::new();
 /// layer.insert_region_fill(
 ///     &grid,

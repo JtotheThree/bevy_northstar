@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Builder struct for pathfinding arguments
-/// 
+///
 /// Example usage:
 /// ```rust
 /// use bevy::prelude::*;
