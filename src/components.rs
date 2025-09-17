@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{debug::DebugTilemapType, nav_mask::NavMask};
+use crate::{debug::DebugTilemapType, nav_mask::NavMask, NavRegion, SearchLimits};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -42,22 +42,31 @@ pub enum PathfindMode {
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
+///
+/// Example Usage:
+/// ```rust,no_run
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// #[derive(Component)]
+/// struct Player;
+///
+/// fn setup(player: Single<Entity, With<Player>>, mut commands: Commands) {
+///     let player = player.into_inner();
+///     commands.entity(player).insert(Pathfind::new_2d(10, 10).mode(PathfindMode::Waypoints));
+/// }
 #[derive(Component, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
     pub goal: UVec3,
-    /// Will attempt to return the best path if full route isn't found.
-    pub partial: bool,
 
     /// The [`PathfindMode`] to use for pathfinding.
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
     /// Defaults to [`PathfindMode::Refined`] which is hierarchical pathfinding with full refinement.
     pub mode: Option<PathfindMode>,
 
-    /// Optional [`NavMask`] to use for pathfinding.
-    /// You can filter out certain areas of the grid or apply movement costs.
-    #[reflect(ignore)]
-    pub mask: Option<NavMask>,
+    /// Sets limits for the pathfinding search, see [`SearchLimits`]
+    pub limits: SearchLimits,
 }
 
 impl Pathfind {
@@ -109,17 +118,36 @@ impl Pathfind {
     /// The pathfinding system will return the best path it can find
     /// even if it can't find a full route to the goal.
     pub fn partial(mut self) -> Self {
-        self.partial = true;
+        self.limits.partial = true;
         self
     }
 
-    /// Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
-    /// This allows you to filter out certain areas of the grid or apply movement costs.
-    /// This is useful for agent specific movement costs or areas that should be avoided.
-    pub fn mask(mut self, mask: NavMask) -> Self {
-        self.mask = Some(mask);
+    /// Limits the search to a region for the pathfinding request.
+    pub fn search_region(mut self, region: NavRegion) -> Self {
+        self.limits.boundary = Some(region);
         self
     }
+
+    /// Limits the pathfinding search to a maximum distance from the start.
+    /// No path will be returned if the maximum distance is exceeded.
+    pub fn max_distance(mut self, max_distance: u32) -> Self {
+        self.limits.distance = Some(max_distance);
+        self
+    }
+
+    /// Pass a [`SearchLimits`] struct to set all the limits for the pathfinding request.
+    pub fn with_limits(mut self, limits: SearchLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    // Assigns the [`NavMask`] to apply to the instance of this pathfinding request.
+    // This allows you to filter out certain areas of the grid or apply movement costs.
+    // This is useful for agent specific movement costs or areas that should be avoided.
+    //pub fn mask(mut self, mask: NavMask) -> Self {
+    //    self.mask = Some(mask);
+    //    self
+    //}
 }
 
 /// The next position in the path inserted into an entity by the pathfinding system.
@@ -387,6 +415,25 @@ impl DebugGrid {
 /// Builder for [`DebugGrid`].
 /// Use this to configure debugging for a grid before inserting it into your map entity.
 /// Insert the returned [`DebugGrid`] as a child of the entity with your [`crate::grid::Grid`] component.
+///
+/// Example Usage:
+/// ```rust,no_run
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// fn setup(mut commands: Commands) {
+///    let grid_settings = GridSettingsBuilder::new_2d(16, 16).build();
+///
+///    commands
+///        .spawn(CardinalGrid::new(&grid_settings))
+///        // Spawn the debug grid as a child of the grid entity.
+///        .with_child((
+///            DebugGridBuilder::new(12, 12) // 12x12 tile pixel size.
+///                .enable_cells()
+///                .build(),
+///        ));
+/// }
+/// ```
 pub struct DebugGridBuilder {
     tile_width: u32,
     tile_height: u32,
@@ -401,7 +448,7 @@ pub struct DebugGridBuilder {
 }
 
 impl DebugGridBuilder {
-    /// Creates a new [`DebugGridBuilder`] with the specified tile width and height.
+    /// Creates a new [`DebugGridBuilder`] with the specified tile pixel width and height.
     pub fn new(tile_width: u32, tile_height: u32) -> Self {
         Self {
             tile_width,
@@ -472,6 +519,12 @@ impl DebugGridBuilder {
         self
     }
 
+    /// Initializes the debug grid to display a specific [`NavMask`].
+    pub fn with_debug_mask(mut self, debug_mask: NavMask) -> Self {
+        self.debug_mask = Some(debug_mask);
+        self
+    }
+
     /// Builds the final [`DebugGrid`] component with the configured settings to be inserted into your map entity.
     /// You need to call this methdod to finalize the builder and create the component.
     pub fn build(self) -> DebugGrid {
@@ -513,3 +566,7 @@ impl GridAgents {
         &self.0
     }
 }
+
+/// The [`AgentMask`] component is used to associate a [`NavMask`] with an agent.
+#[derive(Component)]
+pub struct AgentMask(pub NavMask);

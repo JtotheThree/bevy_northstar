@@ -162,6 +162,14 @@ impl Graph {
             .and_then(|node| node.edges.get(&to).map(|path| path.cost()))
     }
 
+    /// Returns the cached edge path
+    pub(crate) fn edge_path(&self, from: UVec3, to: UVec3) -> Option<&Path> {
+        self.node_ids
+            .get(&from)
+            .and_then(|&from_id| self.nodes.get(from_id))
+            .and_then(|node| node.edges.get(&to))
+    }
+
     /// Returns all cached `Path`s in the graph.
     pub(crate) fn all_paths(&self) -> Vec<Path> {
         let mut paths = Vec::new();

@@ -25,6 +25,8 @@ This is standard A* pathfinding. It's very expensive for long distance goals on 
 ### Any Angle Modes
 Any-angle modes return the path as a series of waypoint segments. Each waypoint marks the start or end of a straight-line segment that can be traversed without intersecting any obstacles. This is intended for freeform movement where the agent is not constrained to follow the grid.
 
+You will need to handle your own collision when using Any-Angle modes. The typical use case for any-angle would be to use a physics engine to handle collision and add create a local steering avoidance system to avoid other colliding agents and walls.
+
 > **⚠️ Warning**
 > The cost of an any-angle path is a good estimate but does not account for the exact cost of every grid cell the agent may or may not pass through between waypoints.
 

@@ -1,16 +1,33 @@
 //! Navigation Mask for overriding cell navigation properties for a specific pathfinding request.
-use std::sync::{Arc, Mutex};
+use std::{
+    hash::Hash,
+    sync::{Arc, Mutex},
+};
 
 use bevy::{
+    log,
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
 };
-use ndarray::ArrayView3;
 
 use crate::{
-    nav::{Nav, NavCell, Portal},
-    MovementCost,
+    grid::Grid,
+    nav::{Nav, NavCell},
+    path::Path,
+    prelude::Neighborhood,
+    MovementCost, NavRegion,
 };
+
+/// Result of a navigation mask query.
+#[derive(Debug)]
+pub enum NavMaskResult {
+    /// The mask contains the cell, returning the modified cell.
+    Masked(NavCell),
+    /// The mask does not contain the cell
+    NotMasked,
+    /// The mask is locked and cannot be accessed.
+    Locked,
+}
 
 /// Mask for a single cell over [`NavCell`].
 /// You can use this to override or modify the cost of the underlying [`NavCell`] in the [`crate::grid::Grid`].
@@ -18,12 +35,6 @@ use crate::{
 pub enum NavCellMask {
     /// Overrides anything below this as impassable
     ImpassableOverride,
-    /// Overrides anything below this as passable.
-    /// This might have odd interactions if you override a grid NavCell that is
-    /// already impassable because it won't change the surrounding neighbors.
-    PassableOverride(MovementCost),
-    /// Overrides anything below this as a portal.
-    PortalOverride(Portal),
     /// Modifies the cost of the cell.
     /// If the cell is impassable, this will not change it.
     /// If the cell is passable, this will add the cost to the existing cost. In this way you can layer cost.
@@ -34,13 +45,7 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
     match mask {
         NavCellMask::ImpassableOverride => {
             cell.nav = Nav::Impassable;
-        }
-        NavCellMask::PassableOverride(cost) => {
-            cell.nav = Nav::Passable(*cost);
-            cell.cost = *cost;
-        }
-        NavCellMask::PortalOverride(portal) => {
-            cell.nav = Nav::Portal(*portal);
+            cell.cost = MovementCost::MAX;
         }
         NavCellMask::ModifyCost(delta) => {
             if let Nav::Passable(cost) = cell.nav {
@@ -63,6 +68,28 @@ fn process_mask(mut cell: NavCell, mask: &NavCellMask) -> NavCell {
 /// This is useful for creating complex navigation scenarios where different agents might have different navigation properties.
 ///
 /// This is an Arc Mutex wrapper around the internal data structure to allow for shared access across threads.
+///
+/// Example Usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy::platform::collections::HashMap;
+/// use bevy_northstar::prelude::*;
+///
+/// #[derive(Resource, Default)]
+/// struct NavMaskLayers(HashMap<String, NavMaskLayer>);
+///
+/// #[derive(Resource, Default)]
+/// struct NavMasks(HashMap<String, NavMask>);
+///
+/// fn setup_masks(mut masks: ResMut<NavMasks>, layers: Res<NavMaskLayers>) {
+///    let mask = NavMask::new();
+///    if let Some(layer) = layers.0.get("water") {
+///        mask.add_layer(layer.clone());
+///    }
+///
+///    masks.0.insert("infantry".to_string(), mask);
+/// }
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct NavMask {
     pub(crate) data: Arc<Mutex<NavMaskData>>,
@@ -72,10 +99,7 @@ impl NavMask {
     /// Creates a new empty NavMask.
     pub fn new() -> Self {
         Self {
-            data: Arc::new(Mutex::new(NavMaskData {
-                layers: Vec::new(),
-                translation: IVec3::ZERO,
-            })),
+            data: Arc::new(Mutex::new(NavMaskData::new())),
         }
     }
 
@@ -107,14 +131,22 @@ impl NavMask {
 
     /// Gets the masked [`NavCell`] for the given position.
     /// # Arguments
-    /// * `prev` - Provide the previous [`NavCell`] so the it can be returned if the mask layers do not contain a mask for that position.
+    /// * `original` - Provide the original [`NavCell`] so it can be masked if required.
     ///   This is mostly to avoid double cell lookup and having to potentially unwrap millions of cells.
     /// * `pos` - The position in the grid to get the masked [`NavCell`].
     /// # Returns
     /// A [`Result`] containing the masked [`NavCell`] or an error message if the lock is poisoned.
-    pub fn get(&self, prev: NavCell, pos: UVec3) -> Result<NavCell, String> {
-        let data = self.data.lock().map_err(|_| "NavMask lock poisoned")?;
-        Ok(data.get(prev, pos))
+    pub fn get(&self, original: NavCell, pos: UVec3) -> NavMaskResult {
+        match self.data.lock() {
+            Ok(data) => {
+                if let Some(masked) = data.get(original, pos) {
+                    NavMaskResult::Masked(masked)
+                } else {
+                    NavMaskResult::NotMasked
+                }
+            }
+            Err(_) => NavMaskResult::Locked,
+        }
     }
 
     /// Returns a new NavMask with the translation applied.
@@ -184,6 +216,7 @@ impl From<&NavMask> for NavMaskData {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskData {
     pub(crate) layers: Vec<NavMaskLayer>,
+    pub(crate) cached_paths: HashMap<(UVec3, UVec3), Path>,
     translation: IVec3,
 }
 
@@ -191,26 +224,71 @@ impl NavMaskData {
     pub(crate) fn new() -> Self {
         Self {
             layers: Vec::new(),
+            cached_paths: HashMap::new(),
             translation: IVec3::ZERO,
         }
     }
 
     pub(crate) fn add_layer(&mut self, layer: NavMaskLayer) {
         self.layers.push(layer);
+        // TODO: We can maybe improve this in the future by only removing paths that are affected by the new layer
+        self.cached_paths.clear();
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
-        let translated_pos = pos.as_ivec3() - self.translation;
+    pub(crate) fn add_cached_path(&mut self, start: UVec3, end: UVec3, path: Path) {
+        self.cached_paths.insert((start, end), path);
+    }
 
-        if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
-            return prev;
+    pub(crate) fn get_cached_path(&self, start: UVec3, end: UVec3) -> Option<&Path> {
+        self.cached_paths.get(&(start, end))
+    }
+
+    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
+        if self.layers.is_empty() {
+            return None;
         }
 
-        let translated_pos = translated_pos.as_uvec3();
+        let lookup_pos = if self.translation == IVec3::ZERO {
+            pos
+        } else {
+            let translated_pos = pos.as_ivec3() - self.translation;
 
-        self.layers
+            if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
+                return None;
+            }
+
+            translated_pos.as_uvec3()
+        };
+
+        let mut result = prev;
+        let mut mask_found = false;
+
+        // Lock all layers once
+        let layer_guards: Vec<_> = self
+            .layers
             .iter()
-            .fold(prev, |cell, layer| layer.get(cell, translated_pos))
+            .map(|layer| layer.data.lock().unwrap())
+            .collect();
+
+        for guard in &layer_guards {
+            if let Some(mask) = guard.mask.get(&lookup_pos) {
+                result = process_mask(result, mask);
+                mask_found = true;
+            }
+        }
+
+        if mask_found {
+            Some(result)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn chunk_in_mask(&self, chunk_index: (usize, usize, usize)) -> bool {
+        self.layers.iter().any(|layer| {
+            let data = layer.data.lock().unwrap();
+            data.chunks.contains(&chunk_index)
+        })
     }
 
     pub(crate) fn translate_by(&self, offset: IVec3) -> Self {
@@ -226,10 +304,30 @@ impl NavMaskData {
     pub(crate) fn clear(&mut self) {
         self.layers.clear();
     }
+
+    pub(crate) fn layer_count(&self) -> usize {
+        self.layers.len()
+    }
 }
 
 /// A single navigation mask layer than can be added to a [`NavMask`].
 /// This is an Arc Mutex wrapper around the internal data structure to allow for shared access across threads.
+///
+/// Example Usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// let grid_settings = GridSettingsBuilder::new_3d(16, 16, 16).build();
+/// let grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+///
+/// let layer = NavMaskLayer::new();
+/// layer.insert_region_fill(
+///     &grid,
+///     NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
+///     NavCellMask::ModifyCost(50),
+/// ).ok();
+/// ```
 #[derive(Clone, Default, Debug)]
 pub struct NavMaskLayer {
     data: Arc<Mutex<NavMaskLayerData>>,
@@ -249,31 +347,49 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to insert at the position.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_mask(&self, pos: UVec3, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_mask<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        pos: UVec3,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        data.insert_mask(pos, mask);
+        data.insert_mask(grid, pos, mask);
         Ok(())
-    }
-
-    /// Clears the mask at a single position.
-    /// # Arguments
-    /// * `pos` - The position in the grid to clear the mask.
-    /// # Returns
-    /// [`Result`] will fail if the mutex is poisoned.
-    pub fn remove_mask(&self, pos: UVec3) -> Result<Option<NavCellMask>, String> {
-        let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        Ok(data.mask.remove(&pos))
     }
 
     /// Inserts a [`NavCellMask`] over an entire region for the layer.
     /// # Arguments
-    /// * `region` - The [`Region3d`] in the grid to insert the mask. You can also use this in 2d with no z range.
+    /// * `region` - The [`NavRegion`] in the grid to insert the mask. You can also use this in 2d with no z range.
     /// * `mask` - The [`NavCellMask`] to insert in the region.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_region(&self, region: Region3d, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_region_fill<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        region: NavRegion,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        data.insert_region(region, mask);
+        data.insert_region_fill(grid, region, mask);
+        Ok(())
+    }
+
+    /// Inserts a [`NavCellMask`] on the outlines of a region.
+    /// You can use this to box in an agent to an area etc.
+    /// # Arguments
+    /// * `region` - The [`NavRegion`] in the grid to insert the mask. You can also use this in 2d with no z range.
+    /// * `mask` - The [`NavCellMask`] to insert in the region.
+    /// # Returns
+    /// [`Result`] will fail if the mutex is poisoned.
+    pub fn insert_region_outline<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        region: NavRegion,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
+        let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
+        data.insert_region_outline(grid, region, mask);
         Ok(())
     }
 
@@ -282,9 +398,13 @@ impl NavMaskLayer {
     /// * `masks` - A HashMap where keys are positions and values are [`NavCellMask`].
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_hashmap(&self, masks: &HashMap<UVec3, NavCellMask>) -> Result<(), String> {
+    pub fn insert_hashmap<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        masks: &HashMap<UVec3, NavCellMask>,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        data.insert_hashmap(masks);
+        data.insert_hashmap(grid, masks);
         Ok(())
     }
 
@@ -294,9 +414,14 @@ impl NavMaskLayer {
     /// * `mask` - The [`NavCellMask`] to apply to all positions in the HashSet.
     /// # Returns
     /// [`Result`] will fail if the mutex is poisoned.
-    pub fn insert_hashset(&self, cells: &HashSet<UVec3>, mask: NavCellMask) -> Result<(), String> {
+    pub fn insert_hashset<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        cells: &HashSet<UVec3>,
+        mask: NavCellMask,
+    ) -> Result<(), String> {
         let mut data = self.data.lock().map_err(|_| "NavMaskLayer lock poisoned")?;
-        data.insert_hashset(cells, mask);
+        data.insert_hashset(grid, cells, mask);
         Ok(())
     }
 
@@ -339,14 +464,6 @@ impl NavMaskLayer {
         Ok(data.mask.is_empty())
     }
 
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
-        if let Ok(data) = self.data.lock() {
-            data.get(prev, pos)
-        } else {
-            panic!("NavMaskLayer lock poisoned")
-        }
-    }
-
     #[allow(dead_code)]
     fn into_data(self) -> NavMaskLayerData {
         self.into()
@@ -370,47 +487,91 @@ impl From<NavMaskLayerData> for NavMaskLayer {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskLayerData {
     pub mask: HashMap<UVec3, NavCellMask>,
+    pub chunks: HashSet<(usize, usize, usize)>,
 }
 
 impl NavMaskLayerData {
     pub fn new() -> Self {
         Self {
             mask: HashMap::new(),
+            chunks: HashSet::new(),
         }
     }
 
-    pub fn insert_mask(&mut self, pos: UVec3, mask: NavCellMask) {
+    pub fn insert_mask<N: Neighborhood>(&mut self, grid: &Grid<N>, pos: UVec3, mask: NavCellMask) {
+        if !grid.in_bounds(pos) {
+            log::warn!(
+                "Unable to insert mask position: {:?} is out of bounds!",
+                pos
+            );
+            return;
+        }
+
         self.mask.insert(pos, mask);
+        let chunk = grid.chunk_at_position(pos).unwrap();
+        self.chunks.insert(chunk.index());
     }
 
-    pub fn insert_region(&mut self, region: Region3d, mask: NavCellMask) {
+    pub fn insert_region_fill<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        region: NavRegion,
+        mask: NavCellMask,
+    ) {
         for pos in region.iter() {
-            self.mask.insert(pos, mask.clone());
+            self.insert_mask(grid, pos, mask.clone());
         }
     }
 
-    pub fn insert_hashmap(&mut self, masks: &HashMap<UVec3, NavCellMask>) {
+    pub fn insert_region_outline<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        region: NavRegion,
+        mask: NavCellMask,
+    ) {
+        // Insert the outline of the region
+        for x in region.min.x..region.max.x {
+            for y in region.min.y..region.max.y {
+                for z in region.min.z..region.max.z {
+                    let pos = UVec3::new(x, y, z);
+                    if pos.x == region.min.x
+                        || pos.x == region.max.x - 1
+                        || pos.y == region.min.y
+                        || pos.y == region.max.y - 1
+                        || pos.z == region.min.z
+                        || pos.z == region.max.z - 1
+                    {
+                        self.insert_mask(grid, pos, mask.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn insert_hashmap<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        masks: &HashMap<UVec3, NavCellMask>,
+    ) {
         for (pos, mask) in masks {
-            self.mask.insert(*pos, mask.clone());
+            self.insert_mask(grid, *pos, mask.clone());
         }
     }
 
-    pub fn insert_hashset(&mut self, cells: &HashSet<UVec3>, mask: NavCellMask) {
+    pub fn insert_hashset<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        cells: &HashSet<UVec3>,
+        mask: NavCellMask,
+    ) {
         for pos in cells {
-            self.mask.insert(*pos, mask.clone());
+            self.insert_mask(grid, *pos, mask.clone());
         }
     }
 
     pub fn clear(&mut self) {
         self.mask.clear();
-    }
-
-    pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> NavCell {
-        let mut cell = prev;
-        if let Some(mask) = self.mask.get(&pos) {
-            cell = process_mask(cell, mask);
-        }
-        cell
+        self.chunks.clear();
     }
 }
 
@@ -433,103 +594,43 @@ impl From<&NavMaskLayer> for NavMaskLayerData {
     }
 }
 
-/// A Region3d with an iter method to iterate over all positions in the region.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Region3d {
-    /// The minimum position of the region.
-    pub min: UVec3,
-    /// The maximum position of the region (exclusive).
-    pub max: UVec3,
-}
-
-impl Region3d {
-    /// Creates a new Region3d with the given minimum and maximum positions.
-    pub fn new(min: UVec3, max: UVec3) -> Self {
-        assert!(
-            min.x <= max.x && min.y <= max.y && min.z <= max.z,
-            "Invalid region bounds"
-        );
-        Self { min, max }
-    }
-
-    /// Create a new Region3d from a grid's shape.
-    pub fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
-        let shape = grid.shape();
-        Self {
-            min: UVec3::new(0, 0, 0),
-            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
-        }
-    }
-
-    /// Returns an iterator over all positions in the region.
-    pub fn iter(&self) -> Region3dIter {
-        Region3dIter {
-            region: *self,
-            current: self.min,
-        }
-    }
-}
-
-/// An iterator over all positions in a Region3d.
-pub struct Region3dIter {
-    region: Region3d,
-    current: UVec3,
-}
-
-impl Iterator for Region3dIter {
-    type Item = UVec3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current.z > self.region.max.z {
-            return None;
-        }
-
-        let result = self.current;
-
-        self.current.x += 1;
-        if self.current.x > self.region.max.x {
-            self.current.x = self.region.min.x;
-            self.current.y += 1;
-
-            if self.current.y > self.region.max.y {
-                self.current.y = self.region.min.y;
-                self.current.z += 1;
-            }
-        }
-
-        Some(result)
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::{grid::GridSettingsBuilder, prelude::CardinalNeighborhood};
+
     use super::*;
 
     #[test]
     fn test_nav_layer() {
+        let grid_settings = GridSettingsBuilder::new_3d(16, 16, 16).build();
+        let grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+
         let mask = NavMask::new();
 
         // Create layers directly
         let layer1 = NavMaskLayer::new();
         layer1
-            .insert_region(
-                Region3d::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4)),
                 NavCellMask::ImpassableOverride,
             )
-            .unwrap();
+            .ok();
 
         let layer2 = NavMaskLayer::new();
         layer2
-            .insert_region(
-                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
-                NavCellMask::PassableOverride(2),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+                NavCellMask::ModifyCost(2),
             )
-            .unwrap();
+            .ok();
 
         let layer3 = NavMaskLayer::new();
         layer3
-            .insert_region(
-                Region3d::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(4, 4, 4), UVec3::new(8, 8, 8)),
                 NavCellMask::ModifyCost(3),
             )
             .unwrap();
@@ -541,36 +642,35 @@ mod tests {
         let layer4 = NavMaskLayer::new();
 
         let mut layer4_data: NavMaskLayerData = layer4.into_data();
-        layer4_data.insert_mask(UVec3::new(5, 5, 5), NavCellMask::ImpassableOverride);
+        layer4_data.insert_mask(&grid, UVec3::new(5, 5, 5), NavCellMask::ImpassableOverride);
 
         let updated_layer4: NavMaskLayer = layer4_data.into();
 
         mask.add_layer(updated_layer4).unwrap();
 
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(1, 1, 1))
-                .unwrap()
-                .nav,
-            Nav::Impassable
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(5, 5, 5))
-                .unwrap()
-                .nav,
-            Nav::Impassable
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(6, 6, 6))
-                .unwrap()
-                .nav,
-            Nav::Passable(5)
-        );
-        assert_eq!(
-            mask.get(NavCell::default(), UVec3::new(40, 40, 40))
-                .unwrap()
-                .nav,
-            Nav::Passable(1)
-        );
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(1, 1, 1)) {
+            assert_eq!(cell.nav, Nav::Impassable);
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(5, 5, 5)) {
+            assert_eq!(cell.nav, Nav::Impassable);
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::Masked(cell) = mask.get(NavCell::default(), UVec3::new(6, 6, 6)) {
+            assert_eq!(cell.nav, Nav::Passable(6));
+        } else {
+            panic!("Expected masked result");
+        }
+
+        if let NavMaskResult::NotMasked = mask.get(NavCell::default(), UVec3::new(40, 40, 40)) {
+            // This position is not masked, so we should get NotMasked
+        } else {
+            panic!("Expected not masked result");
+        }
     }
 
     #[test]
@@ -584,9 +684,9 @@ mod tests {
 
         // Test PassableOverride
         modified_cell = cell.clone();
-        modified_cell = process_mask(modified_cell, &NavCellMask::PassableOverride(5));
-        assert_eq!(modified_cell.nav, Nav::Passable(5));
-        assert_eq!(modified_cell.cost, 5);
+        modified_cell = process_mask(modified_cell, &NavCellMask::ModifyCost(5));
+        assert_eq!(modified_cell.nav, Nav::Passable(6));
+        assert_eq!(modified_cell.cost, 6);
 
         // Test ModifyCost
         modified_cell = cell.clone();

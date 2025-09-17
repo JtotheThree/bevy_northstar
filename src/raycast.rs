@@ -2,9 +2,13 @@
 use bevy::math::{IVec3, UVec3};
 use ndarray::ArrayView3;
 
-use crate::nav::NavCell;
+use crate::{
+    nav::NavCell,
+    nav_mask::{NavMask, NavMaskData},
+};
 
 /// Yielding function for tracing a line in a grid.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn trace_line<F>(
     grid: &ArrayView3<NavCell>,
     start: UVec3,
@@ -12,14 +16,13 @@ pub(crate) fn trace_line<F>(
     ordinal: bool,
     filtered: bool,
     aliasing: bool,
+    bounds: UVec3,
     mut yield_each_step: F,
 ) -> bool
 where
     F: FnMut(UVec3) -> bool,
 {
     let mut current = start;
-    let shape = grid.shape();
-    let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
 
     let delta = goal.as_ivec3() - start.as_ivec3();
     let step = delta.map(i32::signum);
@@ -28,8 +31,14 @@ where
     let mut err_xy = abs.x - abs.y;
     let mut err_xz = abs.x - abs.z;
 
+    let neg_abs_y = -abs.y;
+    let neg_abs_z = -abs.z;
+    let is_3d = bounds.z > 1;
+
     let mut last_dir: Option<IVec3> = None;
     let mut last_corner = start;
+
+    let mut cached_cell: Option<(NavCell, UVec3)> = None;
 
     while current != goal {
         if current.x >= bounds.x || current.y >= bounds.y || current.z >= bounds.z {
@@ -40,13 +49,13 @@ where
             return false;
         }
 
-        let next = if ordinal {
-            let dx2 = 2 * err_xy;
-            let dz2 = 2 * err_xz;
+        let dx2 = err_xy << 1; // Bit shift is faster than multiply by 2
+        let dz2 = err_xz << 1;
 
+        let next = if ordinal {
             let mut next = current;
 
-            if dx2 >= -abs.y && dz2 >= -abs.z {
+            if dx2 >= neg_abs_y && dz2 >= neg_abs_z {
                 err_xy -= abs.y;
                 err_xz -= abs.z;
                 next.x = next.x.saturating_add_signed(step.x);
@@ -55,43 +64,39 @@ where
                 err_xy += abs.x;
                 next.y = next.y.saturating_add_signed(step.y);
             }
-            if bounds.z > 1 && dz2 < abs.x {
+            if is_3d && dz2 < abs.x {
                 err_xz += abs.x;
                 next.z = next.z.saturating_add_signed(step.z);
             }
 
             next
+        } else if dx2 >= neg_abs_y && dz2 >= neg_abs_z {
+            err_xy -= abs.y;
+            err_xz -= abs.z;
+            UVec3::new(
+                current.x.saturating_add_signed(step.x),
+                current.y,
+                current.z,
+            )
+        } else if dx2 < abs.x {
+            err_xy += abs.x;
+            UVec3::new(
+                current.x,
+                current.y.saturating_add_signed(step.y),
+                current.z,
+            )
+        } else if is_3d && dz2 < abs.x {
+            err_xz += abs.x;
+            UVec3::new(
+                current.x,
+                current.y,
+                current.z.saturating_add_signed(step.z),
+            )
         } else {
-            let dx2 = 2 * err_xy;
-            let dz2 = 2 * err_xz;
-
-            if dx2 >= -abs.y && dz2 >= -abs.z {
-                err_xy -= abs.y;
-                err_xz -= abs.z;
-                UVec3::new(
-                    current.x.saturating_add_signed(step.x),
-                    current.y,
-                    current.z,
-                )
-            } else if dx2 < abs.x {
-                err_xy += abs.x;
-                UVec3::new(
-                    current.x,
-                    current.y.saturating_add_signed(step.y),
-                    current.z,
-                )
-            } else if bounds.z > 1 && dz2 < abs.x {
-                err_xz += abs.x;
-                UVec3::new(
-                    current.x,
-                    current.y,
-                    current.z.saturating_add_signed(step.z),
-                )
-            } else {
-                return false;
-            }
+            return false;
         };
 
+        /*
         if !aliasing {
             let dir = (next.as_ivec3() - current.as_ivec3()).signum();
             if let Some(last) = last_dir {
@@ -104,15 +109,87 @@ where
                 }
             }
             last_dir = Some(dir);
+        } */
+
+        /*if !aliasing {
+            let dir = IVec3::new(
+                (next.x as i32 - current.x as i32).signum(),
+                (next.y as i32 - current.y as i32).signum(),
+                (next.z as i32 - current.z as i32).signum()
+            );
+
+            if let Some(last) = last_dir {
+                if dir != last {
+                    let dx = (current.x as i32 - last_corner.x as i32).abs();
+                    let dy = (current.y as i32 - last_corner.y as i32).abs();
+                    let dz = (current.z as i32 - last_corner.z as i32).abs();
+
+                    if dx + dy + dz < 2 {
+                        return false;
+                    }
+                    last_corner = current;
+                }
+            }
+            last_dir = Some(dir);
+
+        }*/
+
+        if !aliasing && last_dir.is_some() {
+            let dir = IVec3::new(
+                (next.x as i32 - current.x as i32).signum(),
+                (next.y as i32 - current.y as i32).signum(),
+                (next.z as i32 - current.z as i32).signum(),
+            );
+
+            if dir != last_dir.unwrap() {
+                let dx = (current.x as i32 - last_corner.x as i32).abs();
+                let dy = (current.y as i32 - last_corner.y as i32).abs();
+                let dz = (current.z as i32 - last_corner.z as i32).abs();
+
+                if dx + dy + dz < 2 {
+                    return false;
+                }
+                last_corner = current;
+                last_dir = Some(dir);
+            }
+        } else if !aliasing {
+            last_dir = Some(IVec3::new(
+                (next.x as i32 - current.x as i32).signum(),
+                (next.y as i32 - current.y as i32).signum(),
+                (next.z as i32 - current.z as i32).signum(),
+            ));
         }
 
-        if filtered
+        if filtered {
+            // Only access grid if we don't have the current cell cached
+            let current_cell = if let Some((cached, pos)) = &cached_cell {
+                if *pos == current {
+                    cached
+                } else {
+                    let cell =
+                        grid[[current.x as usize, current.y as usize, current.z as usize]].clone();
+                    cached_cell = Some((cell.clone(), current));
+                    &cached_cell.as_ref().unwrap().0
+                }
+            } else {
+                let cell =
+                    grid[[current.x as usize, current.y as usize, current.z as usize]].clone();
+                cached_cell = Some((cell.clone(), current));
+                &cached_cell.as_ref().unwrap().0
+            };
+
+            if !current_cell.neighbor_iter(current).any(|n| n == next) {
+                return false;
+            }
+        }
+
+        /*if filtered
             && !grid[[current.x as usize, current.y as usize, current.z as usize]]
                 .neighbor_iter(current)
                 .any(|n| n == next)
         {
             return false;
-        }
+        }*/
 
         current = next;
     }
@@ -137,7 +214,10 @@ pub fn has_line_of_sight(
     goal: UVec3,
     ordinal: bool,
 ) -> bool {
-    trace_line(grid, start, goal, ordinal, false, true, |pos| {
+    let shape = grid.shape();
+    let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
+
+    trace_line(grid, start, goal, ordinal, false, true, bounds, |pos| {
         !grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable()
     })
 }
@@ -155,6 +235,7 @@ pub fn has_line_of_sight(
 /// * `ordinal` - Whether to use ordinal or cardinal movement.
 /// * `filtered` - Whether to apply neighborhood filters.
 /// * `aliased` - Setting to true allows aliasing which means it might be jagged. If this is false the path will be rejected if it can't reach to goal without aliazing.
+/// * `mask` - Optional [`NavMask`] to use for the path tracing.
 ///
 /// # Returns
 /// An `Option<Vec<UVec3>>` containing the path if successful, or `None` if the path could not be traced.
@@ -165,16 +246,68 @@ pub fn bresenham_path(
     ordinal: bool,
     filtered: bool,
     aliased: bool,
+    mask: Option<&NavMask>,
 ) -> Option<Vec<UVec3>> {
-    let mut path = Vec::with_capacity(32);
-    let success = trace_line(grid, start, goal, ordinal, filtered, aliased, |pos| {
-        if grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_impassable() {
-            false
-        } else {
-            path.push(pos);
-            true
-        }
-    });
+    // Lock and get the underyling mask data
+    let mask: NavMaskData = match mask {
+        Some(nav_mask) => nav_mask.clone().into(),
+        None => NavMaskData::new(),
+    };
+    bresenham_path_internal(grid, start, goal, ordinal, filtered, aliased, &mask)
+}
+
+pub(crate) fn bresenham_path_internal(
+    grid: &ArrayView3<NavCell>,
+    start: UVec3,
+    goal: UVec3,
+    ordinal: bool,
+    filtered: bool,
+    aliased: bool,
+    mask: &NavMaskData,
+) -> Option<Vec<UVec3>> {
+    let masked = mask.layer_count() > 0;
+
+    // Try to allocate well
+    let distance =
+        ((goal.x.abs_diff(start.x) + goal.y.abs_diff(start.y) + goal.z.abs_diff(start.z)) as usize)
+            .max(128);
+    let mut path = Vec::with_capacity(distance);
+
+    // Bounds
+    let shape = grid.shape();
+    let bounds = UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32);
+
+    let success = trace_line(
+        grid,
+        start,
+        goal,
+        ordinal,
+        filtered,
+        aliased,
+        bounds,
+        |pos| {
+            let cell = &grid[[pos.x as usize, pos.y as usize, pos.z as usize]];
+
+            let final_cell = if masked {
+                // Only clone when we actually need to modify
+                if let Some(modified) = mask.get(cell.clone(), pos) {
+                    modified
+                } else {
+                    cell.clone()
+                }
+            } else {
+                cell.clone()
+            };
+
+            if final_cell.is_impassable() {
+                false
+            } else {
+                path.push(pos);
+                true
+            }
+        },
+    );
+
     if success {
         Some(path)
     } else {
@@ -193,8 +326,9 @@ mod tests {
             NeighborhoodSettings,
         },
         nav::NavCell,
+        nav_mask::NavMaskData,
         prelude::*,
-        raycast::{bresenham_path, has_line_of_sight},
+        raycast::{bresenham_path_internal, has_line_of_sight},
     };
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
@@ -234,13 +368,14 @@ mod tests {
 
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
             false,
             false,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_some());
@@ -250,13 +385,14 @@ mod tests {
 
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
             false,
             true,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_some());
@@ -267,13 +403,14 @@ mod tests {
         grid.set_nav(UVec3::new(5, 5, 0), Nav::Impassable);
         grid.build();
 
-        let path = bresenham_path(
+        let path = bresenham_path_internal(
             &grid.view(),
             UVec3::new(0, 0, 0),
             UVec3::new(10, 10, 0),
             grid.neighborhood.is_ordinal(),
             false,
             false,
+            &NavMaskData::new(),
         );
 
         assert!(path.is_none());

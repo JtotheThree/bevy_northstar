@@ -1,12 +1,13 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
     in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path,
-    raycast::has_line_of_sight, FxIndexMap, SmallestCostHolder,
+    raycast::has_line_of_sight, size_hint_grid, FxIndexMap, NavRegion, SearchLimits,
+    SmallestCostHolder,
 };
 
 /// θ* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -22,16 +23,29 @@ use crate::{
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn thetastar_grid<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
-    partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
+    limits: SearchLimits,
 ) -> Option<Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let bounded = limits.boundary.is_some();
+    let boundary = limits.boundary.unwrap_or(NavRegion {
+        min: UVec3::ZERO,
+        max: UVec3::ZERO,
+    });
+
+    let distance_limited = limits.distance.is_some();
+    let max_distance = limits.distance.unwrap_or(u32::MAX);
+
+    let size_hint = size_hint_grid(neighborhood, grid.shape(), start, goal);
+    let masked = !mask.layers.is_empty();
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -87,7 +101,19 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         };
 
         for neighbor in neighbors {
+            if bounded && !boundary.contains(neighbor) {
+                continue;
+            }
+
             if !in_bounds_3d(neighbor, min, max) {
+                continue;
+            }
+
+            if blocking.contains_key(&neighbor) {
+                continue; // Skip blocked positions
+            }
+
+            if distance_limited && neighborhood.heuristic(start, neighbor) > max_distance {
                 continue;
             }
 
@@ -97,9 +123,17 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            let cell = mask.get(neighbor_cell.clone(), neighbor);
+            let (cost_value, is_impassable) = if masked {
+                if let Some(masked_cell) = mask.get(neighbor_cell.clone(), neighbor) {
+                    (masked_cell.cost, masked_cell.is_impassable())
+                } else {
+                    (neighbor_cell.cost, neighbor_cell.is_impassable())
+                }
+            } else {
+                (neighbor_cell.cost, neighbor_cell.is_impassable())
+            };
 
-            if cell.is_impassable() {
+            if is_impassable {
                 continue;
             }
 
@@ -125,7 +159,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
             }
 
-            let new_cost = cost + cell.cost;
+            let new_cost = cost + cost_value;
             let h;
             let n;
             match visited.entry(neighbor) {
@@ -153,7 +187,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         }
     }
 
-    if partial {
+    if limits.partial {
         // If the goal is not reached, return the path to the closest node, but if the closest node is the start return None
         if closest_node == start {
             return None;
@@ -209,9 +243,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
-            false,
+            &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -221,5 +255,79 @@ mod tests {
         assert_eq!(path.path()[0], start);
         // Ensure last position is the goal position
         assert_eq!(path.path()[1], goal);
+    }
+
+    #[test]
+    fn test_thetaastar_search_limits() {
+        let grid_settings = crate::grid::GridSettingsBuilder::new_3d(8, 8, 8)
+            .chunk_size(4)
+            .build();
+        let mut grid = crate::grid::Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        grid.build();
+
+        // Test max_distance
+
+        let start = UVec3::new(0, 0, 0);
+        let goal = UVec3::new(7, 7, 7);
+
+        let mut search_limits = SearchLimits {
+            boundary: None,
+            distance: Some(5), // Limit to a max distance of 5
+            partial: false,
+        };
+
+        let path = thetastar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        );
+
+        assert!(path.is_none());
+
+        // Test Partial
+
+        search_limits.partial = true;
+
+        let path = thetastar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.path[1], UVec3::new(5, 5, 5));
+        // Test boundary
+
+        search_limits.boundary = Some(NavRegion {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(4, 4, 4),
+        });
+
+        let path = thetastar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.path[1], UVec3::new(4, 4, 4));
     }
 }
