@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">12.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html" class="active"><strong aria-hidden="true">13.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Navigation Masks</li><li class="chapter-item expanded "><a href="../navigation_masks.html"><strong aria-hidden="true">12.</strong> Navigation Masks</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">13.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html" class="active"><strong aria-hidden="true">14.</strong> From v0.2.X to v0.3.X</a></li><li class="chapter-item expanded "><a href="../migrations/002_v0.4.0.html"><strong aria-hidden="true">15.</strong> From v0.3.X to v0.4.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -147,10 +147,7 @@
 <h2 id="gridsettings--gridsettingsbuilder"><a class="header" href="#gridsettings--gridsettingsbuilder">GridSettings → GridSettingsBuilder</a></h2>
 <p><code>GridSettings</code> has been replaced with <code>GridSettingsBuilder</code>.</p>
 <p>Replace</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let grid_settings = GridSettings {
+<pre><code class="language-rust no_run ignore">let grid_settings = GridSettings {
     width: 16,
     height: 16,
     chunk_size: 4,
@@ -159,51 +156,40 @@
 }
 
 let grid = CardinalGrid::new(&amp;grid_settings);
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>with</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let grid_settings = GridSettingsBuilder::new_2d(16, 16)
+<pre><code class="language-rust no_run ignore">let grid_settings = GridSettingsBuilder::new_2d(16, 16)
     .chunk_size(4)
     .enable_collision()
-    .build()
+    .build();
 
 let grid = CardinalGrid::new(&amp;grid_settings);
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h2 id="gridpos--agentpos"><a class="header" href="#gridpos--agentpos">GridPos → AgentPos</a></h2>
 <p><code>GridPos</code> has been renamed to <code>AgentPos</code>. This is just a simple rename for clarity.</p>
 <h2 id="point--navcell-nav--wall---passable-impassable"><a class="header" href="#point--navcell-nav--wall---passable-impassable">Point → NavCell, Nav | Wall -&gt; Passable, Impassable</a></h2>
 <p><code>Point</code> has been reworked for clarity. <code>Point</code> has been renamed to <code>NavCell</code> but the API has been updated to remove user's need to interact with <code>NavCell</code> for normal use.</p>
 <p><code>Grid</code> functions now take the <code>Nav</code> enum to definite mobility and movement cost for a <code>Grid</code> cell.</p>
 <p>Replace</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Creates a wall at grid cell 8,8,0
+<pre><code class="language-rust no_run ignore">import bevy_northstar::prelude::*;
+
+let grid_settings = GridSettingsBuilder::new_2d(16, 16, 0);
+let mut grid = CardinalGrid::new(&amp;grid_settings);
+
+// Creates a wall at grid cell 8,8,0
 grid.set_point(UVec3::new(8, 8, 0), Point::new(u32::MAX, true));
 // Set the cost for a passable grid cell
 grid.set_point(UVec3::new(4, 4, 0), Point::new(4, false));
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>with</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
+<pre><code class="language-rust no_run ignore">grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
 grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h2 id="pathfind-component-rework-new-pathfindmode"><a class="header" href="#pathfind-component-rework-new-pathfindmode">Pathfind Component Rework, New PathfindMode</a></h2>
 <p>The <code>Pathfind</code> component has been reworked with chaining setup functions to ensure configuration can be added in the future without breaking changes.</p>
 <p><code>PathfindMode</code> enum was added set which pathfinding method is desired.</p>
 <p>Before</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// You may have forced an A* path like this before
+<pre><code class="language-rust no_run ignore">// You may have forced an A* path like this before
 .insert(Pathfind {
     goal: UVec3::new(8, 8, 0),
     use_astar: true,
@@ -212,27 +198,19 @@ grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
 .insert(Pathfind::new(UVec3::new(8, 8, 0)))
 // shorthand A*
 .insert(Pathfind::new_astar(UVec3::new(8, 8, 4)))
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>Is now</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>.insert(Pathfind::new(UVec3::(8, 8, 0).mode(PathfindMode::AStar)))
+<pre><code class="language-rust no_run ignore">.insert(Pathfind::new(UVec3::(8, 8, 0).mode(PathfindMode::AStar)))
 
 // You can use the new_2d and new_3d constructors without creating a UVec as well
 .insert(Pathfind::new_2d(8, 8))
 .insert(Pathfind::new_3d(8, 8, 4).mode(PathfindMode::AStar))
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h2 id="debugmap--debuggrid-debuggridbuilder--debugoffset"><a class="header" href="#debugmap--debuggrid-debuggridbuilder--debugoffset">DebugMap → DebugGrid, DebugGridBuilder, &amp; DebugOffset</a></h2>
 <p><code>DebugMap</code> has been renamed to <code>DebugGrid</code> for clarity and a builder pattern has been added to make it cleaner to configure.</p>
 <p>It was recommended before to put <code>DebugMap</code> as the child of your <code>Grid</code> entity, but it is now <strong>required</strong>.</p>
 <p>Change</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>grid_entity.with_child((
+<pre><code class="language-rust no_run ignore">grid_entity.with_child((
     DebugMap {
         tile_width: 8,
         tile_height: 8,
@@ -244,13 +222,9 @@ grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
     },
     Transform::from_translation(offset.extend(0.0)),
 ));
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>to</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>grid_entity.with_child((
+<pre><code class="language-rust no_run ignore">grid_entity.with_child((
     DebugGridBuilder::new(8, 8)
         .enable_chunks()
         .enable_entrances()
@@ -258,33 +232,24 @@ grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
     // Add the offset to the debug gizmo so that it aligns with your tilemap.
     DebugOffset(Vec2::new(-360.0, -500.0)),
 ));
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p><code>DebugMapType</code> has been renamed to <code>DebugTilemapType</code>. You only need to set it if you're using isometric. <code>DebugGridBuilder::new(8, 8).isometric().build()</code>.</p>
 <h2 id="debugpath"><a class="header" href="#debugpath">DebugPath</a></h2>
 <p><code>tile_width</code>, <code>tile_height</code>, and <code>map_type</code> has been removed from the <code>DebugPath</code> component.</p>
 <p>These fields are now determined by getting the attached <code>DebugGrid</code> based on the entities relationship to the <code>Grid</code> component. Ensure that you add the <code>AgentOfGrid</code> relationship to your pathfinding (player/npc etc) entities.</p>
 <p>Replace</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>.insert(DebugPath {
+<pre><code class="language-rust no_run ignore">.insert(DebugPath {
     tile_width: 8,
     tile_height: 8,
     map_type: DebugMapType::Square,
     color,
     draw_unrefined: false,
 })
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>with</p>
-<pre><pre class="playground"><code class="language-rust no_run">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>.insert(DebugPath::new(color))
+<pre><code class="language-rust no_run ignore">.insert(DebugPath::new(color))
 .insert(AgentOfGrid(grid_entity))
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 
                     </main>
 
@@ -294,6 +259,9 @@ grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
+                                                    <a rel="next" href="../migrations/002_v0.4.0.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
                         <div style="clear: both"></div>
                     </nav>
@@ -305,6 +273,9 @@ grid.set_nav(UVec3::new(4, 4, 0), Nav::Passable(4));
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
+                                    <a rel="next" href="../migrations/002_v0.4.0.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                             </nav>
 
         </div>

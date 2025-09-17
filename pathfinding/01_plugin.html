@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html" class="active"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">12.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">13.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html" class="active"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Navigation Masks</li><li class="chapter-item expanded "><a href="../navigation_masks.html"><strong aria-hidden="true">12.</strong> Navigation Masks</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">13.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">14.</strong> From v0.2.X to v0.3.X</a></li><li class="chapter-item expanded "><a href="../migrations/002_v0.4.0.html"><strong aria-hidden="true">15.</strong> From v0.3.X to v0.4.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -180,6 +180,12 @@ See below for a list of <code>PathfindMode</code>s and their description.</p>
 <h4 id="partial"><a class="header" href="#partial"><code>partial()</code></a></h4>
 <p><code>Default: Not enabled</code></p>
 <p>Apply <code>.partial()</code> to request an incomplete path if the goal is not reachable. Ex: <code>Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()</code>.</p>
+<p>Will only work with AStar and ThetaStar. Refined, Coarse, and Waypoints use HPA* which doesn't handle partial paths easily.</p>
+<h4 id="search_regionnavregion"><a class="header" href="#search_regionnavregion"><code>search_region(NavRegion)</code></a></h4>
+<p>Provide a <code>NavRegion</code> and it will limit the pathfinding search so that it will be constrained inside the region. </p>
+<h4 id="max_distanceu32"><a class="header" href="#max_distanceu32"><code>max_distance(u32)</code></a></h4>
+<p>Sets a maximum search distance from the start position.<br />
+Useful for AI when searching for nearby goals or objects to prevent excessive searching if the goal cannot be reached.</p>
 <h2 id="nextpos"><a class="header" href="#nextpos">NextPos</a></h2>
 <p>The pathfind system detects entities with a changed <code>Pathfind</code> component. It then runs the pathfinding algorithm and, if a valid path is found, inserts the next step as a <code>NextPos</code> component.</p>
 <p>You should consume the <code>NextPos</code> component by moving the entity accordingly and then removing the component afterward. In a subsequent frame, the next_position system will insert the next <code>NextPos</code> if the path is not yet complete.</p>
@@ -258,6 +264,21 @@ fn handle_reroute_failed(
             .remove::&lt;RerouteFailed&gt;();
     }
 }
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="default-algorithm"><a class="header" href="#default-algorithm">Default Algorithm</a></h2>
+<p>By default, the pathfinding plugin systems use Refined HPA*.
+You can change this by setting a different <code>default_mode</code> in the plugin settings:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>App::new()
+    .insert_resource(NorthstarPluginSettings {
+        pathfind_settings: PathfindSettings {
+            default_mode: PathfindMode::AStar,
+        },
+        ..Default::default(),
+    })
 <span class="boring">}
 </span></code></pre></pre>
 <h2 id="pathingset"><a class="header" href="#pathingset">PathingSet</a></h2>

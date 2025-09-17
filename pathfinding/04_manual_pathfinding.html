@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html" class="active"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">12.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">13.</strong> From v0.2.X to v0.3.X</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Usage</li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../grid_settings.html"><strong aria-hidden="true">3.</strong> Grid Settings</a></li><li class="chapter-item expanded "><a href="../nav_data.html"><strong aria-hidden="true">4.</strong> Navigation Data</a></li><li class="chapter-item expanded "><a href="../grid_updates.html"><strong aria-hidden="true">5.</strong> Grid Updates</a></li><li class="chapter-item expanded affix "><li class="part-title">Pathfinding</li><li class="chapter-item expanded "><a href="../pathfinding/01_plugin.html"><strong aria-hidden="true">6.</strong> With NorthstarPlugin</a></li><li class="chapter-item expanded "><a href="../pathfinding/02_modes.html"><strong aria-hidden="true">7.</strong> Modes / Algorithms</a></li><li class="chapter-item expanded "><a href="../pathfinding/03_path.html"><strong aria-hidden="true">8.</strong> Path Component/Struct</a></li><li class="chapter-item expanded "><a href="../pathfinding/04_manual_pathfinding.html" class="active"><strong aria-hidden="true">9.</strong> Manual Pathfinding</a></li><li class="chapter-item expanded affix "><li class="part-title">Neighborhood</li><li class="chapter-item expanded "><a href="../neighborhood/01_neighborhoods.html"><strong aria-hidden="true">10.</strong> Neighborhoods</a></li><li class="chapter-item expanded "><a href="../neighborhood/02_filters.html"><strong aria-hidden="true">11.</strong> Filters</a></li><li class="chapter-item expanded affix "><li class="part-title">Navigation Masks</li><li class="chapter-item expanded "><a href="../navigation_masks.html"><strong aria-hidden="true">12.</strong> Navigation Masks</a></li><li class="chapter-item expanded affix "><li class="part-title">Debugging</li><li class="chapter-item expanded "><a href="../debugging.html"><strong aria-hidden="true">13.</strong> Debugging</a></li><li class="chapter-item expanded affix "><li class="part-title">Migration Guides</li><li class="chapter-item expanded "><a href="../migrations/001_v0.3.0.html"><strong aria-hidden="true">14.</strong> From v0.2.X to v0.3.X</a></li><li class="chapter-item expanded "><a href="../migrations/002_v0.4.0.html"><strong aria-hidden="true">15.</strong> From v0.3.X to v0.4.X</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -147,7 +147,7 @@
 <p>You don't need to use the pathfinding systems in the <code>NorthstarPlugin</code> in order to take advantage of this crate. </p>
 <p>You can use both, or choose to not add the <code>NorthstarPlugin</code> and call the pathfinding functions completely manually.</p>
 <p>If you don't use <code>NorthstarPlugin</code> you'll need to maintain your own <code>BlockingMap</code> or <code>HashMap&lt;UVec3, Entity&gt;</code> to pass to the <code>pathfind</code> function to provide it a list of blocked positions.</p>
-<p>All of the pathfinding calls can be done on the <code>Grid</code> component.</p>
+<p>All pathfinding can be done calling the <code>pathfind</code> method on the the <code>Grid</code> component.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -161,20 +161,68 @@
     let grid = grid.into_inner();
     let (player, grid_pos, move_action) = player.into_inner();
 
-    let path = grid.pathfind(grid_pos.0, move_action.0, blocking, false);
+    let path = grid.pathfind(
+        PathfindArgs::new(grid_pos.0, move_action.0)
+    );
 
-    // Setting use_partial to true will allow the pathfinding to return a partial path if a complete path isn't found.
-
-    // If you're not using collision you can pass an empty hashmap for the blocking map.
-    let path = grid.pathfind(grid_pos.0, move_action.0, HashMap::new(), true);
-
-    // There are also Coarse and AStar methods
-    let path = grid.pathfind_coarse(grid_pos.0, move_action.0, blocking, false);
-    let path = grid.pathfind_astar(grid_pos.0, move_action.0, blocking, false);
+    info!(&quot;Path {:?}&quot;, path);
 }
 <span class="boring">}
 </span></code></pre></pre>
 <p>The <code>Grid</code> pathfinding methods return an <code>Option&lt;Path&gt;</code>. <code>None</code> will be returned if no viable path is found.</p>
+<h2 id="pathfindargs"><a class="header" href="#pathfindargs">PathfindArgs</a></h2>
+<p><code>Grid::pathfind</code> takes <code>PathfindArgs</code> which works just like the <code>Pathfind</code> component to build the arguments for pathfinding.</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let args = PathfindArgs::new(start, goal).astar().max_distance(50);
+<span class="boring">}
+</span></code></pre></pre>
+<h4 id="newstart-uvec3-goal-uvec3---self"><a class="header" href="#newstart-uvec3-goal-uvec3---self"><code>new(start: UVec3, goal: UVec3) -&gt; Self</code></a></h4>
+<p>Construct <code>PathfindArgs</code> with the starting position and the goal position.</p>
+<h3 id="modes-algorithms"><a class="header" href="#modes-algorithms">Modes (Algorithms)</a></h3>
+<ul>
+<li>
+<p><code>refined()</code> (default)
+Uses HPA* and then refines the path with line tracing. Produces smooth, efficient paths.</p>
+</li>
+<li>
+<p><code>coarse()</code>
+Uses cached HPA* cluster data only. Extremely fast, but paths may be less accurate.</p>
+</li>
+<li>
+<p><code>waypoints()</code>
+Returns only the waypoints needed to navigate around obstacles. Useful for continuous movement systems (e.g., steering behaviors).</p>
+</li>
+<li>
+<p><code>astar()</code>
+Runs a standard grid-based A* search.</p>
+</li>
+<li>
+<p><code>thetastar()</code>
+Runs the Theta* any-angle algorithm. Produces fluid, natural-looking paths by cutting corners where possible.</p>
+</li>
+</ul>
+<p>Or, set directly with:</p>
+<pre><code>args.mode(PathfindMode::AStar);
+</code></pre>
+<h3 id="search-limits"><a class="header" href="#search-limits">Search Limits</a></h3>
+<p>You can constrain how far or where the algorithm searches:</p>
+<ul>
+<li>
+<p><code>partial()</code>
+If the goal cannot be reached, returns the closest path instead of failing.
+Note that this doesn't work with the default refined (HPA*) or waypoints algorithm as HPA* doesn't handle partial pathing well. You'll want to use this only with AStar or ThetaStar.</p>
+</li>
+<li>
+<p><code>max_distance(n: u32)</code>
+Stops searching after the set distance from the start. No path is returned if the goal is farther away. </p>
+</li>
+<li>
+<p><code>search_region(region: NavRegion)</code>
+Restricts the search to a given region.</p>
+</li>
+</ul>
 
                     </main>
 
