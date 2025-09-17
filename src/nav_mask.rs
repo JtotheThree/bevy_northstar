@@ -221,20 +221,6 @@ impl NavMaskData {
         self.cached_paths.get(&(start, end))
     }
 
-    /*pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
-        let translated_pos = pos.as_ivec3() - self.translation;
-
-        if translated_pos.x < 0 || translated_pos.y < 0 || translated_pos.z < 0 {
-            return None;
-        }
-
-        let translated_pos = translated_pos.as_uvec3();
-
-        self.layers
-            .iter()
-            .fold(prev, |cell, layer| layer.get(cell, translated_pos))
-    }*/
-
     pub(crate) fn get(&self, prev: NavCell, pos: UVec3) -> Option<NavCell> {
         if self.layers.is_empty() {
             return None;

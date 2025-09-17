@@ -42,6 +42,19 @@ pub enum PathfindMode {
 
 /// Insert [`Pathfind`] on an entity to pathfind to a goal.
 /// Once the plugin systems have found a path, [`NextPos`] will be inserted.
+///
+/// Example Usage:
+/// ```rust,no_run
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// #[derive(Component)]
+/// struct Player;
+///
+/// fn setup(player: Single<Entity, With<Player>>, mut commands: Commands) {
+///     let player = player.into_inner();
+///     commands.entity(player).insert(Pathfind::new_2d(10, 10).mode(PathfindMode::Waypoints));
+/// }
 #[derive(Component, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
@@ -402,6 +415,23 @@ impl DebugGrid {
 /// Builder for [`DebugGrid`].
 /// Use this to configure debugging for a grid before inserting it into your map entity.
 /// Insert the returned [`DebugGrid`] as a child of the entity with your [`crate::grid::Grid`] component.
+///
+/// Example Usage:
+/// ```rust,no_run
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// fn setup(mut commands: Commands) {
+///    commands
+///        .spawn(CardinalGrid::new(&grid_settings))
+///        // Spawn the debug grid as a child of the grid entity.
+///        .with_child((
+///            DebugGridBuilder::new(12, 12) // 12x12 tile pixel size.
+///                .enable_cells()
+///                .build(),
+///        ));
+/// }
+/// ```
 pub struct DebugGridBuilder {
     tile_width: u32,
     tile_height: u32,
@@ -416,7 +446,7 @@ pub struct DebugGridBuilder {
 }
 
 impl DebugGridBuilder {
-    /// Creates a new [`DebugGridBuilder`] with the specified tile width and height.
+    /// Creates a new [`DebugGridBuilder`] with the specified tile pixel width and height.
     pub fn new(tile_width: u32, tile_height: u32) -> Self {
         Self {
             tile_width,
