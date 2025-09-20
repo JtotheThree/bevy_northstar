@@ -2,9 +2,8 @@
 // Press ` to toggle the debug view, +/- to change the z depth of the debug view.
 // In the debug view hover over an entrance node to see its internal connections.
 
-use bevy::{log, prelude::*};
+use bevy::{log::{self, tracing_subscriber::layer}, prelude::*};
 use bevy_ecs_tiled::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
 
 mod shared;
@@ -77,7 +76,7 @@ pub const POSITION_TOLERANCE: f32 = 0.1;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugins(TiledMapPlugin::default())
+        .add_plugins(TiledPlugin::default())
         // Add the Northstar Plugin with an isometric neighborhood for 3D pathfinding.
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding.
@@ -128,10 +127,10 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_neighbor_filter(filter::NoCornerCuttingFlat)
         .build();
 
-    let map_handle: Handle<TiledMap> = asset_server.load("isotilemap.tmx");
+    let map_handle: Handle<TiledMapAsset> = asset_server.load("isotilemap.tmx");
 
     commands.spawn((
-        TiledMapHandle(map_handle),
+        TiledMap(map_handle),
         TilemapAnchor::Center,
         TilemapRenderSettings {
             render_chunk_size: UVec2::new(1, 1),
@@ -144,14 +143,19 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn tile_created(
-    trigger: Trigger<TiledTileCreated>,
+    trigger: Trigger<TiledEvent<TileCreated>>,
     mut query: Query<(&mut TileInfo, &TilePos)>,
     grid: Single<&mut OrdinalGrid3d>,
+    assets: Res<Assets<TiledMapAsset>>,
     mut commands: Commands,
 ) {
     let mut grid = grid.into_inner();
 
-    if let Ok((mut tile_info, tile_pos)) = query.get_mut(trigger.event().entity) {
+    let Some(layer_entity) = trigger.get_tile_entity() else {
+        return;
+    };
+
+    if let Ok((mut tile_info, tile_pos)) = query.get_mut(layer_entity) {
         // HACK: I'm not aware of anyway to know when all the tiles have been fully loaded.
         // There's a hiddden tile with a height of 99 in the corner of the map on layer 2
         // with a height of 99 that is used to determine the end of the tilemap loading.
@@ -160,10 +164,14 @@ fn tile_created(
             return;
         }
 
-        let layer = trigger.event().layer;
+        let layer = trigger.event().get_layer(&assets);
+        if layer.is_none() {
+            return;
+        }
+        let layer = layer.unwrap();
 
         // Treat the higher layers as having a higher height offset.
-        let layer_height_offset = match layer.id {
+        let layer_height_offset = match layer.id() {
             0 => 0,
             1 => 4,
             2 => 8,

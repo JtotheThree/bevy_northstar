@@ -5,6 +5,8 @@
 [![Crates.io](https://img.shields.io/crates/d/bevy_northstar)](https://crates.io/crates/bevy_northstar)
 [![Following released Bevy versions](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://bevyengine.org/learn/quick-start/plugin-development/#main-branch-tracking)
 
+Full documentation and guide: [Book](https://jtothethree.github.io/bevy_northstar/)
+
 ## A 2d/3d hierarchical pathfinding crate for Bevy. 
 
 `bevy_northstar` works by dividing the map into chunks and then calculates nodes based on the entrances between chunks. The nodes are used in pathfinding to get a higher level path that is significantly faster to calculate over long distances. Once the high level path is determined between a start and goal position it can be refined to get a more accurate path. The crate is designed to significantly reduce the performance hit of A* pathfinding on complex maps.

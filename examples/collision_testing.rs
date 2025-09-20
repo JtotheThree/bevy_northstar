@@ -9,7 +9,6 @@ use bevy::{
 use bevy_northstar::prelude::*;
 
 use bevy_ecs_tiled::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use rand::seq::IndexedRandom;
 
 mod shared;
@@ -33,7 +32,7 @@ fn main() {
             },
         })
         // bevy_ecs_tilemap and bevy_ecs_tiled main plugins
-        .add_plugins((TilemapPlugin, TiledMapPlugin::default()))
+        .add_plugins((TilemapPlugin, TiledPlugin::default()))
         // bevy_northstar plugins
         .add_plugins((
             NorthstarPlugin::<OrdinalNeighborhood>::default(),
@@ -92,9 +91,9 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Load the map ...
-    let map_handle: Handle<TiledMap> = asset_server.load("demo_16.tmx");
+    let map_handle: Handle<TiledMapAsset> = asset_server.load("demo_16.tmx");
 
-    let mut map_entity = commands.spawn((TiledMapHandle(map_handle), anchor));
+    let mut map_entity = commands.spawn((TiledMap(map_handle), anchor));
 
     let grid_settings = GridSettingsBuilder::new_2d(16, 16)
         .chunk_size(8)
@@ -120,8 +119,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn layer_created(
-    trigger: Trigger<TiledLayerCreated>,
-    map_asset: Res<Assets<TiledMap>>,
+    trigger: Trigger<TiledEvent<LayerCreated>>,
+    map_asset: Res<Assets<TiledMapAsset>>,
     grid: Single<&mut Grid<OrdinalNeighborhood>>,
     mut state: ResMut<NextState<shared::State>>,
 ) {
@@ -159,7 +158,7 @@ fn layer_created(
 fn spawn_minions(
     mut commands: Commands,
     grid: Single<(Entity, &Grid<OrdinalNeighborhood>)>,
-    layer_entity: Query<Entity, With<TiledMapTileLayer>>,
+    layer_entity: Query<Entity, With<TiledLayer>>,
     tilemap: Single<(
         &TilemapSize,
         &TilemapTileSize,
