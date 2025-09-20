@@ -77,13 +77,18 @@ Debugging paths for an entity requires you to add a `DebugPath` component to the
 Drawing the path gizmos also requires the `NorthstarDebugPlugin` to add the gizmo drawing system.
 
 ```rust,no_run
+
 commands.spawn((
     Name::new("Player"),
     DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
+    // Attach the entity to a grid. If AgentOfGrid is already present, you don’t need to add it again.
+    AgentOfGrid(grid_entity),
 ));
 ```
 
 If you would like to debug a directly created path (returned from `grid::pathfind()`) make sure you attach the returned `Path` component to your entity. If you're not using `NorthstarPlugin` you will also need to make sure the entity has an `AgentPos` component. This is the query filter used to debug paths `Query<(&DebugPath, &Path, &AgentOfGrid)>`.
+
+See [Getting Started](getting_started.md#quick-northstarplugin-pathfinding-system-usage) for more information on using `AgentOfGrid`.
 
 # DebugGridBuilder Settings
 

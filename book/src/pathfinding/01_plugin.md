@@ -42,7 +42,7 @@ Apply `.partial()` to request an incomplete path if the goal is not reachable. E
 Will only work with AStar and ThetaStar. Refined, Coarse, and Waypoints use HPA* which doesn't handle partial paths easily.
 
 #### `search_region(NavRegion)`
-Provide a `NavRegion` and it will limit the pathfinding search so that it will be constrained inside the region. 
+Provide a [NavRegion](https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html) and it will limit the pathfinding search so that it will be constrained inside the region. 
 
 #### `max_distance(u32)`
 Sets a maximum search distance from the start position.  

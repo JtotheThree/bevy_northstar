@@ -74,4 +74,4 @@ Note that this doesn't work with the default refined (HPA*) or waypoints algorit
 Stops searching after the set distance from the start. No path is returned if the goal is farther away. 
 
 * `search_region(region: NavRegion)`
-Restricts the search to a given region.
+Restricts the search to a given region. See [NavRegion](https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html).
