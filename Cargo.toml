@@ -20,13 +20,11 @@ stats = []
 parallel = ["rayon", "ndarray/rayon"]
 
 [dependencies]
-thiserror = "2.0.12"
-indexmap = "2.10.0"
+indexmap = "2.11.4"
 ndarray = { version = "0.16.1" }
-rayon = { version = "1.10.0", optional = true }
+rayon = { version = "1.11.0", optional = true }
 rustc-hash = "2.1.1"
-strum = "0.27.1"
-slab = "0.4.10"
+slab = "0.4.11"
 smallvec = "1.15.1"
 
 [dependencies.bevy]
