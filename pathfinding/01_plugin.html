@@ -182,7 +182,7 @@ See below for a list of <code>PathfindMode</code>s and their description.</p>
 <p>Apply <code>.partial()</code> to request an incomplete path if the goal is not reachable. Ex: <code>Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()</code>.</p>
 <p>Will only work with AStar and ThetaStar. Refined, Coarse, and Waypoints use HPA* which doesn't handle partial paths easily.</p>
 <h4 id="search_regionnavregion"><a class="header" href="#search_regionnavregion"><code>search_region(NavRegion)</code></a></h4>
-<p>Provide a <code>NavRegion</code> and it will limit the pathfinding search so that it will be constrained inside the region. </p>
+<p>Provide a <a href="https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html">NavRegion</a> and it will limit the pathfinding search so that it will be constrained inside the region. </p>
 <h4 id="max_distanceu32"><a class="header" href="#max_distanceu32"><code>max_distance(u32)</code></a></h4>
 <p>Sets a maximum search distance from the start position.<br />
 Useful for AI when searching for nearby goals or objects to prevent excessive searching if the goal cannot be reached.</p>

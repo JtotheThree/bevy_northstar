@@ -213,14 +213,18 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
+</span>
+<span class="boring">fn main() {
 </span>commands.spawn((
     Name::new(&quot;Player&quot;),
     DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
+    // Attach the entity to a grid. If AgentOfGrid is already present, you don’t need to add it again.
+    AgentOfGrid(grid_entity),
 ));
 <span class="boring">}
 </span></code></pre></pre>
 <p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
+<p>See <a href="getting_started.html#quick-northstarplugin-pathfinding-system-usage">Getting Started</a> for more information on using <code>AgentOfGrid</code>.</p>
 <h1 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h1>
 <h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
 <p>Sets the debug gizmos to draw in isometric perspective.</p>

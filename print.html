@@ -196,7 +196,7 @@
 <p>Add required dependencies to your <code>Cargo.toml</code> file:</p>
 <pre><code class="language-toml">[dependencies]
 bevy = &quot;0.16&quot;
-bevy_northstar = &quot;0.3&quot;
+bevy_northstar = &quot;0.4&quot;
 </code></pre>
 <h3 id="features"><a class="header" href="#features">Features</a></h3>
 <h4 id="stats"><a class="header" href="#stats"><code>Stats</code></a></h4>
@@ -204,7 +204,7 @@ bevy_northstar = &quot;0.3&quot;
 <h4 id="parallel-enabled-by-default"><a class="header" href="#parallel-enabled-by-default"><code>Parallel</code> <em>(Enabled by default)</em></a></h4>
 <p>Uses <code>rayon</code> to build the navigation grid in parallel. This greatly speeds up grid rebuilds, but may cause issues in WASM builds.
 To disable parallelism (e.g. for WASM support), disable default features:</p>
-<pre><code class="language-toml">bevy_northstar = { version = &quot;0.3&quot;, default-features = false }
+<pre><code class="language-toml">bevy_northstar = { version = &quot;0.4&quot;, default-features = false }
 </code></pre>
 <blockquote>
 <p><strong>⚠️ Warning</strong><br />
@@ -557,7 +557,7 @@ See below for a list of <code>PathfindMode</code>s and their description.</p>
 <p>Apply <code>.partial()</code> to request an incomplete path if the goal is not reachable. Ex: <code>Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()</code>.</p>
 <p>Will only work with AStar and ThetaStar. Refined, Coarse, and Waypoints use HPA* which doesn't handle partial paths easily.</p>
 <h4 id="search_regionnavregion"><a class="header" href="#search_regionnavregion"><code>search_region(NavRegion)</code></a></h4>
-<p>Provide a <code>NavRegion</code> and it will limit the pathfinding search so that it will be constrained inside the region. </p>
+<p>Provide a <a href="https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html">NavRegion</a> and it will limit the pathfinding search so that it will be constrained inside the region. </p>
 <h4 id="max_distanceu32"><a class="header" href="#max_distanceu32"><code>max_distance(u32)</code></a></h4>
 <p>Sets a maximum search distance from the start position.<br />
 Useful for AI when searching for nearby goals or objects to prevent excessive searching if the goal cannot be reached.</p>
@@ -802,7 +802,7 @@ Stops searching after the set distance from the start. No path is returned if th
 </li>
 <li>
 <p><code>search_region(region: NavRegion)</code>
-Restricts the search to a given region.</p>
+Restricts the search to a given region. See <a href="https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html">NavRegion</a>.</p>
 </li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="neighborhoods"><a class="header" href="#neighborhoods">Neighborhoods</a></h1>
@@ -1076,14 +1076,18 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
+</span>
+<span class="boring">fn main() {
 </span>commands.spawn((
     Name::new(&quot;Player&quot;),
     DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
+    // Attach the entity to a grid. If AgentOfGrid is already present, you don’t need to add it again.
+    AgentOfGrid(grid_entity),
 ));
 <span class="boring">}
 </span></code></pre></pre>
 <p>If you would like to debug a directly created path (returned from <code>grid::pathfind()</code>) make sure you attach the returned <code>Path</code> component to your entity. If you're not using <code>NorthstarPlugin</code> you will also need to make sure the entity has an <code>AgentPos</code> component. This is the query filter used to debug paths <code>Query&lt;(&amp;DebugPath, &amp;Path, &amp;AgentOfGrid)&gt;</code>.</p>
+<p>See <a href="getting_started.html#quick-northstarplugin-pathfinding-system-usage">Getting Started</a> for more information on using <code>AgentOfGrid</code>.</p>
 <h1 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h1>
 <h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
 <p>Sets the debug gizmos to draw in isometric perspective.</p>
