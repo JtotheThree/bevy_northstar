@@ -18,8 +18,6 @@ exclude = ["assets/*", "res/*"]
 default = ["parallel"]
 stats = []
 parallel = ["rayon", "ndarray/rayon"]
-voxel_world = ["bevy_voxel_world"]
-panorbit_cam = ["bevy_panorbit_camera"]
 
 [dependencies]
 indexmap = "2.11.4"
@@ -30,6 +28,7 @@ slab = "0.4.11"
 smallvec = "1.15.1"
 bevy_voxel_world = { version = "0.12.0", optional = true }
 bevy_panorbit_camera = { version = "0.28.0", optional = true }
+ndshape = { version = "0.3.0", optional = true }
 
 [dependencies.bevy]
 version = "0.16.1"
@@ -75,4 +74,4 @@ name = "freeform_movement"
 
 [[example]]
 name = "3d_voxel_world"
-required-features = ["voxel_world", "panorbit_cam"]
+required-features = ["bevy_voxel_world", "bevy_panorbit_camera", "ndshape"]

@@ -1,14 +1,15 @@
 // Example of a 3D voxel world using Bevy Northstar
-// right click to place blocks
 // left click to move player
 // g to rebuild the navigation grid
 // orbit camera via middle mouse
 // scroll wheel to zoom
 
-use bevy::prelude::*;
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy_northstar::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use bevy_voxel_world::custom_meshing::{generate_chunk_mesh, PaddedChunkShape, CHUNK_SIZE_U};
 use bevy_voxel_world::prelude::*;
+use ndshape::ConstShape;
 use std::sync::Arc;
 // Declare materials as consts for convenience
 const SNOWY_BRICK: u8 = 0;
@@ -16,17 +17,27 @@ const FULL_BRICK: u8 = 1;
 const GRASS: u8 = 2;
 
 // Animation tuning
-const LERP_SPEED: f32 = 10.0;
+const LERP_SPEED: f32 = 20.0;
 const POSITION_TOLERANCE: f32 = 0.01;
-const FLOOR_SIZE: u32 = 32;
+const FLOOR_SIZE: u32 = 64;
 const PLAYER_OFFSET: f32 = 0.5;
 
 #[derive(Resource, Clone, Default)]
 struct MyMainWorld;
 
+#[derive(Component, Clone)]
+struct ChunkNav {
+    passable: Vec<UVec3>,
+}
+
+#[derive(Bundle, Clone)]
+struct ChunkNavBundle {
+    nav: ChunkNav,
+}
+
 impl VoxelWorldConfig for MyMainWorld {
     type MaterialIndex = u8;
-    type ChunkUserBundle = ();
+    type ChunkUserBundle = ChunkNavBundle;
 
     fn texture_index_mapper(&self) -> Arc<dyn Fn(Self::MaterialIndex) -> [u32; 3] + Send + Sync> {
         Arc::new(|vox_mat: u8| match vox_mat {
@@ -38,6 +49,43 @@ impl VoxelWorldConfig for MyMainWorld {
 
     fn voxel_lookup_delegate(&self) -> VoxelLookupDelegate<Self::MaterialIndex> {
         Box::new(move |_chunk_pos| create_voxel_floor())
+    }
+
+    fn chunk_meshing_delegate(
+        &self,
+    ) -> ChunkMeshingDelegate<Self::MaterialIndex, Self::ChunkUserBundle> {
+        Some(Box::new(|pos: IVec3| {
+            Box::new(move |voxels, texture_index_mapper| {
+                // Use the crate's default meshing to build the mesh.
+                let mesh = generate_chunk_mesh(voxels.clone(), pos, texture_index_mapper);
+
+                // Build per-chunk navigation: cells are passable when Air above Solid.
+                let mut passable = Vec::new();
+                let base = (pos * CHUNK_SIZE_U as i32).as_uvec3();
+                for x in 0..CHUNK_SIZE_U {
+                    for z in 0..CHUNK_SIZE_U {
+                        for y in 0..CHUNK_SIZE_U {
+                            let above_local = UVec3::new(x + 1, y + 1, z + 1);
+                            let below_local = UVec3::new(x + 1, y, z + 1);
+                            let vox_above = voxels
+                                [PaddedChunkShape::linearize(above_local.to_array()) as usize];
+                            let vox_below = voxels
+                                [PaddedChunkShape::linearize(below_local.to_array()) as usize];
+                            if vox_above.is_air() && vox_below.is_solid() {
+                                passable.push(base + UVec3::new(x, y, z));
+                            }
+                        }
+                    }
+                }
+
+                (
+                    mesh,
+                    Some(ChunkNavBundle {
+                        nav: ChunkNav { passable },
+                    }),
+                )
+            })
+        }))
     }
 }
 
@@ -56,10 +104,10 @@ fn main() {
             (
                 update_cursor_cube,
                 mouse_button_input,
-                manual_rebuild_grid,
                 player_input_3d,
                 animate_move,
                 pathfind_error,
+                apply_chunk_nav_on_spawn,
             ),
         )
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
@@ -109,14 +157,24 @@ fn setup(
         },
     ));
 
-    // light
+    // Sun
+    let cascade_shadow_config = CascadeShadowConfigBuilder { ..default() }.build();
     commands.spawn((
-        PointLight {
+        DirectionalLight {
+            color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(16.0, 8.0, 16.0),
+        Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.1, 0.15), Vec3::Y),
+        cascade_shadow_config,
     ));
+
+    // Ambient light, same color as sun
+    commands.insert_resource(AmbientLight {
+        color: Color::srgb(0.98, 0.95, 0.82),
+        brightness: 100.0,
+        affects_lightmapped_meshes: true,
+    });
 
     //Debug grid
     // Build the grid settings: cover a larger area and keep flat z-depth.
@@ -179,7 +237,7 @@ fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
 fn create_voxel_floor() -> Box<dyn FnMut(IVec3) -> WorldVoxel + Send + Sync> {
     Box::new(move |pos: IVec3| {
         if pos.x > 0 && pos.z > 0 && pos.x < FLOOR_SIZE as i32 && pos.z < FLOOR_SIZE as i32 {
-            if pos.y < 1 {
+            if pos.y < 1 && pos.y > -3 {
                 return WorldVoxel::Solid(GRASS);
             }
             return WorldVoxel::Air;
@@ -253,51 +311,6 @@ fn mouse_button_input(
             grid.set_nav(vox.voxel_pos.as_uvec3(), Nav::Impassable);
             grid.build();
         }
-    }
-}
-
-// Allow manual rebuild of the navigation grid to cope with async terrain generation timing.
-// Press 'G' to (re)build the grid at any time.
-fn manual_rebuild_grid(
-    keys: Res<ButtonInput<KeyCode>>,
-    grid: Single<&mut OrdinalGrid3d>,
-    voxel_world: VoxelWorld<MyMainWorld>,
-) {
-    if keys.just_pressed(KeyCode::KeyG) {
-        let mut grid = grid.into_inner();
-        info!("Manual grid rebuild triggered (G)");
-        // Use chunk data to determine passable cells: any Air voxel directly above a Solid voxel
-        if let Some(chunk) = voxel_world.get_chunk_data(IVec3::new(0, 0, 0)) {
-            let x_max = FLOOR_SIZE.min(grid.width());
-            let y_max = grid.height();
-            let z_max = FLOOR_SIZE.min(grid.depth());
-
-            for x in 0..x_max {
-                for z in 0..z_max {
-                    // start at y = 1 so we can safely look at y-1
-                    for y in 1..y_max {
-                        // ChunkData stores a padded array; local index is world + 1
-                        let above_local = UVec3::new(x + 1, y + 1, z + 1);
-                        let below_local = UVec3::new(x + 1, y, z + 1);
-
-                        let vox_above = chunk.get_voxel(above_local);
-                        let vox_below = chunk.get_voxel(below_local);
-
-                        if vox_above.is_air() && vox_below.is_solid() {
-                            let world_pos = UVec3::new(x, y, z);
-                            if grid.in_bounds(world_pos) {
-                                grid.set_nav(world_pos, Nav::Passable(1));
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            warn!("Chunk (0,0,0) not loaded; cannot rebuild grid passability from chunk data");
-        }
-
-        grid.build();
-        info!("Grid rebuilt");
     }
 }
 
@@ -380,5 +393,27 @@ fn pathfind_error(query: Query<Entity, With<PathfindingFailed>>, mut commands: C
             .remove::<PathfindingFailed>()
             .remove::<Pathfind>()
             .remove::<NextPos>();
+    }
+}
+
+// Apply newly generated per-chunk navigation data to the grid when chunks are spawned/remeshed
+fn apply_chunk_nav_on_spawn(
+    mut grid: Single<&mut OrdinalGrid3d>,
+    nav_q: Query<&ChunkNav>,
+    mut ev_spawn: EventReader<ChunkWillSpawn<MyMainWorld>>,
+) {
+    let mut changed = false;
+    for evt in ev_spawn.read() {
+        if let Ok(nav) = nav_q.get(evt.entity) {
+            for &pos in &nav.passable {
+                if grid.in_bounds(pos) {
+                    grid.set_nav(pos, Nav::Passable(1));
+                    changed = true;
+                }
+            }
+        }
+    }
+    if changed {
+        grid.build();
     }
 }
