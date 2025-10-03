@@ -10,12 +10,28 @@ use std::collections::VecDeque;
 /// If using [`crate::plugin::NorthstarPlugin`] this is inserted as a component on an entity after the plugin
 /// systems have pathfound to the goal position.
 ///
+/// Example usage:
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_northstar::prelude::*;
+///
+/// fn example_path(grid: Single<&Grid<CardinalNeighborhood>>) {
+///    let grid = grid.into_inner();
+///
+///    let start = UVec3::new(0, 0, 0);
+///    let goal = UVec3::new(10, 0, 10);
+///
+///    let path = grid.pathfind(&mut PathfindArgs::new(start, goal)).unwrap();
+///    assert_eq!(path.cost(), 20);
+/// }
+/// ```
 #[derive(Debug, Clone, Component, Reflect)]
 pub struct Path {
     pub(crate) path: VecDeque<UVec3>,
     pub(crate) graph_path: VecDeque<UVec3>,
     cost: u32,
     is_reversed: bool,
+    is_partial: bool,
 }
 
 impl Path {
@@ -32,6 +48,7 @@ impl Path {
             graph_path: VecDeque::new(),
             cost,
             is_reversed: false,
+            is_partial: false,
         }
     }
 
@@ -48,6 +65,7 @@ impl Path {
             graph_path: VecDeque::new(),
             cost,
             is_reversed: false,
+            is_partial: false,
         }
     }
 
@@ -70,6 +88,12 @@ impl Path {
     /// ```
     pub fn path(&self) -> &[UVec3] {
         self.path.as_slices().0
+    }
+
+    /// Returns a mutable slice of the path positions.
+    /// You can manually alter the path using this slice.
+    pub fn as_mut_slices(&mut self) -> &mut [UVec3] {
+        self.path.as_mut_slices().0
     }
 
     /// Returns the HPA* high level graph path as a slice of `UVec3` positions.
@@ -115,6 +139,15 @@ impl Path {
         for pos in &mut self.path {
             *pos += offset;
         }
+    }
+
+    /// Returns true if the path is a partial path that was returned because the goal could not be reached.
+    pub fn is_partial(&self) -> bool {
+        self.is_partial
+    }
+
+    pub(crate) fn set_partial(&mut self, is_partial: bool) {
+        self.is_partial = is_partial;
     }
 }
 

@@ -79,19 +79,22 @@ impl NavCell {
     /// Returns an iterator over the neighboring positions that are passable.
     pub fn neighbor_iter(&self, pos: UVec3) -> impl Iterator<Item = UVec3> + '_ {
         let origin = pos.as_ivec3();
-        let standard = ORDINAL_3D_OFFSETS
-            .iter()
-            .enumerate()
-            .filter_map(move |(i, offset)| {
-                if (self.neighbor_bits >> i) & 1 != 0 {
-                    Some((origin + *offset).as_uvec3())
-                } else {
-                    None
-                }
-            });
 
-        let special = self.special_neighbors.clone().into_iter();
+        // Mask to only consider valid offset bits
+        let mut bits = self.neighbor_bits & ((1u32 << ORDINAL_3D_OFFSETS.len()) - 1);
 
+        let standard = std::iter::from_fn(move || {
+            if bits == 0 {
+                return None;
+            }
+
+            let i = bits.trailing_zeros() as usize;
+            bits &= bits - 1; // Clear the lowest set bit
+
+            Some((origin + ORDINAL_3D_OFFSETS[i]).as_uvec3())
+        });
+
+        let special = self.special_neighbors.iter().copied();
         standard.chain(special)
     }
 }

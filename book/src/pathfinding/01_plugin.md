@@ -39,6 +39,16 @@ See below for a list of `PathfindMode`s and their description.
 
 Apply `.partial()` to request an incomplete path if the goal is not reachable. Ex: `Pathfind::new_2d(4, 4).mode(PathfindMode::Astar).partial()`.
 
+Will only work with AStar and ThetaStar. Refined, Coarse, and Waypoints use HPA* which doesn't handle partial paths easily.
+
+#### `search_region(NavRegion)`
+Provide a [NavRegion](https://docs.rs/bevy_northstar/latest/bevy_northstar/struct.NavRegion.html) and it will limit the pathfinding search so that it will be constrained inside the region. 
+
+#### `max_distance(u32)`
+Sets a maximum search distance from the start position.  
+Useful for AI when searching for nearby goals or objects to prevent excessive searching if the goal cannot be reached.
+
+
 ## NextPos
 The pathfind system detects entities with a changed `Pathfind` component. It then runs the pathfinding algorithm and, if a valid path is found, inserts the next step as a `NextPos` component.
 
@@ -122,6 +132,20 @@ fn handle_reroute_failed(
             .remove::<RerouteFailed>();
     }
 }
+```
+
+## Default Algorithm
+By default, the pathfinding plugin systems use Refined HPA*.
+You can change this by setting a different `default_mode` in the plugin settings:
+
+```rust,no_run
+App::new()
+    .insert_resource(NorthstarPluginSettings {
+        pathfind_settings: PathfindSettings {
+            default_mode: PathfindMode::AStar,
+        },
+        ..Default::default(),
+    })
 ```
 
 ## PathingSet

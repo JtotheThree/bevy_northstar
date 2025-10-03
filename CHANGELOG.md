@@ -1,6 +1,16 @@
-## v0.3.3
-// TODO: Do I need to refactor NavMask get to send back an option instead??
-// TODO ON NAVMASK FLATTEN Useful for performance in theory, but in benches it's slower for some reason? I doubt having less layers would decrease perforamnce so there must be another issue.
+## v0.4.0
+
+**BREAKING**
+- `Grid::pathfind` now requires `PathfindArgs` as an argument. The other pathfinding methods on Grid have been removed. `Grid::pathfind` now handles all algorithms set in the arguments.
+
+See the [migration guide](https://jtothethree.github.io/bevy_northstar/migrations/002_v0.4.0.html) for more details on how to migrate.
+
+### Features
+- *Navigation Masks*: Per Agent masks can now be created to alter the cost or impassability only for that agent.
+- *Any-Angle Pathfinding*: Waypoint and Theta* algorithms. Designed for smooth movement and returns only the points needed to avoid walls. Waypoint uses HPA* and is ~10× faster than Theta* while returning similar paths.
+- Path refinement in HPA* is now anti-aliased to remove path jaggedness.
+- Set the default plugin pathfinding algorithm with `PathfindSettings`.
+- Lots of optimization.
 
 ## v0.3.2
 

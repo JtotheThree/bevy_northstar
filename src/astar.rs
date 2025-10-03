@@ -1,12 +1,13 @@
 //! A* algorithms used by the crate.
-use bevy::{log, math::UVec3};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use indexmap::map::Entry::{Occupied, Vacant};
 use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
     graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, FxIndexMap, SmallestCostHolder,
+    path::Path, size_hint_graph, size_hint_grid, FxIndexMap, NavRegion, SearchLimits,
+    SmallestCostHolder,
 };
 
 /// A* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -22,16 +23,34 @@ use crate::{
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn astar_grid<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
-    partial: bool,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
+    limits: SearchLimits,
 ) -> Option<Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let bounded = limits.boundary.is_some();
+    let boundary = limits.boundary.unwrap_or(NavRegion {
+        min: UVec3::ZERO,
+        max: UVec3::ZERO,
+    });
+
+    if bounded && !boundary.contains(start) {
+        return None;
+    }
+
+    let distance_limited = limits.distance.is_some();
+    let max_distance = limits.distance.unwrap_or(u32::MAX);
+
+    let size_hint = size_hint_grid(neighborhood, grid.shape(), start, goal);
+
+    let masked = !mask.layers.is_empty();
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -87,7 +106,19 @@ pub(crate) fn astar_grid<N: Neighborhood>(
         };
 
         for neighbor in neighbors {
+            if bounded && !boundary.contains(neighbor) {
+                continue;
+            }
+
             if !in_bounds_3d(neighbor, min, max) {
+                continue;
+            }
+
+            if blocking.contains_key(&neighbor) {
+                continue; // Skip blocked positions
+            }
+
+            if distance_limited && neighborhood.heuristic(start, neighbor) > max_distance {
                 continue;
             }
 
@@ -97,13 +128,22 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 neighbor.z as usize,
             ]];
 
-            let cell = mask.get(neighbor_cell.clone(), neighbor);
+            let (cost_value, is_impassable) = if masked {
+                if let Some(masked_cell) = mask.get(neighbor_cell.clone(), neighbor) {
+                    (masked_cell.cost, masked_cell.is_impassable())
+                } else {
+                    (neighbor_cell.cost, neighbor_cell.is_impassable())
+                }
+            } else {
+                (neighbor_cell.cost, neighbor_cell.is_impassable())
+            };
 
-            if cell.is_impassable() {
+            if is_impassable {
                 continue;
             }
 
-            let new_cost = cost + cell.cost;
+            let new_cost = cost + cost_value;
+
             let h;
             let n;
             match visited.entry(neighbor) {
@@ -131,7 +171,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
         }
     }
 
-    if partial {
+    if limits.partial {
         // If the goal is not reached, return the path to the closest node, but if the closest node is the start return None
 
         if closest_node == start {
@@ -172,14 +212,16 @@ pub(crate) fn astar_grid<N: Neighborhood>(
 ///
 /// # Returns
 /// * [`Option<Path>`] - An optional path object. If a path is found, it returns `Some(Path)`, otherwise it returns `None`.
+#[allow(dead_code)]
 pub(crate) fn astar_graph<N: Neighborhood>(
     neighborhood: &N,
     graph: &Graph,
     start: UVec3,
     goal: UVec3,
-    size_hint: usize,
 ) -> Option<Path> {
-    let mut to_visit = BinaryHeap::with_capacity(size_hint / 2);
+    let size_hint = size_hint_graph(neighborhood, graph, start, goal);
+
+    let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,
         cost: 0,
@@ -281,9 +323,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
-            false,
+            &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -315,9 +357,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
-            false,
+            &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -375,9 +417,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            64,
-            false,
+            &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -411,9 +453,9 @@ mod tests {
             &grid.view(),
             start,
             goal,
-            16,
-            false,
+            &HashMap::new(),
             &NavMaskData::new(),
+            SearchLimits::default(),
         )
         .unwrap();
 
@@ -472,7 +514,6 @@ mod tests {
             &graph,
             UVec3::new(0, 0, 0),
             UVec3::new(2, 2, 2),
-            64,
         )
         .unwrap();
 
@@ -482,5 +523,80 @@ mod tests {
         assert_eq!(path.path()[0], UVec3::new(0, 0, 0));
         // Ensure the last position is the goal position
         assert_eq!(path.path()[2], UVec3::new(2, 2, 2));
+    }
+
+    #[test]
+    fn test_astar_search_limits() {
+        let grid_settings = crate::grid::GridSettingsBuilder::new_3d(8, 8, 8)
+            .chunk_size(4)
+            .build();
+        let mut grid = crate::grid::Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        grid.build();
+
+        // Test max_distance
+
+        let start = UVec3::new(0, 0, 0);
+        let goal = UVec3::new(7, 7, 7);
+
+        let mut search_limits = SearchLimits {
+            boundary: None,
+            distance: Some(5), // Limit to a max distance of 5
+            partial: false,
+        };
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        );
+
+        assert!(path.is_none());
+
+        // Test Partial
+
+        search_limits.partial = true;
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.len(), 6);
+
+        // Test boundary
+
+        search_limits.boundary = Some(NavRegion {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(4, 4, 4),
+        });
+
+        let path = astar_grid(
+            &OrdinalNeighborhood3d {
+                filters: Vec::new(),
+            },
+            &grid.view(),
+            start,
+            goal,
+            &HashMap::new(),
+            &NavMaskData::new(),
+            search_limits,
+        )
+        .unwrap();
+
+        assert_eq!(path.len(), 5);
     }
 }

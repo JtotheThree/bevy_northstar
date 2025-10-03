@@ -6,6 +6,7 @@ use bevy::{color::palettes::css, math::Vec2, platform::collections::HashMap, pre
 use crate::{
     components::{DebugCursor, DebugGrid, DebugNode, DebugPath},
     grid::Grid,
+    nav_mask::NavMaskResult,
     neighbor::Neighborhood,
     path::Path,
     prelude::{AgentOfGrid, DebugDepthYOffsets, DebugOffset},
@@ -200,7 +201,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
 
                     if let Some(mask) = &debug_grid.debug_mask {
-                        if let Ok(masked_cell) =
+                        if let NavMaskResult::Masked(masked_cell) =
                             mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
                         {
                             cell = masked_cell;

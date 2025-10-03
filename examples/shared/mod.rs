@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::{ecs::query::QueryData, prelude::*};
 use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
@@ -12,7 +13,6 @@ pub struct Config {
 }
 
 // State used for the examples
-
 #[derive(Clone, Debug, Default, Hash, Eq, States, PartialEq)]
 pub enum State {
     #[default]
@@ -68,11 +68,8 @@ impl<N: Neighborhood + 'static> Plugin for SharedPlugin<N> {
 
 // Walkable is used to store walkable tiles in the grid
 // as a utility for spawning pathfinders.
-
 #[derive(Resource, Debug, Default)]
 pub struct Walkable {
-    #[allow(dead_code)]
-    // THIS IS NOT DEAD CODE. TF CLIPPY??
     pub tiles: Vec<Vec3>,
 }
 

@@ -13,7 +13,10 @@
 # Neighborhood
 - [Neighborhoods](./neighborhood/01_neighborhoods.md)
 - [Filters](./neighborhood/02_filters.md)
+# Navigation Masks
+- [Navigation Masks](./navigation_masks.md)
 # Debugging
 - [Debugging](./debugging.md)
 # Migration Guides
 - [From v0.2.X to v0.3.X](./migrations/001_v0.3.0.md)
+- [From v0.3.X to v0.4.X](./migrations/002_v0.4.0.md)

@@ -142,7 +142,9 @@ fn input(
             // We insert a Pathfind component with the goal position.
             // The pathfinding system will insert a NextPos component
             // on the next frame.
-            commands.entity(player).insert(Pathfind::new(goal));
+            commands
+                .entity(player)
+                .insert(Pathfind::new(goal).partial());
         }
     }
 
