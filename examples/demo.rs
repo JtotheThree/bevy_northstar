@@ -8,7 +8,6 @@ use bevy::{
 use bevy_northstar::prelude::*;
 
 use bevy_ecs_tiled::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use rand::seq::IndexedRandom;
 
 mod shared;
@@ -32,7 +31,7 @@ fn main() {
             },
         })
         // bevy_ecs_tilemap and bevy_ecs_tiled main plugins
-        .add_plugins((TilemapPlugin, TiledMapPlugin::default()))
+        .add_plugins(TiledPlugin::default())
         // bevy_northstar plugins
         .add_plugins((
             NorthstarPlugin::<OrdinalNeighborhood>::default(),
@@ -98,9 +97,9 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Load the map ...
-    let map_handle: Handle<TiledMap> = asset_server.load("demo_128.tmx");
+    let map_handle: Handle<TiledMapAsset> = asset_server.load("demo_128.tmx");
 
-    let mut map_entity = commands.spawn((TiledMapHandle(map_handle), anchor));
+    let mut map_entity = commands.spawn((TiledMap(map_handle), anchor));
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
         .chunk_size(16)
@@ -133,8 +132,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn layer_created(
-    trigger: Trigger<TiledLayerCreated>,
-    map_asset: Res<Assets<TiledMap>>,
+    trigger: On<TiledEvent<LayerCreated>>,
+    map_asset: Res<Assets<TiledMapAsset>>,
     grid: Single<&mut Grid<OrdinalNeighborhood>>,
     mut state: ResMut<NextState<shared::State>>,
 ) {
@@ -173,7 +172,7 @@ fn layer_created(
 fn spawn_minions(
     mut commands: Commands,
     grid: Single<(Entity, &Grid<OrdinalNeighborhood>)>,
-    layer_entity: Query<Entity, With<TiledMapTileLayer>>,
+    layer_entity: Query<Entity, With<TiledLayer>>,
     tilemap: Single<(
         &TilemapSize,
         &TilemapTileSize,
@@ -271,7 +270,7 @@ fn grid_move_pathfinders(
         &TilemapAnchor,
     )>,
     config: Res<shared::Config>,
-    mut tick_reader: EventReader<shared::Tick>,
+    mut tick_reader: MessageReader<shared::Tick>,
 ) {
     // Skip if we're doing Any Angle pathfinding
     match config.mode {
@@ -453,7 +452,7 @@ fn randomize_nav(
     config: Res<shared::Config>,
 ) {
     // Initialize the timer if it hasn't been already.
-    if timer.finished() && timer.duration().as_secs_f32() == 0.0 {
+    if timer.is_finished() && timer.duration().as_secs_f32() == 0.0 {
         // Set to repeat every few seconds by default.
         *timer = Timer::from_seconds(5.0, TimerMode::Repeating);
     }

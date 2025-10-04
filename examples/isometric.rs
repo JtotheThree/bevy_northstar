@@ -4,7 +4,6 @@
 
 use bevy::{log, prelude::*};
 use bevy_ecs_tiled::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use bevy_northstar::prelude::*;
 
 mod shared;
@@ -45,11 +44,11 @@ pub struct YSort(pub f32);
 pub struct Pivot(pub Vec2);
 
 // Event that lets other systems know to wait until animations are completed.
-#[derive(Debug, Event)]
+#[derive(Debug, Message)]
 pub struct AnimationWaitEvent;
 
 // Event that signals the completion of the tilemap loading.
-#[derive(Debug, Event)]
+#[derive(Debug, Event, Message)]
 pub struct LoadCompleteEvent;
 
 // Cursor resource to track the moused over tile
@@ -77,13 +76,13 @@ pub const POSITION_TOLERANCE: f32 = 0.1;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugins(TiledMapPlugin::default())
+        .add_plugins(TiledPlugin::default())
         // Add the Northstar Plugin with an isometric neighborhood for 3D pathfinding.
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding.
         .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood3d>::default())
-        .add_event::<LoadCompleteEvent>()
-        .add_event::<AnimationWaitEvent>()
+        .add_message::<LoadCompleteEvent>()
+        .add_message::<AnimationWaitEvent>()
         .add_systems(Startup, startup)
         .add_systems(
             PreUpdate,
@@ -128,10 +127,10 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_neighbor_filter(filter::NoCornerCuttingFlat)
         .build();
 
-    let map_handle: Handle<TiledMap> = asset_server.load("isotilemap.tmx");
+    let map_handle: Handle<TiledMapAsset> = asset_server.load("isotilemap.tmx");
 
     commands.spawn((
-        TiledMapHandle(map_handle),
+        TiledMap(map_handle),
         TilemapAnchor::Center,
         TilemapRenderSettings {
             render_chunk_size: UVec2::new(1, 1),
@@ -144,14 +143,14 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn tile_created(
-    trigger: Trigger<TiledTileCreated>,
+    trigger: On<TiledEvent<TileCreated>>,
     mut query: Query<(&mut TileInfo, &TilePos)>,
     grid: Single<&mut OrdinalGrid3d>,
     mut commands: Commands,
 ) {
     let mut grid = grid.into_inner();
 
-    if let Ok((mut tile_info, tile_pos)) = query.get_mut(trigger.event().entity) {
+    if let Ok((mut tile_info, tile_pos)) = query.get_mut(trigger.event().origin) {
         // HACK: I'm not aware of anyway to know when all the tiles have been fully loaded.
         // There's a hiddden tile with a height of 99 in the corner of the map on layer 2
         // with a height of 99 that is used to determine the end of the tilemap loading.
@@ -160,10 +159,10 @@ fn tile_created(
             return;
         }
 
-        let layer = trigger.event().layer;
+        let layer = trigger.get_layer_id().unwrap_or_default();
 
         // Treat the higher layers as having a higher height offset.
-        let layer_height_offset = match layer.id {
+        let layer_height_offset = match layer {
             0 => 0,
             1 => 4,
             2 => 8,
@@ -224,7 +223,7 @@ fn tile_created(
 }
 
 fn loading_complete(
-    _: Trigger<LoadCompleteEvent>,
+    _: On<LoadCompleteEvent>,
     map_query: Query<shared::MapQuery>,
     camera: Single<(&mut Transform, &mut Projection), With<Camera>>,
     grid: Single<(Entity, &mut OrdinalGrid3d)>,
@@ -509,7 +508,7 @@ fn warp(
 fn move_pathfinders(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AgentPos, &NextPos)>,
-    animation_reader: EventReader<AnimationWaitEvent>,
+    animation_reader: MessageReader<AnimationWaitEvent>,
 ) {
     if !animation_reader.is_empty() {
         return;
@@ -526,7 +525,7 @@ fn animate_move(
     mut query: Query<(&AgentPos, &mut Transform, &mut YSort)>,
     map_query: Query<shared::MapQuery>,
     time: Res<Time>,
-    mut ev_wait: EventWriter<AnimationWaitEvent>,
+    mut ev_wait: MessageWriter<AnimationWaitEvent>,
 ) {
     let map = map_query.iter().next().expect("No map found in the query");
 
