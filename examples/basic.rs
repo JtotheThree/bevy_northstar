@@ -144,7 +144,7 @@ fn input(
             // on the next frame.
             commands
                 .entity(player)
-                .insert(Pathfind::new(goal).partial());
+                .insert(Pathfind::new(goal));
         }
     }
 
