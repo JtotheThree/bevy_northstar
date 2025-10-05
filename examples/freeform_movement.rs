@@ -3,7 +3,6 @@ use bevy::{log, prelude::*};
 use bevy_northstar::prelude::*;
 
 use bevy_ecs_tiled::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 
 mod shared;
 
@@ -17,7 +16,7 @@ fn main() {
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding
         .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood>::default())
-        .add_plugins((TilemapPlugin, TiledMapPlugin::default()))
+        .add_plugins(TiledPlugin::default())
         .add_systems(Startup, startup)
         .add_systems(OnEnter(shared::State::Playing), spawn_player)
         .add_systems(
@@ -55,9 +54,9 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         translation: camera_offset,
         ..Default::default()
     });
-    let map_handle: Handle<TiledMap> = asset_server.load("demo_128.tmx");
+    let map_handle: Handle<TiledMapAsset> = asset_server.load("demo_128.tmx");
 
-    let mut map_entity = commands.spawn((TiledMapHandle(map_handle), anchor));
+    let mut map_entity = commands.spawn((TiledMap(map_handle), anchor));
 
     let grid_settings = GridSettingsBuilder::new_2d(128, 128)
         .chunk_size(16)
@@ -87,8 +86,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn layer_created(
-    trigger: Trigger<TiledLayerCreated>,
-    map_asset: Res<Assets<TiledMap>>,
+    trigger: On<TiledEvent<LayerCreated>>,
+    map_asset: Res<Assets<TiledMapAsset>>,
     grid: Single<&mut Grid<OrdinalNeighborhood>>,
     mut state: ResMut<NextState<shared::State>>,
 ) {
@@ -126,7 +125,7 @@ fn layer_created(
 fn spawn_player(
     mut commands: Commands,
     grid: Single<(Entity, &mut Grid<OrdinalNeighborhood>)>,
-    layer_entity: Query<Entity, With<TiledMapTileLayer>>,
+    layer_entity: Query<Entity, With<TiledLayer>>,
     tilemap: Single<(
         &TilemapSize,
         &TilemapTileSize,
