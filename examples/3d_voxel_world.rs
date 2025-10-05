@@ -4,7 +4,7 @@
 // orbit camera via middle mouse
 // scroll wheel to zoom
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{light::CascadeShadowConfigBuilder, prelude::*};
 use bevy_northstar::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_voxel_world::custom_meshing::{generate_chunk_mesh, PaddedChunkShape, CHUNK_SIZE_U};

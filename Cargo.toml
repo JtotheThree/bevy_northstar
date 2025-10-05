@@ -72,6 +72,6 @@ name = "nav_mask"
 [[example]]
 name = "freeform_movement"
 
-[[example]]
-name = "3d_voxel_world"
-required-features = ["bevy_voxel_world", "bevy_panorbit_camera", "ndshape"]
+#[[example]]
+#name = "3d_voxel_world"
+#required-features = ["bevy_voxel_world", "bevy_panorbit_camera", "ndshape"]
