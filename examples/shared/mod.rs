@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use bevy::{ecs::query::QueryData, prelude::*};
-use bevy_ecs_tilemap::prelude::*;
+use bevy_ecs_tiled::prelude::*;
 use bevy_northstar::prelude::*;
 
 // Config used for the examples
@@ -58,7 +58,7 @@ impl<N: Neighborhood + 'static> Plugin for SharedPlugin<N> {
                     update_debug_cursor.run_if(in_state(State::Playing)),
                 ),
             )
-            .add_event::<Tick>()
+            .add_message::<Tick>()
             .insert_state(State::Loading)
             .insert_resource(Walkable::default())
             .insert_resource(Stats::default())
@@ -74,11 +74,11 @@ pub struct Walkable {
 }
 
 // Timing tick
-#[derive(Event, Default)]
+#[derive(Message, Default)]
 pub struct Tick;
 
 // Generate a tick event 4x a second, unless paused.
-pub fn tick(time: Res<Time>, mut tick_writer: EventWriter<Tick>, config: Res<Config>) {
+pub fn tick(time: Res<Time>, mut tick_writer: MessageWriter<Tick>, config: Res<Config>) {
     if config.paused {
         return;
     }

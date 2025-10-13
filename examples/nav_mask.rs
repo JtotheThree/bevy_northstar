@@ -186,6 +186,6 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     }
 }
 
-fn app_exit(mut exit: EventWriter<AppExit>) {
+fn app_exit(mut exit: MessageWriter<AppExit>) {
     exit.write(AppExit::Success);
 }
