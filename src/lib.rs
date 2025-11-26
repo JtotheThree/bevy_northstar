@@ -52,7 +52,7 @@ pub mod prelude {
     pub use crate::MovementCost;
     pub use crate::NavRegion;
     pub use crate::SearchLimits;
-    pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d};
+    pub use crate::{CardinalGrid, CardinalGrid3d, OrdinalGrid, OrdinalGrid3d, CardinalIsoGrid};
 }
 
 /// Alias for movement cost type.
