@@ -197,6 +197,62 @@ impl Neighborhood for CardinalNeighborhood3d {
     }
 }
 
+/// Use `CardinalIsometricNeighborhood` for tile-based Cardinal 3d movment.
+/// It doesn't allow diagonal movement, but still allows vertical movement in a stair-like fashion.
+#[derive(Clone, Default)]
+pub struct CardinalIsoNeighborhood {
+    pub(crate) filters: Vec<Arc<dyn NeighborFilter + Send + Sync + 'static>>,
+}
+
+impl Neighborhood for CardinalIsoNeighborhood {
+    #[inline(always)]
+    fn directions(&self) -> &'static [(i32, i32, i32)] {
+        static DIRECTIONS: [(i32, i32, i32); 12] = [
+            (-1, 0, 0), // North
+            (-1, 0, 1), // North-Up
+            (-1, 0, -1), // North-Down
+            (1, 0, -1), // South-Down
+            (1, 0, 1), // South-Up
+            (1, 0, 0),  // South
+            (0, -1, 0), // West
+            (0, -1, 1), // West-Up
+            (0, -1, -1), // West-Down
+            (0, 1, -1), // East-Down
+            (0, 1, 1), // East-Up
+            (0, 1, 0),  // East
+        ];
+        &DIRECTIONS
+    }
+
+    #[inline(always)]
+    fn heuristic(&self, pos: UVec3, target: UVec3) -> u32 {
+        let dx = pos.x.abs_diff(target.x);
+        let dy = pos.y.abs_diff(target.y);
+        let dz = pos.z.abs_diff(target.z);
+        
+        // You need to move dx in X, dy in Y, and dz in Z
+        // You can combine one of (dx or dy) with dz, saving min(dx,dy,dz) moves
+        dx + dy + dz - dz.min(dx.min(dy))
+    }
+
+    fn from_settings(settings: &NeighborhoodSettings) -> Self {
+        Self {
+            filters: settings.filters.clone(),
+        }
+    }
+
+    #[inline(always)]
+    fn settings(&self) -> Option<NeighborhoodSettings> {
+        Some(NeighborhoodSettings {
+            filters: self.filters.clone(),
+        })
+    }
+
+    fn filters(&self) -> &[Arc<dyn NeighborFilter + Send + Sync + 'static>] {
+        &self.filters
+    }
+}
+
 /// Use `OrdinalNeighborhood` for 2D pathfinding with diagonal movement.
 /// This neighborhood allows movement in all 8 directions.
 #[derive(Clone, Default)]

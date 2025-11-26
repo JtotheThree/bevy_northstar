@@ -66,6 +66,8 @@ pub type CardinalGrid3d = grid::Grid<neighbor::CardinalNeighborhood3d>;
 pub type OrdinalGrid = grid::Grid<neighbor::OrdinalNeighborhood>;
 /// Alias for a 3d OrdinalNeighborhood grid. Allows all 26 directions.
 pub type OrdinalGrid3d = grid::Grid<neighbor::OrdinalNeighborhood3d>;
+/// Alias for a 3d CardinalIsoNeighborhood grid. Allows movement only cardinal movement while still allowing stairing.
+pub type CardinalIsoGrid = grid::Grid<neighbor::CardinalIsoNeighborhood>;
 
 /// No pathing failure markers
 pub type WithoutPathingFailures = (
