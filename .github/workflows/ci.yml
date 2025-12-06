@@ -30,6 +30,9 @@ jobs:
       - name: Populate target directory from cache
         uses: Leafwing-Studios/cargo-cache@v2
 
+      - name: Limit parallelism
+        run: echo "export CARGO_BUILD_JOBS=1" >> $GITHUB_ENV echo "export RUSTFLAGS='-C codegen-units=1'" >> $GITHUB_ENV
+
       - name: Run tests
         run: |
           # Run tests for single-threaded.
