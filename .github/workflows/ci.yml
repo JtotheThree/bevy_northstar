@@ -25,13 +25,23 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends \
+            libasound2-dev \
+            libudev-dev \
+            libx11-dev \
+            libxi-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxss-dev \
+            libxtst-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgtk-3-dev
 
       - name: Populate target directory from cache
         uses: Leafwing-Studios/cargo-cache@v2
-
-      - name: Limit parallelism
-        run: echo "export CARGO_BUILD_JOBS=1" >> $GITHUB_ENV echo "export RUSTFLAGS='-C codegen-units=1'" >> $GITHUB_ENV
 
       - name: Run tests
         run: |
