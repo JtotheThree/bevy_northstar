@@ -195,8 +195,8 @@
 <h2 id="cargo-setup"><a class="header" href="#cargo-setup">Cargo Setup</a></h2>
 <p>Add required dependencies to your <code>Cargo.toml</code> file:</p>
 <pre><code class="language-toml">[dependencies]
-bevy = &quot;0.16&quot;
-bevy_northstar = &quot;0.4&quot;
+bevy = &quot;0.17&quot;
+bevy_northstar = &quot;0.5&quot;
 </code></pre>
 <h3 id="features"><a class="header" href="#features">Features</a></h3>
 <h4 id="stats"><a class="header" href="#stats"><code>Stats</code></a></h4>
@@ -204,7 +204,7 @@ bevy_northstar = &quot;0.4&quot;
 <h4 id="parallel-enabled-by-default"><a class="header" href="#parallel-enabled-by-default"><code>Parallel</code> <em>(Enabled by default)</em></a></h4>
 <p>Uses <code>rayon</code> to build the navigation grid in parallel. This greatly speeds up grid rebuilds, but may cause issues in WASM builds.
 To disable parallelism (e.g. for WASM support), disable default features:</p>
-<pre><code class="language-toml">bevy_northstar = { version = &quot;0.4&quot;, default-features = false }
+<pre><code class="language-toml">bevy_northstar = { version = &quot;0.5&quot;, default-features = false }
 </code></pre>
 <blockquote>
 <p><strong>⚠️ Warning</strong><br />
@@ -813,6 +813,9 @@ Restricts the search to a given region. See <a href="https://docs.rs/bevy_norths
 <p>Allows movement in all six cardinal directions in 3D space: <strong>North, East, South, West, Up, and Down</strong>.
 This 3D neighborhood is also well-suited for 2D tilemap games with height layers, such as isometric maps.</p>
 <p><img src="neighborhood/../images/cardinalneighborhood3d.png" alt="Cardinal3d Directions" /></p>
+<h3 id="cardinalisoneighborhood"><a class="header" href="#cardinalisoneighborhood">CardinalIsoNeighborhood</a></h3>
+<p>Cardinal movement meant for isometric games. Allows 4 directions <strong>North, East, South, West</strong> while also allowing
+diagonal vertical movement. This allows the character to transition heights without allowing direct up and down movement.</p>
 <h3 id="ordinalneighborhood"><a class="header" href="#ordinalneighborhood">OrdinalNeighborhood</a></h3>
 <p>Extends cardinal movement by allowing diagonal movement in addition to the standard directions.</p>
 <p><img src="neighborhood/../images/ordinalneighborhood.png" alt="Ordinal Directions" /></p>
