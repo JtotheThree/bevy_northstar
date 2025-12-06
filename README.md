@@ -53,8 +53,8 @@ Add required dependencies to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bevy = "0.16"
-bevy_northstar = "0.3"
+bevy = "0.17"
+bevy_northstar = "0.5"
 ```
 
 The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the grid cells, and then call `Grid::build()` so the neighbors, chunk entrances, and internal paths can be calculated. 
@@ -64,6 +64,7 @@ To use the built-in pathfinding systems for the crate, insert the NorthstarPlugi
 The built-in neighborhoods are:
 * `CardinalNeighborhood` 4 directions allowing no diagonal movement.
 * `CardinalNeighborhood3d` 6 directions, including up and down, allowing no diagonal movement.
+* `CardinalIsoNeighborhood` 8 directions, similar to Cardinal 3d, except allows vertical diagonal movement.
 * `OrdinalNeighborhood` 8 directions allowing for diagonal movement.
 * `OrdinalNeighborhood3d` 26 directions which includes the base ordinal movements and their up/down directions.
 
@@ -123,6 +124,7 @@ opt-level = 3
 
 |bevy|bevy_northstar|
 |---|---|
+|0.17|0.5|
 |0.16|0.2/0.3/0.4|
 
 

@@ -13,6 +13,11 @@ This 3D neighborhood is also well-suited for 2D tilemap games with height layers
 
 ![Cardinal3d Directions](../images/cardinalneighborhood3d.png)
 
+### CardinalIsoNeighborhood
+
+Cardinal movement meant for isometric games. Allows 4 directions **North, East, South, West** while also allowing
+diagonal vertical movement. This allows the character to transition heights without allowing direct up and down movement.
+
 ### OrdinalNeighborhood
 
 Extends cardinal movement by allowing diagonal movement in addition to the standard directions.
