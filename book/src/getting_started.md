@@ -6,8 +6,8 @@ Add required dependencies to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bevy = "0.16"
-bevy_northstar = "0.4"
+bevy = "0.17"
+bevy_northstar = "0.5"
 ```
 
 ### Features
@@ -19,7 +19,7 @@ Enable statistics reporting, includes pathfinding, collision avoidance, and grid
 Uses `rayon` to build the navigation grid in parallel. This greatly speeds up grid rebuilds, but may cause issues in WASM builds.
 To disable parallelism (e.g. for WASM support), disable default features:
 ```toml
-bevy_northstar = { version = "0.4", default-features = false }
+bevy_northstar = { version = "0.5", default-features = false }
 ```
 > **⚠️ Warning**  
 > If you disable `parallel`, rebuilding the grid during gameplay (e.g. mining, explosions, etc.) can be quite expensive. You will want to confine your updates in a single frame to the least amount of affected chunks.

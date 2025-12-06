@@ -43,49 +43,67 @@ impl VoxelWorldConfig for MyMainWorld {
         Arc::new(|vox_mat: u8| match vox_mat {
             SNOWY_BRICK => [0, 1, 2],
             FULL_BRICK => [2, 2, 2],
-            GRASS | _ => [3, 3, 3],
+            GRASS => [3, 3, 3],
+            _ => [3, 3, 3],
         })
     }
 
     fn voxel_lookup_delegate(&self) -> VoxelLookupDelegate<Self::MaterialIndex> {
-        Box::new(move |_chunk_pos| create_voxel_floor())
+        Box::new(move |_chunk_pos, _world_pos, _lod| {
+            Box::new(move |pos: IVec3, _existing: Option<WorldVoxel>| {
+                if pos.x > 0 && pos.z > 0 && pos.x < FLOOR_SIZE as i32 && pos.z < FLOOR_SIZE as i32
+                {
+                    if pos.y < 1 && pos.y > -3 {
+                        return WorldVoxel::Solid(GRASS);
+                    }
+                    return WorldVoxel::Air;
+                }
+                WorldVoxel::Unset
+            })
+        })
     }
 
     fn chunk_meshing_delegate(
         &self,
     ) -> ChunkMeshingDelegate<Self::MaterialIndex, Self::ChunkUserBundle> {
-        Some(Box::new(|pos: IVec3| {
-            Box::new(move |voxels, texture_index_mapper| {
-                // Use the crate's default meshing to build the mesh.
-                let mesh = generate_chunk_mesh(voxels.clone(), pos, texture_index_mapper);
+        Some(Box::new(
+            |pos: IVec3, _lod, _data_shape, _mesh_shape, _previous| {
+                Box::new(
+                    move |voxels, _data_shape_in, _mesh_shape_in, texture_index_mapper| {
+                        // Use the crate's default meshing to build the mesh.
+                        let mesh = generate_chunk_mesh(voxels.clone(), pos, texture_index_mapper);
 
-                // Build per-chunk navigation: cells are passable when Air above Solid.
-                let mut passable = Vec::new();
-                let base = (pos * CHUNK_SIZE_U as i32).as_uvec3();
-                for x in 0..CHUNK_SIZE_U {
-                    for z in 0..CHUNK_SIZE_U {
-                        for y in 0..CHUNK_SIZE_U {
-                            let above_local = UVec3::new(x + 1, y + 1, z + 1);
-                            let below_local = UVec3::new(x + 1, y, z + 1);
-                            let vox_above = voxels
-                                [PaddedChunkShape::linearize(above_local.to_array()) as usize];
-                            let vox_below = voxels
-                                [PaddedChunkShape::linearize(below_local.to_array()) as usize];
-                            if vox_above.is_air() && vox_below.is_solid() {
-                                passable.push(base + UVec3::new(x, y, z));
+                        // Build per-chunk navigation: cells are passable when Air above Solid.
+                        let mut passable = Vec::new();
+                        let base = (pos * CHUNK_SIZE_U as i32).as_uvec3();
+                        for x in 0..CHUNK_SIZE_U {
+                            for z in 0..CHUNK_SIZE_U {
+                                for y in 0..CHUNK_SIZE_U {
+                                    let above_local = UVec3::new(x + 1, y + 1, z + 1);
+                                    let below_local = UVec3::new(x + 1, y, z + 1);
+                                    let vox_above =
+                                        voxels[PaddedChunkShape::linearize(above_local.to_array())
+                                            as usize];
+                                    let vox_below =
+                                        voxels[PaddedChunkShape::linearize(below_local.to_array())
+                                            as usize];
+                                    if vox_above.is_air() && vox_below.is_solid() {
+                                        passable.push(base + UVec3::new(x, y, z));
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                (
-                    mesh,
-                    Some(ChunkNavBundle {
-                        nav: ChunkNav { passable },
-                    }),
+                        (
+                            mesh,
+                            Some(ChunkNavBundle {
+                                nav: ChunkNav { passable },
+                            }),
+                        )
+                    },
                 )
-            })
-        }))
+            },
+        ))
     }
 }
 
@@ -96,7 +114,7 @@ fn main() {
         // This should just be a path to an image in your assets folder.
         .add_plugins(VoxelWorldPlugin::with_config(MyMainWorld))
         .add_plugins(PanOrbitCameraPlugin)
-        .add_event::<AnimationWaitEvent>()
+        .add_message::<AnimationWaitMsg>()
         .add_systems(Startup, (setup, create_voxel_scene))
         .add_systems(PreUpdate, move_pathfinders)
         .add_systems(
@@ -111,7 +129,6 @@ fn main() {
             ),
         )
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
-        .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood3d>::default())
         .run();
 }
 
@@ -124,8 +141,8 @@ struct CursorCube {
 pub struct Player;
 
 // Event that lets other systems know to wait until animations are completed.
-#[derive(Debug, Event)]
-pub struct AnimationWaitEvent;
+#[derive(Debug, Message)]
+pub struct AnimationWaitMsg;
 
 fn setup(
     mut commands: Commands,
@@ -176,7 +193,6 @@ fn setup(
         affects_lightmapped_meshes: true,
     });
 
-    //Debug grid
     // Build the grid settings: cover a larger area and keep flat z-depth.
     // Adjust sizes as needed; this should roughly cover the visible/interactive terrain.
     let grid_settings = GridSettingsBuilder::new_3d(FLOOR_SIZE, 16, FLOOR_SIZE)
@@ -193,15 +209,8 @@ fn setup(
         .build();
     // Call `build()` to return the component.
 
-    let debug_grid = DebugGridBuilder::new(2, 2)
-        .set_depth(2)
-        .tilemap_type(DebugTilemapType::Square)
-        .enable_chunks()
-        .enable_entrances()
-        .build();
     // Spawn the grid component
-    let mut grid_ec = commands.spawn(OrdinalGrid3d::new(&grid_settings));
-    grid_ec.with_child(debug_grid);
+    let grid_ec = commands.spawn(OrdinalGrid3d::new(&grid_settings));
     let grid_entity = grid_ec.id();
 
     // player
@@ -217,7 +226,6 @@ fn setup(
         // Northstar agent setup
         AgentPos(UVec3::new(9, 1, 9)),
         AgentOfGrid(grid_entity),
-        DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
     ));
 }
 
@@ -234,22 +242,10 @@ fn create_voxel_scene(mut voxel_world: VoxelWorld<MyMainWorld>) {
     voxel_world.set_voxel(IVec3::new(16, 2, 16), WorldVoxel::Solid(SNOWY_BRICK));
 }
 
-fn create_voxel_floor() -> Box<dyn FnMut(IVec3) -> WorldVoxel + Send + Sync> {
-    Box::new(move |pos: IVec3| {
-        if pos.x > 0 && pos.z > 0 && pos.x < FLOOR_SIZE as i32 && pos.z < FLOOR_SIZE as i32 {
-            if pos.y < 1 && pos.y > -3 {
-                return WorldVoxel::Solid(GRASS);
-            }
-            return WorldVoxel::Air;
-        }
-        return WorldVoxel::Unset;
-    })
-}
-
 fn update_cursor_cube(
     voxel_world_raycast: VoxelWorld<MyMainWorld>,
     camera_info: Query<(&Camera, &GlobalTransform), With<VoxelWorldCamera<MyMainWorld>>>,
-    mut cursor_evr: EventReader<CursorMoved>,
+    mut cursor_evr: MessageReader<CursorMoved>,
     mut cursor_cube: Query<(
         &mut Transform,
         &mut CursorCube,
@@ -280,10 +276,8 @@ fn update_cursor_cube(
                 if let Some(mat) = materials.get_mut(&material_handle.0) {
                     mat.base_color = Color::srgba_u8(255, 144, 124, 128);
                 }
-            } else {
-                if let Some(mat) = materials.get_mut(&material_handle.0) {
-                    mat.base_color = Color::srgba_u8(124, 144, 255, 128);
-                }
+            } else if let Some(mat) = materials.get_mut(&material_handle.0) {
+                mat.base_color = Color::srgba_u8(124, 144, 255, 128);
             }
         }
     }
@@ -342,7 +336,7 @@ fn player_input_3d(
 fn move_pathfinders(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AgentPos, &NextPos)>,
-    animation_reader: EventReader<AnimationWaitEvent>,
+    animation_reader: MessageReader<AnimationWaitMsg>,
 ) {
     if !animation_reader.is_empty() {
         return;
@@ -358,7 +352,7 @@ fn move_pathfinders(
 fn animate_move(
     mut query: Query<(&AgentPos, &mut Transform)>,
     time: Res<Time>,
-    mut ev_wait: EventWriter<AnimationWaitEvent>,
+    mut ev_wait: MessageWriter<AnimationWaitMsg>,
 ) {
     for (position, mut transform) in query.iter_mut() {
         let target = Vec3::new(
@@ -379,7 +373,7 @@ fn animate_move(
         };
 
         if animating {
-            ev_wait.write(AnimationWaitEvent);
+            ev_wait.write(AnimationWaitMsg);
         }
     }
 }
@@ -400,7 +394,7 @@ fn pathfind_error(query: Query<Entity, With<PathfindingFailed>>, mut commands: C
 fn apply_chunk_nav_on_spawn(
     mut grid: Single<&mut OrdinalGrid3d>,
     nav_q: Query<&ChunkNav>,
-    mut ev_spawn: EventReader<ChunkWillSpawn<MyMainWorld>>,
+    mut ev_spawn: MessageReader<ChunkWillSpawn<MyMainWorld>>,
 ) {
     let mut changed = false;
     for evt in ev_spawn.read() {

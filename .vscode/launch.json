@@ -136,6 +136,24 @@
                 "RUST_BACKTRACE": "1"
             },
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug 3d_voxel_world example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example",
+                    "3d_voxel_world",
+                ]
+            },
+            "args": [],
+            "env": {
+                "CARGO_MANIFEST_DIR": "${workspaceFolder}",
+                "RUST_BACKTRACE": "1"
+            },
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

@@ -208,18 +208,18 @@ impl Neighborhood for CardinalIsoNeighborhood {
     #[inline(always)]
     fn directions(&self) -> &'static [(i32, i32, i32)] {
         static DIRECTIONS: [(i32, i32, i32); 12] = [
-            (-1, 0, 0), // North
-            (-1, 0, 1), // North-Up
+            (-1, 0, 0),  // North
+            (-1, 0, 1),  // North-Up
             (-1, 0, -1), // North-Down
-            (1, 0, -1), // South-Down
-            (1, 0, 1), // South-Up
-            (1, 0, 0),  // South
-            (0, -1, 0), // West
-            (0, -1, 1), // West-Up
+            (1, 0, -1),  // South-Down
+            (1, 0, 1),   // South-Up
+            (1, 0, 0),   // South
+            (0, -1, 0),  // West
+            (0, -1, 1),  // West-Up
             (0, -1, -1), // West-Down
-            (0, 1, -1), // East-Down
-            (0, 1, 1), // East-Up
-            (0, 1, 0),  // East
+            (0, 1, -1),  // East-Down
+            (0, 1, 1),   // East-Up
+            (0, 1, 0),   // East
         ];
         &DIRECTIONS
     }
@@ -229,7 +229,7 @@ impl Neighborhood for CardinalIsoNeighborhood {
         let dx = pos.x.abs_diff(target.x);
         let dy = pos.y.abs_diff(target.y);
         let dz = pos.z.abs_diff(target.z);
-        
+
         // You need to move dx in X, dy in Y, and dz in Z
         // You can combine one of (dx or dy) with dz, saving min(dx,dy,dz) moves
         dx + dy + dz - dz.min(dx.min(dy))
