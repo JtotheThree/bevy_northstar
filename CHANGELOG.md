@@ -3,7 +3,7 @@
 
 ### Features
 - `CardinalIsoNeighborhood` added for better 3d isometric cardinal movement
-- `3d_voxel_world` example: Demonstrates 3d pathfinding. Thanks to @KarlsonxD for adding this!
+- `3d_voxel_world` example: Demonstrates 3d pathfinding. Thanks to [@KarlsonxD](https://github.com/JtotheThree/bevy_northstar/pull/34) for adding this!
 
 ## v0.4.0
 
