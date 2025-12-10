@@ -436,6 +436,7 @@ pub(crate) fn trim_path(
 }
 
 /// Extract waypoints from a path by checking for line of sight between nodes.
+/// Only accepts shortcuts if they have lower or equal cost to the original path segment.
 pub(crate) fn extract_waypoints<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
@@ -457,6 +458,16 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
         let mut found = false;
         for farthest in (i + 1..path.len()).rev() {
             let candidate = path.path[farthest];
+
+            // Calculate the cost of the original path segment from i to farthest
+            let mut original_segment_cost = 0u32;
+            for j in i..farthest {
+                let pos = path.path[j];
+                let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                let masked_cell = mask.get(cell_val.clone(), pos).unwrap_or(cell_val);
+                original_segment_cost += masked_cell.cost;
+            }
+
             if let Some(shortcut) = bresenham_path_internal(
                 grid,
                 path.path[i],
@@ -466,16 +477,22 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
                 true,
                 mask,
             ) {
+                // Calculate the cost of taking the shortcut
+                let mut shortcut_cost = 0u32;
                 for &pos in shortcut.iter().skip(1) {
                     let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
                     let masked_cell = mask.get(cell_val.clone(), pos).unwrap_or(cell_val);
-                    total_cost += masked_cell.cost;
+                    shortcut_cost += masked_cell.cost;
                 }
 
-                waypoints_path.push(candidate);
-                i = farthest;
-                found = true;
-                break;
+                // Only take the shortcut if it's cheaper or equal cost
+                if shortcut_cost <= original_segment_cost {
+                    total_cost += shortcut_cost;
+                    waypoints_path.push(candidate);
+                    i = farthest;
+                    found = true;
+                    break;
+                }
             }
         }
         if !found {

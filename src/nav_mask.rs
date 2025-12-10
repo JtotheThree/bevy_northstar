@@ -694,4 +694,93 @@ mod tests {
         modified_cell = process_mask(modified_cell, &NavCellMask::ModifyCost(-3));
         assert_eq!(modified_cell.nav, Nav::Passable(7));
     }
+
+    #[test]
+    fn test_waypoints_with_navmask_cost() {
+        use crate::{
+            grid::GridSettingsBuilder, neighbor::OrdinalNeighborhood3d, pathfind::PathfindArgs,
+            prelude::Grid,
+        };
+
+        let grid_settings = GridSettingsBuilder::new_2d(16, 16).chunk_size(4).build();
+        let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        grid.build();
+
+        let start = UVec3::new(2, 8, 0);
+        let goal = UVec3::new(13, 8, 0);
+
+        // Test without NavMask
+        let path_without_mask = grid
+            .pathfind(&mut PathfindArgs::new(start, goal).waypoints())
+            .expect("Should find path without mask");
+
+        println!("Path without mask: {:?}", path_without_mask.path());
+        println!(
+            "Path without mask length: {}",
+            path_without_mask.path().len()
+        );
+        println!("Path without mask cost: {}", path_without_mask.cost());
+
+        // Add the NavMask
+        let layer = NavMaskLayer::new();
+        layer
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
+                NavCellMask::ModifyCost(100),
+            )
+            .ok();
+
+        let mut mask = NavMask::new();
+        mask.add_layer(layer).unwrap();
+
+        // Path should route around the mask
+        let path_with_mask = grid
+            .pathfind(&mut PathfindArgs::new(start, goal).waypoints().mask(&mut mask))
+            .expect("Should find path with mask");
+
+        println!("\nPath with mask: {:?}", path_with_mask.path());
+        println!("Path with mask length: {}", path_with_mask.path().len());
+        println!("Path with mask cost: {}", path_with_mask.cost());
+
+        // Path with mask should route around the navmask because of cost.
+        let high_cost_region_y_min = 5;
+        let high_cost_region_y_max = 10;
+
+        let positions_in_high_cost_area: Vec<_> = path_with_mask
+            .path()
+            .iter()
+            .filter(|pos| {
+                pos.y >= high_cost_region_y_min
+                    && pos.y <= high_cost_region_y_max
+                    && pos.x >= 5
+                    && pos.x <= 10
+            })
+            .collect();
+
+        println!(
+            "\nPositions in high-cost area: {:?}",
+            positions_in_high_cost_area
+        );
+        println!(
+            "Count in high-cost area: {}",
+            positions_in_high_cost_area.len()
+        );
+
+        assert!(
+            positions_in_high_cost_area.len() < 3,
+            "Waypoint path should avoid high-cost region, but {} positions were in it",
+            positions_in_high_cost_area.len()
+        );
+
+        let has_detour = path_with_mask
+            .path()
+            .iter()
+            .any(|pos| pos.y < high_cost_region_y_min || pos.y > high_cost_region_y_max);
+
+        assert!(
+            has_detour,
+            "Waypoint path should detour around high-cost area"
+        );
+    }
 }
