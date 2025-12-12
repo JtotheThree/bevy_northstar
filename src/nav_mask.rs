@@ -709,19 +709,7 @@ mod tests {
         let start = UVec3::new(2, 8, 0);
         let goal = UVec3::new(13, 8, 0);
 
-        // Test without NavMask
-        let path_without_mask = grid
-            .pathfind(&mut PathfindArgs::new(start, goal).waypoints())
-            .expect("Should find path without mask");
-
-        println!("Path without mask: {:?}", path_without_mask.path());
-        println!(
-            "Path without mask length: {}",
-            path_without_mask.path().len()
-        );
-        println!("Path without mask cost: {}", path_without_mask.cost());
-
-        // Add the NavMask
+        // Add the NavMask with high cost
         let layer = NavMaskLayer::new();
         layer
             .insert_region_fill(
@@ -739,33 +727,12 @@ mod tests {
             .pathfind(&mut PathfindArgs::new(start, goal).waypoints().mask(&mut mask))
             .expect("Should find path with mask");
 
-        println!("\nPath with mask: {:?}", path_with_mask.path());
-        println!("Path with mask length: {}", path_with_mask.path().len());
-        println!("Path with mask cost: {}", path_with_mask.cost());
-
         // Path with mask should route around the navmask because of cost.
-        let high_cost_region_y_min = 5;
-        let high_cost_region_y_max = 10;
-
         let positions_in_high_cost_area: Vec<_> = path_with_mask
             .path()
             .iter()
-            .filter(|pos| {
-                pos.y >= high_cost_region_y_min
-                    && pos.y <= high_cost_region_y_max
-                    && pos.x >= 5
-                    && pos.x <= 10
-            })
+            .filter(|pos| pos.x >= 5 && pos.x <= 10 && pos.y >= 5 && pos.y <= 10)
             .collect();
-
-        println!(
-            "\nPositions in high-cost area: {:?}",
-            positions_in_high_cost_area
-        );
-        println!(
-            "Count in high-cost area: {}",
-            positions_in_high_cost_area.len()
-        );
 
         assert!(
             positions_in_high_cost_area.len() < 3,
@@ -776,7 +743,7 @@ mod tests {
         let has_detour = path_with_mask
             .path()
             .iter()
-            .any(|pos| pos.y < high_cost_region_y_min || pos.y > high_cost_region_y_max);
+            .any(|pos| pos.y < 5 || pos.y > 10);
 
         assert!(
             has_detour,
@@ -784,3 +751,4 @@ mod tests {
         );
     }
 }
+

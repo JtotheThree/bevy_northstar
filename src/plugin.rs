@@ -316,11 +316,16 @@ fn next_position<N: Neighborhood + 'static>(
 
         // If the entity still exists and is valid
         if let Ok((entity, mut path, position, pathfind, agent_mask)) = query.get_mut(entity) {
+            
             if position.0 == pathfind.goal {
                 commands.entity(entity).try_remove::<Path>();
                 commands.entity(entity).try_remove::<Pathfind>();
                 continue;
             }
+
+            #[cfg(test)]
+            log::info!("next_position processing entity, collision enabled: {}, path length: {}", 
+                grid.collision(), path.len());
 
             let next = if grid.collision() {
                 #[cfg(feature = "stats")]
@@ -608,16 +613,3 @@ fn update_blocking_map(
         blocking_map.0.insert(position.0, entity);
     }
 }
-
-/*fn prepare_navigation_mask(
-    user_mask: Option<&NavMask>,
-    blocking_mask: &BlockingMask,
-    collision_enabled: bool,
-) -> NavMask {
-    let base_mask = user_mask.cloned().unwrap_or_else(NavMask::new);
-
-    match (collision_enabled, &blocking_mask.0) {
-        (true, blocking_layer) => base_mask.with_additional_layer(blocking_layer.clone()),
-        _ => base_mask,
-    }
-}*/

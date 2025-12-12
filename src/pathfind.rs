@@ -359,7 +359,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 }
 
                 if waypoints {
-                    let waypoints_path = extract_waypoints(
+                    let mut waypoints_path = extract_waypoints(
                         &grid.neighborhood,
                         &grid.view(),
                         &Path::new(path, cost),
@@ -369,6 +369,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
                         log::warn!("Waypoints path is empty, returning None");
                         return None;
                     }
+
+                    // Remove the starting position from the waypoints path
+                    waypoints_path.path.pop_front();
 
                     return Some(waypoints_path);
                 }
@@ -460,8 +463,9 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
             let candidate = path.path[farthest];
 
             // Calculate the cost of the original path segment from i to farthest
+            // We skip the starting position (i) and include the ending position (farthest)
             let mut original_segment_cost = 0u32;
-            for j in i..farthest {
+            for j in (i + 1)..=farthest {
                 let pos = path.path[j];
                 let cell_val = grid[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
                 let masked_cell = mask.get(cell_val.clone(), pos).unwrap_or(cell_val);
