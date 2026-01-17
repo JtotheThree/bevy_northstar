@@ -57,7 +57,7 @@ features = ["bevy_gizmos", "bevy_log", "bevy_render"]
 bevy = { version = "0.18", features = ["bevy_dev_tools"] }
 bevy_ecs_tiled = { version = "0.11.2", features = ["user_properties"] }
 bevy_panorbit_camera = { version = "0.34.0" }
-bevy_voxel_world = { version = "0.14.0" }
+bevy_voxel_world = { git = "https://github.com/AndreRoelofs/bevy_voxel_world.git", branch = "bevy_18" }
 ndshape = { version = "0.3.0" }
 # bevy_ecs_tilemap = { version = "0.16" }
 # bevy_ecs_tiled = { git = "https://github.com/adrien-bon/bevy_ecs_tiled", branch="feat/bevy-0.17", features = ["user_properties"] }
