@@ -1,57 +1,16 @@
 [package]
 name = "bevy_northstar"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
-
 authors = ["John Mullins"]
 description = "A Bevy plugin for Hierarchical Pathfinding"
 homepage = "https://github.com/jtothethree/bevy_northstar"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/jtothethree/bevy_northstar"
-
 categories = ["game-development"]
-keywords = ["bevy", "pathfinding", "astar", "hpa", "game"]
+keywords = ["astar", "bevy", "game", "hpa", "pathfinding"]
 exclude = ["assets/*", "res/*"]
-
-[features]
-default = ["parallel"]
-stats = []
-parallel = ["rayon", "ndarray/rayon"]
-
-[dependencies]
-indexmap = "2.12.1"
-ndarray = { version = "0.17.1" }
-rayon = { version = "1.11.0", optional = true }
-rustc-hash = "2.1.1"
-slab = "0.4.10"
-smallvec = "1.15.1"
-
-[dependencies.bevy]
-version = "0.17"
-default-features = false
-features = ["bevy_render", "bevy_gizmos", "bevy_log"]
-
-[dev-dependencies]
-bevy = { version = "0.17", features = ["bevy_dev_tools"] }
-bevy_ecs_tiled = { version = "0.10.0", features = ["user_properties"] }
-bevy_voxel_world = { version = "0.14.0" }
-bevy_panorbit_camera = { version = "0.33.0" }
-ndshape = { version = "0.3.0" }
-# bevy_ecs_tilemap = { version = "0.16" }
-# bevy_ecs_tiled = { git = "https://github.com/adrien-bon/bevy_ecs_tiled", branch="feat/bevy-0.17", features = ["user_properties"] }
-
-[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
-tiled = { version = "0.15.0" }
-criterion = { version = "0.5.0" }
-pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
-
-rand = "0.9.2"
-
-[target.'cfg(not(target_os = "windows"))']
-[[bench]]
-name = "benches"
-harness = false
 
 [[example]]
 name = "demo"
@@ -76,3 +35,41 @@ name = "freeform_movement"
 [[example]]
 name = "3d_voxel_world"
 # required-features = ["bevy_voxel_world", "bevy_panorbit_camera", "ndshape"]
+
+[[bench]]
+harness = false
+name = "benches"
+
+[dependencies]
+indexmap = "2.12.1"
+ndarray = { version = "0.17.1" }
+rayon = { version = "1.11.0", optional = true }
+rustc-hash = "2.1.1"
+slab = "0.4.10"
+smallvec = "1.15.1"
+
+[dependencies.bevy]
+version = "0.18"
+default-features = false
+features = ["bevy_gizmos", "bevy_log", "bevy_render"]
+
+[dev-dependencies]
+bevy = { version = "0.18", features = ["bevy_dev_tools"] }
+bevy_ecs_tiled = { version = "0.11.2", features = ["user_properties"] }
+bevy_panorbit_camera = { version = "0.33.0" }
+bevy_voxel_world = { version = "0.14.0" }
+ndshape = { version = "0.3.0" }
+# bevy_ecs_tilemap = { version = "0.16" }
+# bevy_ecs_tiled = { git = "https://github.com/adrien-bon/bevy_ecs_tiled", branch="feat/bevy-0.17", features = ["user_properties"] }
+
+[target.'cfg(not(target_os = "windows"))']
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+criterion = { version = "0.5.0" }
+pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
+rand = "0.9.2"
+tiled = { version = "0.15.0" }
+
+[features]
+default = ["parallel"]
+parallel = ["ndarray/rayon", "rayon"]
+stats = []
