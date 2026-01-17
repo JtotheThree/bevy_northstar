@@ -56,7 +56,7 @@ features = ["bevy_gizmos", "bevy_log", "bevy_render"]
 [dev-dependencies]
 bevy = { version = "0.18", features = ["bevy_dev_tools"] }
 bevy_ecs_tiled = { version = "0.11.2", features = ["user_properties"] }
-bevy_panorbit_camera = { version = "0.33.0" }
+bevy_panorbit_camera = { version = "0.34.0" }
 bevy_voxel_world = { version = "0.14.0" }
 ndshape = { version = "0.3.0" }
 # bevy_ecs_tilemap = { version = "0.16" }
