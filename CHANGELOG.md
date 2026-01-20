@@ -1,3 +1,6 @@
+## v0.6.0
+- Bevy 0.18 Support
+
 ## v0.5.0
 - Bevy 0.17 Support
 
