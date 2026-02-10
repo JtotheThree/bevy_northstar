@@ -1,6 +1,9 @@
 # Navigation Masks
 Navigation masks are an advanced feature let you change the grid cell cost and impassability per agent on a per-call basis.
 
+> ⚠️ Warning: Navigation Masks do not work well with the Theta* pathfinding algorithm.
+> Due to the nature of the Theta* it would be astronomically expensive to handle custom masks.
+
 ## Navigation Mask Layers
 A `NavMaskLayer` defines a layer of navigation data masks. Layers are then combined in `NavMask`. This allows you to represent special conditions (e.g., water tiles, faction boundaries) and assign them to individual agents through masks.
 
