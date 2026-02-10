@@ -862,6 +862,10 @@ If this isn't desired you can apply the <code>DisallowZDiagonalMovement</code> f
 <p>TODO, for now please see <code>filters.rs</code> in the source.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="navigation-masks"><a class="header" href="#navigation-masks">Navigation Masks</a></h1>
 <p>Navigation masks are an advanced feature let you change the grid cell cost and impassability per agent on a per-call basis.</p>
+<blockquote>
+<p>⚠️ Warning: Navigation Masks do not work well with the Theta* pathfinding algorithm.
+Due to the nature of the Theta* it would be astronomically expensive to handle custom masks.</p>
+</blockquote>
 <h2 id="navigation-mask-layers"><a class="header" href="#navigation-mask-layers">Navigation Mask Layers</a></h2>
 <p>A <code>NavMaskLayer</code> defines a layer of navigation data masks. Layers are then combined in <code>NavMask</code>. This allows you to represent special conditions (e.g., water tiles, faction boundaries) and assign them to individual agents through masks.</p>
 <p>Most <code>NavMaskLayer</code> methods require a reference to a <code>Grid</code> to define bounds for caching data.</p>
