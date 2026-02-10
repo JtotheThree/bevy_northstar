@@ -1,3 +1,6 @@
+## v0.6.1
+- Fix for Waypoint refinement not factoring in cell cost accurately.
+
 ## v0.6.0
 - Bevy 0.18 Support
 
