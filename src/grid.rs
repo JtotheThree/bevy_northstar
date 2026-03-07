@@ -1231,7 +1231,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     all_connections.push((
                         world_start,
                         world_goal,
-                        Path::new(path_vec.clone(), path_vec.len() as u32),
+                        Path::new(path_vec.clone(), path.cost()),
                     ));
                 }
             }
@@ -1281,7 +1281,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         (
                             world_start,
                             world_goal,
-                            Path::new(path_vec.clone(), path_vec.len() as u32),
+                            Path::new(path_vec.clone(), path.cost()),
                         )
                     })
                 })
@@ -1339,7 +1339,8 @@ impl<N: Neighborhood + Default> Grid<N> {
                 {
                     // Check if neighbor is in a different chunk
                     if node.chunk_index != neighbor.chunk_index {
-                        let path = Path::from_slice(&[node.pos, neighbor.pos], 1);
+                        let cost = self.navcell(neighbor.pos).cost;
+                        let path = Path::from_slice(&[node.pos, neighbor.pos], cost);
 
                         connections.push((node.pos, neighbor.pos, path));
                     }

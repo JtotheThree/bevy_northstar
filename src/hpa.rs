@@ -74,7 +74,10 @@ pub(crate) fn hpa<N: Neighborhood>(
                 // Now rebuild the full path from cached paths
                 let full_path = rebuild_full_path(grid, &node_path, mask);
 
-                return Some(Path::new(full_path, current_cost));
+                let mut path = Path::new(full_path, current_cost);
+                path.graph_path = node_path.into_iter().collect();
+
+                return Some(path);
             }
 
             if cost > current_cost {
@@ -216,6 +219,7 @@ pub(crate) fn hpa<N: Neighborhood>(
 
         let closest_cost = visited.get(&closest_node).unwrap().1;
         let mut path = Path::new(full_path, closest_cost);
+        path.graph_path = node_path.into_iter().collect();
         path.set_partial(true);
         return Some(path);
     }

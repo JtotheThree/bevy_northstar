@@ -1,3 +1,11 @@
+## v0.6.2
+- Added a cost guard to djikstra neighbors which should speed up building the grid
+- Fixed graph pathing issues used in HPA* collision rerouting
+- Fixed coarse paths returning with the start position in front
+- Fixed some cost calculations in refinement after trimming
+- Fixed collision avoidance vec extension (minor)
+- Fixed edge cost in some scenarios (minor issue)
+
 ## v0.6.1
 - Fix for Waypoint refinement not factoring in cell cost accurately.
 

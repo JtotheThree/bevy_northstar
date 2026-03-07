@@ -300,6 +300,12 @@ pub(crate) fn pathfind<N: Neighborhood>(
                     goal_chunk,
                 );
 
+                // Recompute the cost after the trim
+                let node_path_cost: u32 = node_path.path.iter().skip(1).map(|pos| {
+                    let cell = grid.view()[[pos.x as usize, pos.y as usize, pos.z as usize]].clone();
+                    mask.get(cell.clone(), *pos).unwrap_or(cell).cost
+                }).sum();
+
                 let start_pos = node_path.path.front().unwrap();
                 let goal_pos = node_path.path.back().unwrap();
 
@@ -319,7 +325,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 } else {
                     path.extend(node_positions.iter());
                 }
-                cost += node_path.cost();
+                cost += node_path_cost;
 
                 // Add goal path to path (check for connection point overlap)
                 let end_path = goal_paths.get(&(goal_pos - goal_chunk.min())).unwrap();
@@ -354,7 +360,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 if !refined && !waypoints {
                     // If we're not refining, return the path as is
                     let mut path = Path::new(path, cost);
-                    path.graph_path = node_path.path;
+                    path.path.pop_front();
                     return Some(path);
                 }
 
@@ -387,7 +393,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
                 refined_path.path.pop_front();
 
                 // add the graph path to the refined path
-                refined_path.graph_path = node_path.path;
+                refined_path.graph_path = node_path.graph_path;
 
                 return Some(refined_path);
             }
