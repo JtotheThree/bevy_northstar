@@ -292,6 +292,10 @@ pub struct DebugGrid {
     pub depth: u32,
     /// The type of tilemap being used.
     pub map_type: DebugTilemapType,
+    /// Voxel size for use when [`DebugTilemapType::Square3d`] is set.
+    /// Grid coordinate `UVec3(x, y, z)` maps to world position `Vec3(x, y, z) * voxel_size + offset`.
+    /// Defaults to `1.0` (one grid unit = one world unit). Should work in most cases.
+    pub voxel_size: f32,
     /// Will outline the chunks that the grid is divided into.
     pub draw_chunks: bool,
     /// Will draw the [`crate::nav::NavCell`]s in your grid.
@@ -439,6 +443,7 @@ pub struct DebugGridBuilder {
     tile_height: u32,
     depth: u32,
     tilemap_type: DebugTilemapType,
+    voxel_size: f32,
     draw_chunks: bool,
     draw_cells: bool,
     draw_entrances: bool,
@@ -455,6 +460,7 @@ impl DebugGridBuilder {
             tile_height,
             depth: 0,
             tilemap_type: DebugTilemapType::Square,
+            voxel_size: 1.0,
             draw_chunks: false,
             draw_cells: false,
             draw_entrances: false,
@@ -481,6 +487,21 @@ impl DebugGridBuilder {
     /// Utility function to set the [`DebugGrid`] to draw in isometric.
     pub fn isometric(mut self) -> Self {
         self.tilemap_type = DebugTilemapType::Isometric;
+        self
+    }
+
+    /// Utility function to set the [`DebugGrid`] to draw in 3D voxel mode using [`DebugTilemapType::Square3d`].
+    /// All depth layers are rendered simultaneously using 3D gizmos.
+    pub fn square_3d(mut self) -> Self {
+        self.tilemap_type = DebugTilemapType::Square3d;
+        self
+    }
+
+    /// Voxel size for use when [`DebugTilemapType::Square3d`] is set.
+    /// Grid coordinate `UVec3(x, y, z)` maps to world position `Vec3(x, y, z) * voxel_size + offset`.
+    /// Defaults to `1.0` (one grid unit = one world unit). Should work in most cases.
+    pub fn voxel_size(mut self, size: f32) -> Self {
+        self.voxel_size = size;
         self
     }
 
@@ -533,6 +554,7 @@ impl DebugGridBuilder {
             tile_height: self.tile_height,
             depth: self.depth,
             map_type: self.tilemap_type,
+            voxel_size: self.voxel_size,
             draw_chunks: self.draw_chunks,
             draw_cells: self.draw_cells,
             draw_entrances: self.draw_entrances,

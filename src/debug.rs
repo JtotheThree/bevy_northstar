@@ -20,6 +20,8 @@ pub enum DebugTilemapType {
     Square,
     /// Isometric tilemap, where each tile is a diamond.
     Isometric,
+    /// True 3D grid. Renders the debug gizmos in 3d.
+    Square3d,
 }
 
 /// Debug plugin for the Northstar pathfinding library.
@@ -187,48 +189,99 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         }
                     }
                 }
+                DebugTilemapType::Square3d => {
+                    let voxel_size = debug_grid.voxel_size;
+                    let offset_3d = debug_offset.0;
+                    let chunk_depth_size = grid.chunk_depth();
+                    let z_chunks = grid.depth() / chunk_depth_size;
+                    let cs = chunk_size as f32 * voxel_size;
+                    let cd = chunk_depth_size as f32 * voxel_size;
+                    for cx in 0..chunk_width {
+                        for cy in 0..chunk_height {
+                            for cz in 0..z_chunks {
+                                let center = Vec3::new(
+                                    cx as f32 * cs + cs * 0.5,
+                                    cy as f32 * cs + cs * 0.5 + 1.0,
+                                    cz as f32 * cd + cd * 0.5,
+                                ) + offset_3d;
+                                let size = Vec3::new(cs, cs, cd);
+                                gizmos.cube(
+                                    Transform::from_translation(center).with_scale(size),
+                                    css::WHITE,
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
 
         if debug_grid.draw_cells {
-            if debug_grid.depth > grid.depth() {
-                continue;
-            }
-
-            // Draw cell gizmos
-            for x in 0..grid.width() {
-                for y in 0..grid.height() {
-                    let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
-
-                    if let Some(mask) = &debug_grid.debug_mask {
-                        if let NavMaskResult::Masked(masked_cell) =
-                            mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
-                        {
-                            cell = masked_cell;
+            match debug_grid.map_type {
+                DebugTilemapType::Square3d => {
+                    let voxel_size = debug_grid.voxel_size;
+                    let offset_3d = debug_offset.0;
+                    for x in 0..grid.width() {
+                        for y in 0..grid.height() {
+                            for z in 0..grid.depth() {
+                                let cell = grid.navcell(UVec3::new(x, y, z)).clone();
+                                if cell.is_impassable() {
+                                    continue;
+                                }
+                                let normalized_cost = cell.cost as f32 / u8::MAX as f32;
+                                let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
+                                let color = Color::srgb(1.0, other_colors, other_colors).to_srgba();
+                                let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5) * voxel_size
+                                    + offset_3d;
+                                gizmos.sphere(pos, voxel_size * 0.1, color);
+                            }
                         }
                     }
+                }
+                _ => {
+                    if debug_grid.depth > grid.depth() {
+                        continue;
+                    }
 
-                    let color = if cell.is_impassable() {
-                        css::RED
-                    } else {
-                        // Full white at 1 cost, and full green at u8::MAX cost.
-                        let normalized_cost = cell.cost as f32 / u8::MAX as f32;
-                        let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
-                        Color::srgb(1.0, other_colors, other_colors).to_srgba()
-                    };
+                    // Draw cell gizmos
+                    for x in 0..grid.width() {
+                        for y in 0..grid.height() {
+                            let mut cell =
+                                grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
 
-                    let position = match debug_grid.map_type {
-                        DebugTilemapType::Square => Vec2::new(
-                            (x * debug_grid.tile_width) as f32,
-                            (y * debug_grid.tile_height) as f32 + y_offset,
-                        ),
-                        DebugTilemapType::Isometric => Vec2::new(
-                            (y as f32 + x as f32) * half_tile_width,
-                            (y as f32 - x as f32) * half_tile_height - half_tile_height + y_offset,
-                        ),
-                    };
+                            if let Some(mask) = &debug_grid.debug_mask {
+                                if let NavMaskResult::Masked(masked_cell) =
+                                    mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
+                                {
+                                    cell = masked_cell;
+                                }
+                            }
 
-                    gizmos.circle_2d(position + offset, 2.0, color);
+                            let color = if cell.is_impassable() {
+                                css::RED
+                            } else {
+                                // Full white at 1 cost, and full green at u8::MAX cost.
+                                let normalized_cost = cell.cost as f32 / u8::MAX as f32;
+                                let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
+                                Color::srgb(1.0, other_colors, other_colors).to_srgba()
+                            };
+
+                            let position = match debug_grid.map_type {
+                                DebugTilemapType::Square => Vec2::new(
+                                    (x * debug_grid.tile_width) as f32,
+                                    (y * debug_grid.tile_height) as f32 + y_offset,
+                                ),
+                                DebugTilemapType::Isometric => Vec2::new(
+                                    (y as f32 + x as f32) * half_tile_width,
+                                    (y as f32 - x as f32) * half_tile_height - half_tile_height
+                                        + y_offset,
+                                ),
+                                DebugTilemapType::Square3d => unreachable!(),
+                            };
+
+                            gizmos.circle_2d(position + offset, 2.0, color);
+                        }
+                    }
                 }
             }
         }
@@ -236,63 +289,106 @@ fn draw_debug_map<N: Neighborhood + 'static>(
         if debug_grid.draw_entrances {
             // Draw graph nodes
             for node in grid.graph().nodes() {
-                let pos_offset = *debug_depth_offsets.get(&node.pos.z).unwrap_or(&0.0);
+                match debug_grid.map_type {
+                    DebugTilemapType::Square3d => {
+                        let voxel_size = debug_grid.voxel_size;
+                        let offset_3d = debug_offset.0;
+                        let pos = Vec3::new(
+                            node.pos.x as f32 + 0.5,
+                            node.pos.y as f32,
+                            node.pos.z as f32 + 0.5,
+                        ) * voxel_size
+                            + offset_3d;
 
-                let position = match debug_grid.map_type {
-                    DebugTilemapType::Square => Vec2::new(
-                        (node.pos.x * debug_grid.tile_width) as f32,
-                        (node.pos.y * debug_grid.tile_height) as f32 + pos_offset,
-                    ),
-                    DebugTilemapType::Isometric => Vec2::new(
-                        (node.pos.y as f32 + node.pos.x as f32) * half_tile_width,
-                        (node.pos.y as f32 - node.pos.x as f32) * half_tile_height
-                            - half_tile_height
-                            + pos_offset,
-                    ),
-                };
+                        gizmos.sphere(pos, voxel_size * 0.15, css::MAGENTA);
 
-                let color = if node.pos.z == debug_grid.depth {
-                    css::MAGENTA
-                } else {
-                    css::DARK_BLUE
-                };
+                        if debug_grid.show_connections_on_hover
+                            && debug_cursor.0 != Some(node.pos)
+                        {
+                            continue;
+                        }
 
-                gizmos.circle_2d(position + offset, 2.0, color);
+                        for edge in node.edges() {
+                            let neighbor = grid.graph().node_at(edge);
+                            if let Some(neighbor) = neighbor {
+                                if neighbor.chunk_index != node.chunk_index {
+                                    let neighbor_pos = Vec3::new(
+                                        neighbor.pos.x as f32 + 0.5,
+                                        neighbor.pos.y as f32,
+                                        neighbor.pos.z as f32 + 0.5,
+                                    ) * voxel_size
+                                        + offset_3d;
+                                    gizmos.line(pos, neighbor_pos, css::GREEN);
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        let pos_offset =
+                            *debug_depth_offsets.get(&node.pos.z).unwrap_or(&0.0);
 
-                // If draw_edges_on_mouseover is enabled, and this node isn't moused over, skip drawing edges
-                if debug_grid.show_connections_on_hover && debug_cursor.0 != Some(node.pos) {
-                    continue;
-                }
+                        let position = match debug_grid.map_type {
+                            DebugTilemapType::Square => Vec2::new(
+                                (node.pos.x * debug_grid.tile_width) as f32,
+                                (node.pos.y * debug_grid.tile_height) as f32 + pos_offset,
+                            ),
+                            DebugTilemapType::Isometric => Vec2::new(
+                                (node.pos.y as f32 + node.pos.x as f32) * half_tile_width,
+                                (node.pos.y as f32 - node.pos.x as f32) * half_tile_height
+                                    - half_tile_height
+                                    + pos_offset,
+                            ),
+                            DebugTilemapType::Square3d => unreachable!(),
+                        };
 
-                // Draw the node connection only to nodes in other chunks
-                for edge in node.edges() {
-                    let neighbor = grid.graph().node_at(edge);
-                    if let Some(neighbor) = neighbor {
-                        if neighbor.chunk_index != node.chunk_index {
-                            let neighbor_offset =
-                                *debug_depth_offsets.get(&neighbor.pos.z).unwrap_or(&0.0);
+                        let color = if node.pos.z == debug_grid.depth {
+                            css::MAGENTA
+                        } else {
+                            css::DARK_BLUE
+                        };
 
-                            let neighbor_position = match debug_grid.map_type {
-                                DebugTilemapType::Square => Vec2::new(
-                                    (neighbor.pos.x * debug_grid.tile_width) as f32,
-                                    (neighbor.pos.y * debug_grid.tile_height) as f32
-                                        + neighbor_offset,
-                                ),
-                                DebugTilemapType::Isometric => Vec2::new(
-                                    (neighbor.pos.y as f32 + neighbor.pos.x as f32)
-                                        * half_tile_width,
-                                    (neighbor.pos.y as f32 - neighbor.pos.x as f32)
-                                        * half_tile_height
-                                        - half_tile_height
-                                        + neighbor_offset,
-                                ),
-                            };
+                        gizmos.circle_2d(position + offset, 2.0, color);
 
-                            gizmos.line_2d(
-                                position + offset,
-                                neighbor_position + offset,
-                                css::GREEN,
-                            );
+                        // Skip if mouse hover isn't enabled
+                        if debug_grid.show_connections_on_hover
+                            && debug_cursor.0 != Some(node.pos)
+                        {
+                            continue;
+                        }
+
+                        // Draw the node connection only to nodes in other chunks
+                        for edge in node.edges() {
+                            let neighbor = grid.graph().node_at(edge);
+                            if let Some(neighbor) = neighbor {
+                                if neighbor.chunk_index != node.chunk_index {
+                                    let neighbor_offset = *debug_depth_offsets
+                                        .get(&neighbor.pos.z)
+                                        .unwrap_or(&0.0);
+
+                                    let neighbor_position = match debug_grid.map_type {
+                                        DebugTilemapType::Square => Vec2::new(
+                                            (neighbor.pos.x * debug_grid.tile_width) as f32,
+                                            (neighbor.pos.y * debug_grid.tile_height) as f32
+                                                + neighbor_offset,
+                                        ),
+                                        DebugTilemapType::Isometric => Vec2::new(
+                                            (neighbor.pos.y as f32 + neighbor.pos.x as f32)
+                                                * half_tile_width,
+                                            (neighbor.pos.y as f32 - neighbor.pos.x as f32)
+                                                * half_tile_height
+                                                - half_tile_height
+                                                + neighbor_offset,
+                                        ),
+                                        DebugTilemapType::Square3d => unreachable!(),
+                                    };
+
+                                    gizmos.line_2d(
+                                        position + offset,
+                                        neighbor_position + offset,
+                                        css::GREEN,
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -330,42 +426,67 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                 }
 
                 for next in iter {
-                    let prev_offset = *debug_depth_offsets.get(&prev.z).unwrap_or(&0.0);
-
-                    let prev_position = match debug_grid.map_type {
-                        DebugTilemapType::Square => Vec2::new(
-                            (prev.x * debug_grid.tile_width) as f32,
-                            (prev.y * debug_grid.tile_height) as f32 + prev_offset,
-                        ),
-                        DebugTilemapType::Isometric => Vec2::new(
-                            (prev.y as f32 + prev.x as f32) * (debug_grid.tile_width as f32 * 0.5),
-                            (prev.y as f32 - prev.x as f32) * (debug_grid.tile_height as f32 * 0.5)
-                                + prev_offset
-                                - half_tile_height,
-                        ),
-                    };
-
-                    let next_offset = *debug_depth_offsets.get(&next.z).unwrap_or(&0.0);
-                    let next_position = match debug_grid.map_type {
-                        DebugTilemapType::Square => Vec2::new(
-                            (next.x * debug_grid.tile_width) as f32,
-                            (next.y * debug_grid.tile_height) as f32 + next_offset,
-                        ),
-                        DebugTilemapType::Isometric => Vec2::new(
-                            (next.y as f32 + next.x as f32) * (debug_grid.tile_width as f32 * 0.5),
-                            (next.y as f32 - next.x as f32) * (debug_grid.tile_height as f32 * 0.5)
-                                + next_offset
-                                - half_tile_height,
-                        ),
-                    };
-
                     let mut color = css::BLUE;
-
                     if debug_grid.draw_entrances && debug_grid.draw_cached_paths {
                         color = path_colors[color_index % path_colors.len()];
                     }
 
-                    gizmos.line_2d(prev_position + offset, next_position + offset, color);
+                    match debug_grid.map_type {
+                        DebugTilemapType::Square3d => {
+                            let voxel_size = debug_grid.voxel_size;
+                            let offset_3d = debug_offset.0;
+                            let pp = Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
+                                * voxel_size
+                                + offset_3d;
+                            let np = Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
+                                * voxel_size
+                                + offset_3d;
+                            gizmos.line(pp, np, color);
+                        }
+                        _ => {
+                            let prev_offset =
+                                *debug_depth_offsets.get(&prev.z).unwrap_or(&0.0);
+                            let prev_position = match debug_grid.map_type {
+                                DebugTilemapType::Square => Vec2::new(
+                                    (prev.x * debug_grid.tile_width) as f32,
+                                    (prev.y * debug_grid.tile_height) as f32 + prev_offset,
+                                ),
+                                DebugTilemapType::Isometric => Vec2::new(
+                                    (prev.y as f32 + prev.x as f32)
+                                        * (debug_grid.tile_width as f32 * 0.5),
+                                    (prev.y as f32 - prev.x as f32)
+                                        * (debug_grid.tile_height as f32 * 0.5)
+                                        + prev_offset
+                                        - half_tile_height,
+                                ),
+                                DebugTilemapType::Square3d => unreachable!(),
+                            };
+
+                            let next_offset =
+                                *debug_depth_offsets.get(&next.z).unwrap_or(&0.0);
+                            let next_position = match debug_grid.map_type {
+                                DebugTilemapType::Square => Vec2::new(
+                                    (next.x * debug_grid.tile_width) as f32,
+                                    (next.y * debug_grid.tile_height) as f32 + next_offset,
+                                ),
+                                DebugTilemapType::Isometric => Vec2::new(
+                                    (next.y as f32 + next.x as f32)
+                                        * (debug_grid.tile_width as f32 * 0.5),
+                                    (next.y as f32 - next.x as f32)
+                                        * (debug_grid.tile_height as f32 * 0.5)
+                                        + next_offset
+                                        - half_tile_height,
+                                ),
+                                DebugTilemapType::Square3d => unreachable!(),
+                            };
+
+                            gizmos.line_2d(
+                                prev_position + offset,
+                                next_position + offset,
+                                color,
+                            );
+                        }
+                    }
 
                     prev = next;
                 }
@@ -421,46 +542,65 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
             let mut prev = iter.next().unwrap();
 
             for next in iter {
-                let prev_y_offset = if let Some(depth_offsets) = debug_depth_offsets {
-                    depth_offsets.0.get(&prev.z).cloned().unwrap_or_default()
-                } else {
-                    0.0
-                };
+                match debug_grid.map_type {
+                    DebugTilemapType::Square3d => {
+                        let voxel_size = debug_grid.voxel_size;
+                        let offset_3d = debug_offset.0;
+                        let pp = Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
+                            * voxel_size
+                            + offset_3d;
+                        let np = Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
+                            * voxel_size
+                            + offset_3d;
+                        gizmos.line(pp, np, debug_path.color);
+                    }
+                    _ => {
+                        let prev_y_offset = if let Some(depth_offsets) = debug_depth_offsets {
+                            depth_offsets.0.get(&prev.z).cloned().unwrap_or_default()
+                        } else {
+                            0.0
+                        };
 
-                let next_y_offset = if let Some(depth_offsets) = debug_depth_offsets {
-                    depth_offsets.0.get(&next.z).cloned().unwrap_or_default()
-                } else {
-                    0.0
-                };
+                        let next_y_offset = if let Some(depth_offsets) = debug_depth_offsets {
+                            depth_offsets.0.get(&next.z).cloned().unwrap_or_default()
+                        } else {
+                            0.0
+                        };
 
-                let prev_position = match debug_grid.map_type {
-                    DebugTilemapType::Square => Vec2::new(
-                        (prev.x * debug_grid.tile_width) as f32,
-                        (prev.y * debug_grid.tile_height) as f32 + prev_y_offset,
-                    ),
-                    DebugTilemapType::Isometric => Vec2::new(
-                        (prev.y as f32 + prev.x as f32) * half_tile_width,
-                        (prev.y as f32 - prev.x as f32) * half_tile_height - half_tile_height
-                            + prev_y_offset,
-                    ),
-                };
+                        let prev_position = match debug_grid.map_type {
+                            DebugTilemapType::Square => Vec2::new(
+                                (prev.x * debug_grid.tile_width) as f32,
+                                (prev.y * debug_grid.tile_height) as f32 + prev_y_offset,
+                            ),
+                            DebugTilemapType::Isometric => Vec2::new(
+                                (prev.y as f32 + prev.x as f32) * half_tile_width,
+                                (prev.y as f32 - prev.x as f32) * half_tile_height
+                                    - half_tile_height
+                                    + prev_y_offset,
+                            ),
+                            DebugTilemapType::Square3d => unreachable!(),
+                        };
 
-                let next_position = match debug_grid.map_type {
-                    DebugTilemapType::Square => Vec2::new(
-                        (next.x * debug_grid.tile_width) as f32,
-                        (next.y * debug_grid.tile_height) as f32 + next_y_offset,
-                    ),
-                    DebugTilemapType::Isometric => Vec2::new(
-                        (next.y as f32 + next.x as f32) * half_tile_width,
-                        (next.y as f32 - next.x as f32) * half_tile_height - half_tile_height
-                            + next_y_offset,
-                    ),
-                };
+                        let next_position = match debug_grid.map_type {
+                            DebugTilemapType::Square => Vec2::new(
+                                (next.x * debug_grid.tile_width) as f32,
+                                (next.y * debug_grid.tile_height) as f32 + next_y_offset,
+                            ),
+                            DebugTilemapType::Isometric => Vec2::new(
+                                (next.y as f32 + next.x as f32) * half_tile_width,
+                                (next.y as f32 - next.x as f32) * half_tile_height
+                                    - half_tile_height
+                                    + next_y_offset,
+                            ),
+                            DebugTilemapType::Square3d => unreachable!(),
+                        };
 
-                let x = prev_position + center_offset;
-                let y = next_position + center_offset;
+                        let x = prev_position + center_offset;
+                        let y = next_position + center_offset;
 
-                gizmos.line_2d(x, y, debug_path.color);
+                        gizmos.line_2d(x, y, debug_path.color);
+                    }
+                }
 
                 prev = next;
             }
@@ -482,32 +622,55 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                 );
 
                 for next in iter {
-                    let prev_position = match debug_grid.map_type {
-                        DebugTilemapType::Square => Vec2::new(
-                            (prev.x * debug_grid.tile_width) as f32,
-                            (prev.y * debug_grid.tile_height) as f32,
-                        ),
-                        DebugTilemapType::Isometric => Vec2::new(
-                            (prev.y as f32 + prev.x as f32) * (debug_grid.tile_width as f32 * 0.5),
-                            (prev.y as f32 - prev.x as f32) * (debug_grid.tile_height as f32 * 0.5),
-                        ),
-                    };
+                    match debug_grid.map_type {
+                        DebugTilemapType::Square3d => {
+                            let voxel_size = debug_grid.voxel_size;
+                            let offset_3d = debug_offset.0;
+                            let pp =
+                                Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
+                                    * voxel_size
+                                    + offset_3d;
+                            let np =
+                                Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
+                                    * voxel_size
+                                    + offset_3d;
+                            gizmos.line(pp, np, inverted_color);
+                        }
+                        _ => {
+                            let prev_position = match debug_grid.map_type {
+                                DebugTilemapType::Square => Vec2::new(
+                                    (prev.x * debug_grid.tile_width) as f32,
+                                    (prev.y * debug_grid.tile_height) as f32,
+                                ),
+                                DebugTilemapType::Isometric => Vec2::new(
+                                    (prev.y as f32 + prev.x as f32)
+                                        * (debug_grid.tile_width as f32 * 0.5),
+                                    (prev.y as f32 - prev.x as f32)
+                                        * (debug_grid.tile_height as f32 * 0.5),
+                                ),
+                                DebugTilemapType::Square3d => unreachable!(),
+                            };
 
-                    let next_position = match debug_grid.map_type {
-                        DebugTilemapType::Square => Vec2::new(
-                            (next.x * debug_grid.tile_width) as f32,
-                            (next.y * debug_grid.tile_height) as f32,
-                        ),
-                        DebugTilemapType::Isometric => Vec2::new(
-                            (next.y as f32 + next.x as f32) * (debug_grid.tile_width as f32 * 0.5),
-                            (next.y as f32 - next.x as f32) * (debug_grid.tile_height as f32 * 0.5),
-                        ),
-                    };
+                            let next_position = match debug_grid.map_type {
+                                DebugTilemapType::Square => Vec2::new(
+                                    (next.x * debug_grid.tile_width) as f32,
+                                    (next.y * debug_grid.tile_height) as f32,
+                                ),
+                                DebugTilemapType::Isometric => Vec2::new(
+                                    (next.y as f32 + next.x as f32)
+                                        * (debug_grid.tile_width as f32 * 0.5),
+                                    (next.y as f32 - next.x as f32)
+                                        * (debug_grid.tile_height as f32 * 0.5),
+                                ),
+                                DebugTilemapType::Square3d => unreachable!(),
+                            };
 
-                    let x = prev_position + center_offset;
-                    let y = next_position + center_offset;
+                            let x = prev_position + center_offset;
+                            let y = next_position + center_offset;
 
-                    gizmos.line_2d(x, y, inverted_color);
+                            gizmos.line_2d(x, y, inverted_color);
+                        }
+                    }
 
                     prev = next;
                 }
@@ -527,6 +690,11 @@ fn update_debug_node<N: Neighborhood + 'static>(
     grid: Query<&Grid<N>>,
 ) {
     for (mut node, debug_grid, cursor, offset, depth_offsets) in query.iter_mut() {
+        // 3D grids don't support cursor-to-voxel hit detection — skip
+        if matches!(debug_grid.map_type, DebugTilemapType::Square3d) {
+            continue;
+        }
+
         let Some(cursor_pos) = cursor.0 else { continue };
         let Ok(grid) = grid.single() else { continue };
 
@@ -565,6 +733,7 @@ fn update_debug_node<N: Neighborhood + 'static>(
                         .floor() as u32;
                     (x, y)
                 }
+                DebugTilemapType::Square3d => unreachable!(),
             };
 
             if let Some(n) = grid.graph().node_at(UVec3::new(x, y, test_depth)) {
