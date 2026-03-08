@@ -1,6 +1,6 @@
 ## v0.6.2
 ### Features
-- Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is a lot faster.
+- Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is faster.
 - Debug Gizmos now support 3d voxel maps. Use the `Square3d` DebugTilemapType to enable.
 
 ### Feature Fix
