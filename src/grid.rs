@@ -1050,6 +1050,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                 }
 
                 // Only check direct height shifts
+                #[allow(clippy::if_same_then_else)]
                 if y > 0 && !end_face[[x, y - 1]].is_impassable() {
                     let pos = UVec3::new(x as u32, y as u32, 0);
                     ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));

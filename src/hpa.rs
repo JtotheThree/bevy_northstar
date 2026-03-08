@@ -134,7 +134,7 @@ pub(crate) fn hpa<N: Neighborhood>(
             }
 
             // Skip dead-end nodes
-            let is_virtual_goal = scratch.map_or(false, |s| *neighbor == s.goal);
+            let is_virtual_goal = scratch.is_some_and(|s| *neighbor == s.goal);
             if !is_virtual_goal {
                 let neighbor_node = grid.graph().node_at(*neighbor).unwrap();
                 if neighbor_node.edges().is_empty() {
