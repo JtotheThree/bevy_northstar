@@ -3,12 +3,15 @@
 - Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is a lot faster.
 - Debug Gizmos now support 3d voxel maps. Use the `Square3d` DebugTilemapType to enable.
 
+### Feature Fix
+- A couple of bugs were fixed that caused face edge calculation and pathing issues at the edge in true 3d.
+
 ### Bug Fixes
 - Added a cost guard to djikstra neighbors which should speed up building the grid
 - Fixed graph pathing issues used in HPA* collision rerouting
 - Fixed coarse paths returning with the start position in front
 - Fixed some cost calculations in refinement after trimming
-- Fixed collision avoidance vec extension (minor)
+- Fixed collision avoidance vec extension [caused duplicate positions in avoidance path] (minor)
 - Fixed edge cost in some scenarios (minor issue)
 - Fixed a couple of bugs in the 3d_voxel_world example.
 

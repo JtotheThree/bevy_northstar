@@ -96,7 +96,18 @@ pub(crate) fn hpa<N: Neighborhood>(
 
             let neighbors: Vec<UVec3> = if let Some(s) = scratch {
                 if *current_pos == s.start {
-                    s.start_edges.keys().cloned().collect()
+                    let mut n: Vec<UVec3> = s.start_edges.keys().cloned().collect();
+                    if let Some(node) = grid.graph().node_at(*current_pos) {
+                        for e in node.edges() {
+                            if !n.contains(&e) {
+                                n.push(e);
+                            }
+                        }
+                    }
+                    if s.edge_to_goal.contains_key(current_pos) && !n.contains(&s.goal) {
+                        n.push(s.goal);
+                    }
+                    n
                 } else {
                     let node = grid.graph().node_at(*current_pos).unwrap();
                     let mut n = node.edges();

@@ -231,7 +231,8 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 let normalized_cost = cell.cost as f32 / u8::MAX as f32;
                                 let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
                                 let color = Color::srgb(1.0, other_colors, other_colors).to_srgba();
-                                let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5) * voxel_size
+                                let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5)
+                                    * voxel_size
                                     + offset_3d;
                                 gizmos.sphere(pos, voxel_size * 0.1, color);
                             }
@@ -246,8 +247,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     // Draw cell gizmos
                     for x in 0..grid.width() {
                         for y in 0..grid.height() {
-                            let mut cell =
-                                grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
+                            let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
 
                             if let Some(mask) = &debug_grid.debug_mask {
                                 if let NavMaskResult::Masked(masked_cell) =
@@ -302,8 +302,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
 
                         gizmos.sphere(pos, voxel_size * 0.15, css::MAGENTA);
 
-                        if debug_grid.show_connections_on_hover
-                            && debug_cursor.0 != Some(node.pos)
+                        if debug_grid.show_connections_on_hover && debug_cursor.0 != Some(node.pos)
                         {
                             continue;
                         }
@@ -324,8 +323,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         }
                     }
                     _ => {
-                        let pos_offset =
-                            *debug_depth_offsets.get(&node.pos.z).unwrap_or(&0.0);
+                        let pos_offset = *debug_depth_offsets.get(&node.pos.z).unwrap_or(&0.0);
 
                         let position = match debug_grid.map_type {
                             DebugTilemapType::Square => Vec2::new(
@@ -350,8 +348,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         gizmos.circle_2d(position + offset, 2.0, color);
 
                         // Skip if mouse hover isn't enabled
-                        if debug_grid.show_connections_on_hover
-                            && debug_cursor.0 != Some(node.pos)
+                        if debug_grid.show_connections_on_hover && debug_cursor.0 != Some(node.pos)
                         {
                             continue;
                         }
@@ -361,9 +358,8 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                             let neighbor = grid.graph().node_at(edge);
                             if let Some(neighbor) = neighbor {
                                 if neighbor.chunk_index != node.chunk_index {
-                                    let neighbor_offset = *debug_depth_offsets
-                                        .get(&neighbor.pos.z)
-                                        .unwrap_or(&0.0);
+                                    let neighbor_offset =
+                                        *debug_depth_offsets.get(&neighbor.pos.z).unwrap_or(&0.0);
 
                                     let neighbor_position = match debug_grid.map_type {
                                         DebugTilemapType::Square => Vec2::new(
@@ -435,17 +431,18 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         DebugTilemapType::Square3d => {
                             let voxel_size = debug_grid.voxel_size;
                             let offset_3d = debug_offset.0;
-                            let pp = Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
-                                * voxel_size
-                                + offset_3d;
-                            let np = Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
-                                * voxel_size
-                                + offset_3d;
+                            let pp =
+                                Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
+                                    * voxel_size
+                                    + offset_3d;
+                            let np =
+                                Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
+                                    * voxel_size
+                                    + offset_3d;
                             gizmos.line(pp, np, color);
                         }
                         _ => {
-                            let prev_offset =
-                                *debug_depth_offsets.get(&prev.z).unwrap_or(&0.0);
+                            let prev_offset = *debug_depth_offsets.get(&prev.z).unwrap_or(&0.0);
                             let prev_position = match debug_grid.map_type {
                                 DebugTilemapType::Square => Vec2::new(
                                     (prev.x * debug_grid.tile_width) as f32,
@@ -462,8 +459,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 DebugTilemapType::Square3d => unreachable!(),
                             };
 
-                            let next_offset =
-                                *debug_depth_offsets.get(&next.z).unwrap_or(&0.0);
+                            let next_offset = *debug_depth_offsets.get(&next.z).unwrap_or(&0.0);
                             let next_position = match debug_grid.map_type {
                                 DebugTilemapType::Square => Vec2::new(
                                     (next.x * debug_grid.tile_width) as f32,
@@ -480,11 +476,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 DebugTilemapType::Square3d => unreachable!(),
                             };
 
-                            gizmos.line_2d(
-                                prev_position + offset,
-                                next_position + offset,
-                                color,
-                            );
+                            gizmos.line_2d(prev_position + offset, next_position + offset, color);
                         }
                     }
 
