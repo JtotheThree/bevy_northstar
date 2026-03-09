@@ -6,7 +6,8 @@ use bevy::{color::palettes::css, math::Vec2, platform::collections::HashMap, pre
 use crate::{
     components::{DebugCursor, DebugGrid, DebugNode, DebugPath},
     grid::Grid,
-    nav_mask::NavMaskResult,
+    nav::NavCell,
+    nav_mask::{NavMask, NavMaskResult},
     neighbor::Neighborhood,
     path::Path,
     prelude::{AgentOfGrid, DebugDepthYOffsets, DebugOffset},
@@ -192,19 +193,17 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                 DebugTilemapType::Square3d => {
                     let voxel_size = debug_grid.voxel_size;
                     let offset_3d = debug_offset.0;
-                    let chunk_depth_size = grid.chunk_depth();
-                    let z_chunks = grid.depth() / chunk_depth_size;
+                    let z_chunks = grid.depth() / chunk_size;
                     let cs = chunk_size as f32 * voxel_size;
-                    let cd = chunk_depth_size as f32 * voxel_size;
                     for cx in 0..chunk_width {
                         for cy in 0..chunk_height {
                             for cz in 0..z_chunks {
                                 let center = Vec3::new(
                                     cx as f32 * cs + cs * 0.5,
-                                    cy as f32 * cs + cs * 0.5 + 1.0,
-                                    cz as f32 * cd + cd * 0.5,
+                                    cy as f32 * cs + cs * 0.5,
+                                    cz as f32 * cs + cs * 0.5,
                                 ) + offset_3d;
-                                let size = Vec3::new(cs, cs, cd);
+                                let size = Vec3::new(cs, cs, cs);
                                 gizmos.cube(
                                     Transform::from_translation(center).with_scale(size),
                                     css::WHITE,
@@ -224,17 +223,15 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     for x in 0..grid.width() {
                         for y in 0..grid.height() {
                             for z in 0..grid.depth() {
-                                let cell = grid.navcell(UVec3::new(x, y, z)).clone();
-                                if cell.is_impassable() {
-                                    continue;
-                                }
-                                let normalized_cost = cell.cost as f32 / u8::MAX as f32;
-                                let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
-                                let color = Color::srgb(1.0, other_colors, other_colors).to_srgba();
+                                let cell = apply_debug_mask(
+                                    grid.navcell(UVec3::new(x, y, z)).clone(),
+                                    &debug_grid.debug_mask,
+                                    UVec3::new(x, y, debug_grid.depth),
+                                );
                                 let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5)
                                     * voxel_size
                                     + offset_3d;
-                                gizmos.sphere(pos, voxel_size * 0.1, color);
+                                gizmos.sphere(pos, voxel_size * 0.1, navcell_color(&cell));
                             }
                         }
                     }
@@ -244,28 +241,14 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         continue;
                     }
 
-                    // Draw cell gizmos
                     for x in 0..grid.width() {
                         for y in 0..grid.height() {
-                            let mut cell = grid.navcell(UVec3::new(x, y, debug_grid.depth)).clone();
-
-                            if let Some(mask) = &debug_grid.debug_mask {
-                                if let NavMaskResult::Masked(masked_cell) =
-                                    mask.get(cell.clone(), UVec3::new(x, y, debug_grid.depth))
-                                {
-                                    cell = masked_cell;
-                                }
-                            }
-
-                            let color = if cell.is_impassable() {
-                                css::RED
-                            } else {
-                                // Full white at 1 cost, and full green at u8::MAX cost.
-                                let normalized_cost = cell.cost as f32 / u8::MAX as f32;
-                                let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
-                                Color::srgb(1.0, other_colors, other_colors).to_srgba()
-                            };
-
+                            let mask_pos = UVec3::new(x, y, debug_grid.depth);
+                            let cell = apply_debug_mask(
+                                grid.navcell(mask_pos).clone(),
+                                &debug_grid.debug_mask,
+                                mask_pos,
+                            );
                             let position = match debug_grid.map_type {
                                 DebugTilemapType::Square => Vec2::new(
                                     (x * debug_grid.tile_width) as f32,
@@ -278,8 +261,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 ),
                                 DebugTilemapType::Square3d => unreachable!(),
                             };
-
-                            gizmos.circle_2d(position + offset, 2.0, color);
+                            gizmos.circle_2d(position + offset, 2.0, navcell_color(&cell));
                         }
                     }
                 }
@@ -736,4 +718,24 @@ fn update_debug_node<N: Neighborhood + 'static>(
 
         node.0 = selected_node;
     }
+}
+
+fn navcell_color(cell: &NavCell) -> Srgba {
+    if cell.is_impassable() {
+        css::RED
+    } else {
+        // Full white at cost 1, full green at u8::MAX cost.
+        let normalized_cost = cell.cost as f32 / u8::MAX as f32;
+        let other_colors = (1.0 - normalized_cost).clamp(0.0, 1.0);
+        Color::srgb(1.0, other_colors, other_colors).to_srgba()
+    }
+}
+
+fn apply_debug_mask(cell: NavCell, mask: &Option<NavMask>, pos: UVec3) -> NavCell {
+    if let Some(mask) = mask {
+        if let NavMaskResult::Masked(masked_cell) = mask.get(cell.clone(), pos) {
+            return masked_cell;
+        }
+    }
+    cell
 }
