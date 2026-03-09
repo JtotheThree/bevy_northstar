@@ -228,6 +228,11 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                     &debug_grid.debug_mask,
                                     UVec3::new(x, y, debug_grid.depth),
                                 );
+
+                                if cell.is_impassable() {
+                                    continue;
+                                }
+
                                 let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5)
                                     * voxel_size
                                     + offset_3d;
