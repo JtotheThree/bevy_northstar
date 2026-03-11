@@ -86,9 +86,9 @@ impl<N: Neighborhood + 'static> Plugin for NorthstarDebugPlugin<N> {
 // / Draw the debug gizmos for the chunks, cells, entrances, and cached paths.
 fn draw_debug_map<N: Neighborhood + 'static>(
     query: Query<(
-        &DebugOffset,
         &DebugGrid,
         &DebugNode,
+        &DebugOffset,
         Option<&DebugDepthYOffsets>,
     )>,
     grid: Query<&Grid<N>>,
@@ -100,7 +100,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
         return;
     };
 
-    for (debug_offset, debug_grid, debug_cursor, debug_depth_offsets) in query.iter() {
+    for (debug_grid, debug_cursor, debug_offset, debug_depth_offsets) in query.iter() {
         let half_tile_width = debug_grid.tile_width as f32 * 0.5;
         let half_tile_height = debug_grid.tile_height as f32 * 0.5;
 
@@ -198,10 +198,11 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     for cx in 0..chunk_width {
                         for cy in 0..chunk_height {
                             for cz in 0..z_chunks {
-                                let center = Vec3::new(
+                                let center = to_world(
                                     cx as f32 * cs + cs * 0.5,
                                     cy as f32 * cs + cs * 0.5,
                                     cz as f32 * cs + cs * 0.5,
+                                    debug_grid.swap_xy,
                                 ) + offset_3d;
                                 let size = Vec3::new(cs, cs, cs);
                                 gizmos.cube(
@@ -233,9 +234,12 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                     continue;
                                 }
 
-                                let pos = Vec3::new(x as f32 + 0.5, y as f32, z as f32 + 0.5)
-                                    * voxel_size
-                                    + offset_3d;
+                                let raw_pos =
+                                    Vec3::new(x as f32 + 0.5, y as f32 + 0.5, z as f32 + 0.5);
+                                let pos =
+                                    to_world(raw_pos.x, raw_pos.y, raw_pos.z, debug_grid.swap_xy)
+                                        * voxel_size
+                                        + offset_3d;
                                 gizmos.sphere(pos, voxel_size * 0.1, navcell_color(&cell));
                             }
                         }
@@ -280,10 +284,11 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                     DebugTilemapType::Square3d => {
                         let voxel_size = debug_grid.voxel_size;
                         let offset_3d = debug_offset.0;
-                        let pos = Vec3::new(
+                        let pos = to_world(
                             node.pos.x as f32 + 0.5,
-                            node.pos.y as f32,
+                            node.pos.y as f32 + 0.5,
                             node.pos.z as f32 + 0.5,
+                            debug_grid.swap_xy,
                         ) * voxel_size
                             + offset_3d;
 
@@ -298,10 +303,11 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                             let neighbor = grid.graph().node_at(edge);
                             if let Some(neighbor) = neighbor {
                                 if neighbor.chunk_index != node.chunk_index {
-                                    let neighbor_pos = Vec3::new(
+                                    let neighbor_pos = to_world(
                                         neighbor.pos.x as f32 + 0.5,
-                                        neighbor.pos.y as f32,
+                                        neighbor.pos.y as f32 + 0.5,
                                         neighbor.pos.z as f32 + 0.5,
+                                        debug_grid.swap_xy,
                                     ) * voxel_size
                                         + offset_3d;
                                     gizmos.line(pos, neighbor_pos, css::GREEN);
@@ -418,14 +424,20 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         DebugTilemapType::Square3d => {
                             let voxel_size = debug_grid.voxel_size;
                             let offset_3d = debug_offset.0;
-                            let pp =
-                                Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
-                                    * voxel_size
-                                    + offset_3d;
-                            let np =
-                                Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
-                                    * voxel_size
-                                    + offset_3d;
+                            let pp = to_world(
+                                prev.x as f32 + 0.5,
+                                prev.y as f32 + 0.5,
+                                prev.z as f32 + 0.5,
+                                debug_grid.swap_xy,
+                            ) * voxel_size
+                                + offset_3d;
+                            let np = to_world(
+                                next.x as f32 + 0.5,
+                                next.y as f32 + 0.5,
+                                next.z as f32 + 0.5,
+                                debug_grid.swap_xy,
+                            ) * voxel_size
+                                + offset_3d;
                             gizmos.line(pp, np, color);
                         }
                         _ => {
@@ -525,11 +537,19 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                     DebugTilemapType::Square3d => {
                         let voxel_size = debug_grid.voxel_size;
                         let offset_3d = debug_offset.0;
-                        let pp = Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
-                            * voxel_size
+                        let pp = to_world(
+                            prev.x as f32 + 0.5,
+                            prev.y as f32 + 0.5,
+                            prev.z as f32 + 0.5,
+                            debug_grid.swap_xy,
+                        ) * voxel_size
                             + offset_3d;
-                        let np = Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
-                            * voxel_size
+                        let np = to_world(
+                            next.x as f32 + 0.5,
+                            next.y as f32 + 0.5,
+                            next.z as f32 + 0.5,
+                            debug_grid.swap_xy,
+                        ) * voxel_size
                             + offset_3d;
                         gizmos.line(pp, np, debug_path.color);
                     }
@@ -605,14 +625,20 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                         DebugTilemapType::Square3d => {
                             let voxel_size = debug_grid.voxel_size;
                             let offset_3d = debug_offset.0;
-                            let pp =
-                                Vec3::new(prev.x as f32 + 0.5, prev.y as f32, prev.z as f32 + 0.5)
-                                    * voxel_size
-                                    + offset_3d;
-                            let np =
-                                Vec3::new(next.x as f32 + 0.5, next.y as f32, next.z as f32 + 0.5)
-                                    * voxel_size
-                                    + offset_3d;
+                            let pp = to_world(
+                                prev.x as f32 + 0.5,
+                                prev.y as f32 + 0.5,
+                                prev.z as f32 + 0.5,
+                                debug_grid.swap_xy,
+                            ) * voxel_size
+                                + offset_3d;
+                            let np = to_world(
+                                next.x as f32 + 0.5,
+                                next.y as f32 + 0.5,
+                                next.z as f32 + 0.5,
+                                debug_grid.swap_xy,
+                            ) * voxel_size
+                                + offset_3d;
                             gizmos.line(pp, np, inverted_color);
                         }
                         _ => {
@@ -722,6 +748,16 @@ fn update_debug_node<N: Neighborhood + 'static>(
         }
 
         node.0 = selected_node;
+    }
+}
+
+// Helper for swapping coordinate space.
+#[inline]
+fn to_world(x: f32, y: f32, z: f32, bevy_coords: bool) -> Vec3 {
+    if bevy_coords {
+        Vec3::new(x, z, y)
+    } else {
+        Vec3::new(x, y, z)
     }
 }
 

@@ -2,6 +2,7 @@
 ### Features
 - Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is faster.
 - Debug Gizmos now support 3d voxel maps. Use the `Square3d` DebugTilemapType to enable.
+- Added missing `reflect` to the `AgentPos` component.
 
 ### Feature Fix
 - A couple of bugs were fixed that caused face edge calculation and pathing issues at the edge in true 3d.
