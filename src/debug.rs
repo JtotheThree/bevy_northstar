@@ -202,7 +202,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                     cx as f32 * cs + cs * 0.5,
                                     cy as f32 * cs + cs * 0.5,
                                     cz as f32 * cs + cs * 0.5,
-                                    debug_grid.swap_xy,
+                                    debug_grid.swap_yz,
                                 ) + offset_3d;
                                 let size = Vec3::new(cs, cs, cs);
                                 gizmos.cube(
@@ -237,7 +237,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 let raw_pos =
                                     Vec3::new(x as f32 + 0.5, y as f32 + 0.5, z as f32 + 0.5);
                                 let pos =
-                                    to_world(raw_pos.x, raw_pos.y, raw_pos.z, debug_grid.swap_xy)
+                                    to_world(raw_pos.x, raw_pos.y, raw_pos.z, debug_grid.swap_yz)
                                         * voxel_size
                                         + offset_3d;
                                 gizmos.sphere(pos, voxel_size * 0.1, navcell_color(&cell));
@@ -288,7 +288,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                             node.pos.x as f32 + 0.5,
                             node.pos.y as f32 + 0.5,
                             node.pos.z as f32 + 0.5,
-                            debug_grid.swap_xy,
+                            debug_grid.swap_yz,
                         ) * voxel_size
                             + offset_3d;
 
@@ -307,7 +307,7 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                         neighbor.pos.x as f32 + 0.5,
                                         neighbor.pos.y as f32 + 0.5,
                                         neighbor.pos.z as f32 + 0.5,
-                                        debug_grid.swap_xy,
+                                        debug_grid.swap_yz,
                                     ) * voxel_size
                                         + offset_3d;
                                     gizmos.line(pos, neighbor_pos, css::GREEN);
@@ -428,14 +428,14 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                                 prev.x as f32 + 0.5,
                                 prev.y as f32 + 0.5,
                                 prev.z as f32 + 0.5,
-                                debug_grid.swap_xy,
+                                debug_grid.swap_yz,
                             ) * voxel_size
                                 + offset_3d;
                             let np = to_world(
                                 next.x as f32 + 0.5,
                                 next.y as f32 + 0.5,
                                 next.z as f32 + 0.5,
-                                debug_grid.swap_xy,
+                                debug_grid.swap_yz,
                             ) * voxel_size
                                 + offset_3d;
                             gizmos.line(pp, np, color);
@@ -541,14 +541,14 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                             prev.x as f32 + 0.5,
                             prev.y as f32 + 0.5,
                             prev.z as f32 + 0.5,
-                            debug_grid.swap_xy,
+                            debug_grid.swap_yz,
                         ) * voxel_size
                             + offset_3d;
                         let np = to_world(
                             next.x as f32 + 0.5,
                             next.y as f32 + 0.5,
                             next.z as f32 + 0.5,
-                            debug_grid.swap_xy,
+                            debug_grid.swap_yz,
                         ) * voxel_size
                             + offset_3d;
                         gizmos.line(pp, np, debug_path.color);
@@ -629,14 +629,14 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                                 prev.x as f32 + 0.5,
                                 prev.y as f32 + 0.5,
                                 prev.z as f32 + 0.5,
-                                debug_grid.swap_xy,
+                                debug_grid.swap_yz,
                             ) * voxel_size
                                 + offset_3d;
                             let np = to_world(
                                 next.x as f32 + 0.5,
                                 next.y as f32 + 0.5,
                                 next.z as f32 + 0.5,
-                                debug_grid.swap_xy,
+                                debug_grid.swap_yz,
                             ) * voxel_size
                                 + offset_3d;
                             gizmos.line(pp, np, inverted_color);

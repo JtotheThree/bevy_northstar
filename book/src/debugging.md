@@ -111,6 +111,13 @@ Sets the debug gizmos to draw in isometric perspective.
 
 Sets the debug gizmos to true 3d. Needed for 3d voxel games.
 
+### `swap_yz()`
+
+Swaps the y and z axes for the debug gizmos.
+There's a disconnect between Psuedo 3d and Full 3d xyz coordinates.
+Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
+Only affects `DebugTilemapType::Square3d`.
+
 ### `enable_chunks()`
 
 Outline the grid chunk regions.

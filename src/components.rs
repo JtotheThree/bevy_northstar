@@ -296,10 +296,12 @@ pub struct DebugGrid {
     /// Grid coordinate `UVec3(x, y, z)` maps to world position `Vec3(x, y, z) * voxel_size + offset`.
     /// Defaults to `1.0` (one grid unit = one world unit). Should work in most cases.
     pub voxel_size: f32,
-    /// When `true`, remaps Northstar's `(x=col, y=row, z=layer)` coordinate space to Bevy's
-    /// `(x=col, y=up, z=depth)` world axes by swapping the y and z components.
+    /// Swaps the y and z axes for the debug grid for true 3d games.
+    /// Unfortunately pseudo 3d uses different coordinates than Bevy's 3D world space.
+    /// So we have a mismatch between 3d and psuedo 3d.
+    /// Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
     /// Only affects [`DebugTilemapType::Square3d`].
-    pub swap_xy: bool,
+    pub swap_yz: bool,
     /// Will outline the chunks that the grid is divided into.
     pub draw_chunks: bool,
     /// Will draw the [`crate::nav::NavCell`]s in your grid.
@@ -454,7 +456,7 @@ pub struct DebugGridBuilder {
     draw_cached_paths: bool,
     show_connections_on_hover: bool,
     debug_mask: Option<NavMask>,
-    swap_xy: bool,
+    swap_yz: bool,
 }
 
 impl DebugGridBuilder {
@@ -472,7 +474,7 @@ impl DebugGridBuilder {
             draw_cached_paths: false,
             show_connections_on_hover: false,
             debug_mask: None,
-            swap_xy: false,
+            swap_yz: false,
         }
     }
 
@@ -558,7 +560,7 @@ impl DebugGridBuilder {
     /// Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
     /// Only affects [`DebugTilemapType::Square3d`].
     pub fn swap_yz(mut self) -> Self {
-        self.swap_xy = true;
+        self.swap_yz = true;
         self
     }
 
@@ -577,7 +579,7 @@ impl DebugGridBuilder {
             draw_cached_paths: self.draw_cached_paths,
             show_connections_on_hover: self.show_connections_on_hover,
             debug_mask: self.debug_mask,
-            swap_xy: self.swap_xy,
+            swap_yz: self.swap_yz,
         }
     }
 }
