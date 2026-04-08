@@ -40,3 +40,26 @@ Rebuilding a single chunk takes approximately **0.2ms** on modern systems. Note 
     * Spreading updates across multiple frames.
 
     * Adjusting chunk size to find the best performance fo your use case.
+
+## Rerouting Active Agents
+
+After calling `set_nav()` + `build()`, the grid's internal pathfinding graph is updated — but any `Path` and `NextPos` components already on agents are **not** automatically invalidated. Agents will continue following their old path, potentially walking through cells that are now impassable.
+
+To force agents to recalculate their routes after a grid change, you must remove **both** `Path` and `NextPos` and re-insert a `Pathfind` request:
+
+```rust,no_run
+// After modifying the grid:
+grid.set_nav(position, Nav::Impassable);
+grid.build();
+
+// Reroute all active agents.
+for (entity, pathfind) in &agents {
+    commands.entity(entity)
+        .remove::<(NextPos, Path)>()
+        .insert(Pathfind::new(pathfind.goal));
+}
+```
+
+> **Why remove both?** The `next_position` system queries for entities with `Path` and `Without<NextPos>`. If you only remove `NextPos`, the system immediately pops the next waypoint from the **old** `Path` — the agent continues along its stale route. Removing `Path` as well ensures the agent waits for a fresh path that respects the updated grid.
+
+See the `reroute` example for a complete, runnable demonstration of this pattern.

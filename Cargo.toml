@@ -33,6 +33,9 @@ name = "nav_mask"
 name = "freeform_movement"
 
 [[example]]
+name = "reroute"
+
+[[example]]
 name = "3d_voxel_world"
 # required-features = ["bevy_voxel_world", "bevy_panorbit_camera", "ndshape"]
 
