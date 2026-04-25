@@ -17,6 +17,9 @@
 - Fixed edge cost in some scenarios (minor issue)
 - Fixed a couple of bugs in the 3d_voxel_world example.
 
+### Example and Docs
+- Rerouting after grid rebuild example and docs courtesy of n8behavior.
+
 ## v0.6.1
 - Fix for Waypoint refinement not factoring in cell cost accurately.
 
