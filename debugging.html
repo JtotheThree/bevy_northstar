@@ -208,6 +208,16 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     ));
 }
 </code></pre></pre>
+<h1 id="debugging-in-3d"><a class="header" href="#debugging-in-3d">Debugging in 3d</a></h1>
+<p>Debug Gizmos are available for 3d voxel maps. Use <code>DebugTilemapType::Square3d</code> for the tilemap type.</p>
+<p>You can set it when you initialize and build <code>DebugGridBuilder</code> with:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>DebugGridBuilder::new(1, 1).square_3d()
+<span class="boring">}
+</span></code></pre></pre>
+<p>Using <code>enable_cells()</code> to draw cell gizmos in 3d will only draw gizmos at open cells. Even with that filter, it will greatly impact rendering performance. Only recommended if you're struggling to debug an issue.</p>
 <h1 id="debugging-paths"><a class="header" href="#debugging-paths">Debugging Paths</a></h1>
 <p>Debugging paths for an entity requires you to add a <code>DebugPath</code> component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.</p>
 <p>Drawing the path gizmos also requires the <code>NorthstarDebugPlugin</code> to add the gizmo drawing system.</p>
@@ -228,6 +238,13 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
 <h1 id="debuggridbuilder-settings"><a class="header" href="#debuggridbuilder-settings">DebugGridBuilder Settings</a></h1>
 <h3 id="isometric"><a class="header" href="#isometric"><code>isometric()</code></a></h3>
 <p>Sets the debug gizmos to draw in isometric perspective.</p>
+<h3 id="square_3d"><a class="header" href="#square_3d"><code>square_3d()</code></a></h3>
+<p>Sets the debug gizmos to true 3d. Needed for 3d voxel games.</p>
+<h3 id="swap_yz"><a class="header" href="#swap_yz"><code>swap_yz()</code></a></h3>
+<p>Swaps the y and z axes for the debug gizmos.
+There's a disconnect between Psuedo 3d and Full 3d xyz coordinates.
+Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
+Only affects <code>DebugTilemapType::Square3d</code>.</p>
 <h3 id="enable_chunks"><a class="header" href="#enable_chunks"><code>enable_chunks()</code></a></h3>
 <p>Outline the grid chunk regions.</p>
 <img src="../bevy_northstar/images/debugchunk.png" width="300"/>
@@ -245,6 +262,7 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
 <img src="../bevy_northstar/images/debugonlyonhover.png" width="300"/>
 <h1 id="debugcursor-component"><a class="header" href="#debugcursor-component"><code>DebugCursor</code> Component</a></h1>
 <p>In order for the debug plugin to determine which node your cursor is hovering over, you need to manually update the <code>DebugCursor</code> component. While tedious this is required because not every game will have the same windowing and camera setups. <code>DebugCursor</code> is inserted along with <code>DebugGrid</code> so there is no need to insert it manually.</p>
+<p>Note: The DebugCursor doesn't currently work in true 3d with the Square3d debug plugin setting.</p>
 <p>For most cases you can just dump the raw world cursor position in your input systems or just add a simple system to handle it:</p>
 <pre><pre class="playground"><code class="language-rust no_run">
 <span class="boring">#![allow(unused)]
