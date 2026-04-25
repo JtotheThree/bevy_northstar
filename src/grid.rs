@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bevy::{
     ecs::entity::Entity,
-    log,
+    log::{self, debug},
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
     prelude::Component,
@@ -380,9 +380,28 @@ impl<N: Neighborhood + Default> Grid<N> {
 
         let UVec3 { x, y, z } = dimensions;
 
-        let x_chunks = x / chunk_settings.size;
-        let y_chunks = y / chunk_settings.size;
-        let z_chunks = z / chunk_settings.depth;
+        let mut x_chunks = x / chunk_settings.size;
+        let mut y_chunks = y / chunk_settings.size;
+        let mut z_chunks = z / chunk_settings.depth;
+
+        let x_remainder = x % chunk_settings.size;
+        let y_remainder = y % chunk_settings.size;
+        let z_remainder = z % chunk_settings.depth;
+
+        if x_remainder != 0 || y_remainder != 0 || (z_remainder != 0) {
+            debug!("Grid dimensions are not divisible by chunk size and depth. Rounding up the number of chunks...");
+
+            // Round up the number of chunks to cover the entire grid
+            if x_remainder != 0 {
+                x_chunks += 1;
+            }
+            if y_remainder != 0 {
+                y_chunks += 1;
+            }
+            if z_remainder != 0 {
+                z_chunks += 1;
+            }
+        }
 
         let default_navcell = if cost_settings.default_impassible {
             NavCell::new(Nav::Impassable)
@@ -392,18 +411,21 @@ impl<N: Neighborhood + Default> Grid<N> {
 
         let grid = Array3::from_elem((x as usize, y as usize, z as usize), default_navcell);
 
+        // Create chunks. Edge chunks are clamped to grid bounds.
         let chunks = Array3::from_shape_fn(
             (x_chunks as usize, y_chunks as usize, z_chunks as usize),
-            |(x, y, z)| {
-                let min_x = x as u32 * chunk_settings.size;
-                let max_x = min_x + chunk_settings.size;
-                let min_y = y as u32 * chunk_settings.size;
-                let max_y = min_y + chunk_settings.size;
-                let min_z = z as u32 * chunk_settings.depth;
-                let max_z = min_z + chunk_settings.depth;
+            |(x_idx, y_idx, z_idx)| {
+                let min_x = x_idx as u32 * chunk_settings.size;
+                let max_x = (min_x + chunk_settings.size).min(x);
+
+                let min_y = y_idx as u32 * chunk_settings.size;
+                let max_y = (min_y + chunk_settings.size).min(y);
+
+                let min_z = z_idx as u32 * chunk_settings.depth;
+                let max_z = (min_z + chunk_settings.depth).min(z);
 
                 Chunk::new(
-                    (x, y, z),
+                    (x_idx, y_idx, z_idx),
                     UVec3::new(min_x, min_y, min_z),
                     UVec3::new(max_x, max_y, max_z),
                 )
@@ -595,11 +617,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     }
 
     pub(crate) fn chunk_in_bounds(&self, chunk_x: isize, chunk_y: isize, chunk_z: isize) -> bool {
-        let chunk_size = self.chunk_settings.size as usize;
-        let chunk_depth = self.chunk_settings.depth as usize;
-        let x_chunks = self.dimensions.x as usize / chunk_size;
-        let y_chunks = self.dimensions.y as usize / chunk_size;
-        let z_chunks = self.dimensions.z as usize / chunk_depth;
+        let (x_chunks, y_chunks, z_chunks) = self.chunks.dim();
 
         chunk_x >= 0
             && chunk_x < x_chunks as isize
@@ -815,12 +833,8 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Shared logic for building nodes for a single chunk at (x, y, z).
     /// Returns (nodes_to_add, cleaned_edges).
     fn build_nodes_for_chunk(&self, x: usize, y: usize, z: usize) -> Option<(Vec<Node>, Vec<Dir>)> {
-        let chunk_size = self.chunk_settings.size as usize;
-        let chunk_depth = self.chunk_settings.depth as usize;
-        let x_chunks = self.dimensions.x as usize / chunk_size;
-        let y_chunks = self.dimensions.y as usize / chunk_size;
-        let z_chunks = self.dimensions.z as usize / chunk_depth;
-
+        let (x_chunks, y_chunks, z_chunks) = self.chunks.dim();
+        
         let chunk = &self.chunks[[x, y, z]];
 
         if !chunk.has_dirty_edges() {
@@ -2560,6 +2574,37 @@ mod tests {
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
     }
+    
+    // Regression test to make sure that chunk sizes not divisible by the grid dimensions are handled correctly
+    #[test]
+    fn test_non_divisible_chunk_size() {
+        let settings = GridSettingsBuilder::new_2d(10, 10)
+            .chunk_size(3)
+            .build();
+
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+        grid.build();
+
+        assert_eq!(grid.dimensions(), UVec3::new(10, 10, 1));
+        assert_eq!(grid.chunks.dim(), (4, 4, 1));
+        let edge_chunk = grid.chunk_at_position(UVec3::new(9, 9, 0)).unwrap();
+        assert_eq!(edge_chunk.max(), UVec3::new(10, 10, 1));
+
+        // Pathfind from (0,0,0) to (9,9,0). Should get a path back.
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(0, 0, 0),
+            UVec3::new(9, 9, 0),
+        ));
+
+        assert!(path.is_some(), "Path should exist for non-divisible chunk size");
+
+        // Make sure impasaable cells were set for the remainder
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(9, 9, 0),
+            UVec3::new(10, 10, 0),
+        ));
+
+        assert!(path.is_none(), "Path should not exist to out of bounds cell");
 
     // Regression test for a bug found with 3d face node calculation
     #[test]
