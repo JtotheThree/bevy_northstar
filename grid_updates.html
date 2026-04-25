@@ -194,6 +194,28 @@ After making changes, you <strong>must</strong> call <code>Grid::build()</code> 
 </ul>
 </li>
 </ul>
+<h2 id="rerouting-active-agents"><a class="header" href="#rerouting-active-agents">Rerouting Active Agents</a></h2>
+<p>After calling <code>set_nav()</code> + <code>build()</code>, the grid's internal pathfinding graph is updated — but any <code>Path</code> and <code>NextPos</code> components already on agents are <strong>not</strong> automatically invalidated. Agents will continue following their old path, potentially walking through cells that are now impassable.</p>
+<p>To force agents to recalculate their routes after a grid change, you must remove <strong>both</strong> <code>Path</code> and <code>NextPos</code> and re-insert a <code>Pathfind</code> request:</p>
+<pre><pre class="playground"><code class="language-rust no_run">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// After modifying the grid:
+grid.set_nav(position, Nav::Impassable);
+grid.build();
+
+// Reroute all active agents.
+for (entity, pathfind) in &amp;agents {
+    commands.entity(entity)
+        .remove::&lt;(NextPos, Path)&gt;()
+        .insert(Pathfind::new(pathfind.goal));
+}
+<span class="boring">}
+</span></code></pre></pre>
+<blockquote>
+<p><strong>Why remove both?</strong> The <code>next_position</code> system queries for entities with <code>Path</code> and <code>Without&lt;NextPos&gt;</code>. If you only remove <code>NextPos</code>, the system immediately pops the next waypoint from the <strong>old</strong> <code>Path</code> — the agent continues along its stale route. Removing <code>Path</code> as well ensures the agent waits for a fresh path that respects the updated grid.</p>
+</blockquote>
+<p>See the <code>reroute</code> example for a complete, runnable demonstration of this pattern.</p>
 
                     </main>
 
