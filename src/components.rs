@@ -13,7 +13,7 @@ use crate::{debug::DebugTilemapType, nav_mask::NavMask, NavRegion, SearchLimits}
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
-#[derive(Component, Default, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Component, Reflect, Default, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AgentPos(pub UVec3);
 
 /****************************************
@@ -292,6 +292,16 @@ pub struct DebugGrid {
     pub depth: u32,
     /// The type of tilemap being used.
     pub map_type: DebugTilemapType,
+    /// Voxel size for use when [`DebugTilemapType::Square3d`] is set.
+    /// Grid coordinate `UVec3(x, y, z)` maps to world position `Vec3(x, y, z) * voxel_size + offset`.
+    /// Defaults to `1.0` (one grid unit = one world unit). Should work in most cases.
+    pub voxel_size: f32,
+    /// Swaps the y and z axes for the debug grid for true 3d games.
+    /// Unfortunately pseudo 3d uses different coordinates than Bevy's 3D world space.
+    /// So we have a mismatch between 3d and psuedo 3d.
+    /// Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
+    /// Only affects [`DebugTilemapType::Square3d`].
+    pub swap_yz: bool,
     /// Will outline the chunks that the grid is divided into.
     pub draw_chunks: bool,
     /// Will draw the [`crate::nav::NavCell`]s in your grid.
@@ -439,12 +449,14 @@ pub struct DebugGridBuilder {
     tile_height: u32,
     depth: u32,
     tilemap_type: DebugTilemapType,
+    voxel_size: f32,
     draw_chunks: bool,
     draw_cells: bool,
     draw_entrances: bool,
     draw_cached_paths: bool,
     show_connections_on_hover: bool,
     debug_mask: Option<NavMask>,
+    swap_yz: bool,
 }
 
 impl DebugGridBuilder {
@@ -455,12 +467,14 @@ impl DebugGridBuilder {
             tile_height,
             depth: 0,
             tilemap_type: DebugTilemapType::Square,
+            voxel_size: 1.0,
             draw_chunks: false,
             draw_cells: false,
             draw_entrances: false,
             draw_cached_paths: false,
             show_connections_on_hover: false,
             debug_mask: None,
+            swap_yz: false,
         }
     }
 
@@ -481,6 +495,21 @@ impl DebugGridBuilder {
     /// Utility function to set the [`DebugGrid`] to draw in isometric.
     pub fn isometric(mut self) -> Self {
         self.tilemap_type = DebugTilemapType::Isometric;
+        self
+    }
+
+    /// Utility function to set the [`DebugGrid`] to draw in 3D voxel mode using [`DebugTilemapType::Square3d`].
+    /// All depth layers are rendered simultaneously using 3D gizmos.
+    pub fn square_3d(mut self) -> Self {
+        self.tilemap_type = DebugTilemapType::Square3d;
+        self
+    }
+
+    /// Voxel size for use when [`DebugTilemapType::Square3d`] is set.
+    /// Grid coordinate `UVec3(x, y, z)` maps to world position `Vec3(x, y, z) * voxel_size + offset`.
+    /// Defaults to `1.0` (one grid unit = one world unit). Should work in most cases.
+    pub fn voxel_size(mut self, size: f32) -> Self {
+        self.voxel_size = size;
         self
     }
 
@@ -525,6 +554,16 @@ impl DebugGridBuilder {
         self
     }
 
+    /// Swaps the y and z axes for the debug grid for true 3d games.
+    /// Unfortunately pseudo 3d uses different coordinates than Bevy's 3D world space.
+    /// So we have a mismatch between 3d and psuedo 3d.
+    /// Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
+    /// Only affects [`DebugTilemapType::Square3d`].
+    pub fn swap_yz(mut self) -> Self {
+        self.swap_yz = true;
+        self
+    }
+
     /// Builds the final [`DebugGrid`] component with the configured settings to be inserted into your map entity.
     /// You need to call this methdod to finalize the builder and create the component.
     pub fn build(self) -> DebugGrid {
@@ -533,12 +572,14 @@ impl DebugGridBuilder {
             tile_height: self.tile_height,
             depth: self.depth,
             map_type: self.tilemap_type,
+            voxel_size: self.voxel_size,
             draw_chunks: self.draw_chunks,
             draw_cells: self.draw_cells,
             draw_entrances: self.draw_entrances,
             draw_cached_paths: self.draw_cached_paths,
             show_connections_on_hover: self.show_connections_on_hover,
             debug_mask: self.debug_mask,
+            swap_yz: self.swap_yz,
         }
     }
 }

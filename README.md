@@ -53,8 +53,8 @@ Add required dependencies to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bevy = "0.17"
-bevy_northstar = "0.5"
+bevy = "0.18"
+bevy_northstar = "0.6"
 ```
 
 The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the grid cells, and then call `Grid::build()` so the neighbors, chunk entrances, and internal paths can be calculated. 

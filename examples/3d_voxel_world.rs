@@ -1,12 +1,11 @@
 // Example of a 3D voxel world using Bevy Northstar
 // left click to move player
-// g to rebuild the navigation grid
 // orbit camera via middle mouse
 // scroll wheel to zoom
 
 use bevy::{light::CascadeShadowConfigBuilder, prelude::*};
 use bevy_northstar::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin, TrackpadBehavior};
 use bevy_voxel_world::custom_meshing::{generate_chunk_mesh, PaddedChunkShape, CHUNK_SIZE_U};
 use bevy_voxel_world::prelude::*;
 use ndshape::ConstShape;
@@ -129,6 +128,7 @@ fn main() {
             ),
         )
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
+        .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood3d>::default())
         .run();
 }
 
@@ -167,9 +167,19 @@ fn setup(
         // This tells bevy_voxel_world to use this cameras transform to calculate spawning area
         VoxelWorldCamera::<MyMainWorld>::default(),
         PanOrbitCamera {
-            pan_sensitivity: 0.0,
             focus: Vec3::new(16.0, 0.0, 16.0),
+            // Orbit: middle mouse or trackpad scroll
+            // Pan: Shift + middle mouse or Shift + trackpad scroll
+            // Zoom: scroll wheel or Ctrl + trackpad scroll
             button_orbit: MouseButton::Middle,
+            button_pan: MouseButton::Middle,
+            modifier_pan: Some(KeyCode::ShiftLeft),
+            trackpad_behavior: TrackpadBehavior::BlenderLike {
+                modifier_pan: Some(KeyCode::ShiftLeft),
+                modifier_zoom: Some(KeyCode::ControlLeft),
+            },
+            trackpad_sensitivity: 1.0,
+            trackpad_pinch_to_zoom_enabled: true,
             ..default()
         },
     ));
@@ -210,8 +220,17 @@ fn setup(
     // Call `build()` to return the component.
 
     // Spawn the grid component
-    let grid_ec = commands.spawn(OrdinalGrid3d::new(&grid_settings));
-    let grid_entity = grid_ec.id();
+    let grid_entity = commands
+        .spawn(OrdinalGrid3d::new(&grid_settings))
+        .with_child((
+            DebugGridBuilder::new(1, 1)
+                .square_3d()
+                .enable_chunks()
+                .enable_entrances()
+                .build(),
+            //DebugOffset(Vec3::new(0.0, 1.0, 0.0)),
+        ))
+        .id();
 
     // player
     commands.spawn((
@@ -226,6 +245,7 @@ fn setup(
         // Northstar agent setup
         AgentPos(UVec3::new(9, 1, 9)),
         AgentOfGrid(grid_entity),
+        DebugPath::new(Color::srgb(1.0, 0.0, 0.0)),
     ));
 }
 
@@ -265,7 +285,7 @@ fn update_cursor_cube(
                 cursor_cube.single_mut().unwrap();
             // Move the cursor cube to the position of the voxel we hit
             // Camera is by construction not in a solid voxel, so result.normal must be Some(...)
-            let voxel_pos = result.position + result.normal.unwrap();
+            let voxel_pos = result.position + result.normal.unwrap_or(Vec3::Y);
             transform.translation = voxel_pos + Vec3::new(0.5, 0.5, 0.5);
             cursor_cube.voxel_pos = voxel_pos.as_ivec3();
             if cursor_cube.voxel_pos.x < 0

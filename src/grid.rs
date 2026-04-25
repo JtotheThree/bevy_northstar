@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bevy::{
     ecs::entity::Entity,
-    log,
+    log::{self, debug},
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
     prelude::Component,
@@ -380,9 +380,28 @@ impl<N: Neighborhood + Default> Grid<N> {
 
         let UVec3 { x, y, z } = dimensions;
 
-        let x_chunks = x / chunk_settings.size;
-        let y_chunks = y / chunk_settings.size;
-        let z_chunks = z / chunk_settings.depth;
+        let mut x_chunks = x / chunk_settings.size;
+        let mut y_chunks = y / chunk_settings.size;
+        let mut z_chunks = z / chunk_settings.depth;
+
+        let x_remainder = x % chunk_settings.size;
+        let y_remainder = y % chunk_settings.size;
+        let z_remainder = z % chunk_settings.depth;
+
+        if x_remainder != 0 || y_remainder != 0 || (z_remainder != 0) {
+            debug!("Grid dimensions are not divisible by chunk size and depth. Rounding up the number of chunks...");
+
+            // Round up the number of chunks to cover the entire grid
+            if x_remainder != 0 {
+                x_chunks += 1;
+            }
+            if y_remainder != 0 {
+                y_chunks += 1;
+            }
+            if z_remainder != 0 {
+                z_chunks += 1;
+            }
+        }
 
         let default_navcell = if cost_settings.default_impassible {
             NavCell::new(Nav::Impassable)
@@ -392,18 +411,21 @@ impl<N: Neighborhood + Default> Grid<N> {
 
         let grid = Array3::from_elem((x as usize, y as usize, z as usize), default_navcell);
 
+        // Create chunks. Edge chunks are clamped to grid bounds.
         let chunks = Array3::from_shape_fn(
             (x_chunks as usize, y_chunks as usize, z_chunks as usize),
-            |(x, y, z)| {
-                let min_x = x as u32 * chunk_settings.size;
-                let max_x = min_x + chunk_settings.size;
-                let min_y = y as u32 * chunk_settings.size;
-                let max_y = min_y + chunk_settings.size;
-                let min_z = z as u32 * chunk_settings.depth;
-                let max_z = min_z + chunk_settings.depth;
+            |(x_idx, y_idx, z_idx)| {
+                let min_x = x_idx as u32 * chunk_settings.size;
+                let max_x = (min_x + chunk_settings.size).min(x);
+
+                let min_y = y_idx as u32 * chunk_settings.size;
+                let max_y = (min_y + chunk_settings.size).min(y);
+
+                let min_z = z_idx as u32 * chunk_settings.depth;
+                let max_z = (min_z + chunk_settings.depth).min(z);
 
                 Chunk::new(
-                    (x, y, z),
+                    (x_idx, y_idx, z_idx),
                     UVec3::new(min_x, min_y, min_z),
                     UVec3::new(max_x, max_y, max_z),
                 )
@@ -595,11 +617,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     }
 
     pub(crate) fn chunk_in_bounds(&self, chunk_x: isize, chunk_y: isize, chunk_z: isize) -> bool {
-        let chunk_size = self.chunk_settings.size as usize;
-        let chunk_depth = self.chunk_settings.depth as usize;
-        let x_chunks = self.dimensions.x as usize / chunk_size;
-        let y_chunks = self.dimensions.y as usize / chunk_size;
-        let z_chunks = self.dimensions.z as usize / chunk_depth;
+        let (x_chunks, y_chunks, z_chunks) = self.chunks.dim();
 
         chunk_x >= 0
             && chunk_x < x_chunks as isize
@@ -815,11 +833,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Shared logic for building nodes for a single chunk at (x, y, z).
     /// Returns (nodes_to_add, cleaned_edges).
     fn build_nodes_for_chunk(&self, x: usize, y: usize, z: usize) -> Option<(Vec<Node>, Vec<Dir>)> {
-        let chunk_size = self.chunk_settings.size as usize;
-        let chunk_depth = self.chunk_settings.depth as usize;
-        let x_chunks = self.dimensions.x as usize / chunk_size;
-        let y_chunks = self.dimensions.y as usize / chunk_size;
-        let z_chunks = self.dimensions.z as usize / chunk_depth;
+        let (x_chunks, y_chunks, z_chunks) = self.chunks.dim();
 
         let chunk = &self.chunks[[x, y, z]];
 
@@ -1038,31 +1052,52 @@ impl<N: Neighborhood + Default> Grid<N> {
             let pos = UVec3::new(x as u32, y as u32, 0);
             nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
         }
-        // If no nodes found and ordinal movement is allowed, try checking adjacent edge cells
-        if nodes.is_empty() && self.neighborhood.is_ordinal() {
+        if self.neighborhood.is_ordinal() && self.depth() > 1 {
             let mut ordinal_nodes = Vec::new();
+            let width = end_face.shape()[0] as isize;
+            let height = end_face.shape()[1] as isize;
+
             for ((x, y), start_cell) in start_face.indexed_iter() {
-                if start_cell.is_impassable() {
+                if start_cell.is_impassable() || intersection[(x, y)] {
                     continue;
                 }
 
-                if x > 0 {
-                    let left = end_face[[x - 1, y]].clone();
-                    if !left.is_impassable() {
-                        let pos = UVec3::new(x as u32, y as u32, 0);
-                        ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
+                let x = x as isize;
+                let y = y as isize;
+                let mut has_ordinal_overlap = false;
+
+                // Check all neighboring cells in face-local space, not just one axis.
+                for ox in -1..=1 {
+                    for oy in -1..=1 {
+                        if ox == 0 && oy == 0 {
+                            continue;
+                        }
+
+                        let nx = x + ox;
+                        let ny = y + oy;
+
+                        if nx < 0 || ny < 0 || nx >= width || ny >= height {
+                            continue;
+                        }
+
+                        if !end_face[[nx as usize, ny as usize]].is_impassable() {
+                            has_ordinal_overlap = true;
+                            break;
+                        }
+                    }
+
+                    if has_ordinal_overlap {
+                        break;
                     }
                 }
 
-                if x < end_face.shape()[0] - 1 {
-                    let right = end_face[[x + 1, y]].clone();
-                    if !right.is_impassable() {
-                        let pos = UVec3::new(x as u32, y as u32, 0);
-                        ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
-                    }
+                if has_ordinal_overlap {
+                    let pos = UVec3::new(x as u32, y as u32, 0);
+                    ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
                 }
             }
-            return ordinal_nodes;
+
+            nodes.extend(ordinal_nodes);
         }
 
         nodes
@@ -1231,7 +1266,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     all_connections.push((
                         world_start,
                         world_goal,
-                        Path::new(path_vec.clone(), path_vec.len() as u32),
+                        Path::new(path_vec.clone(), path.cost()),
                     ));
                 }
             }
@@ -1281,7 +1316,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         (
                             world_start,
                             world_goal,
-                            Path::new(path_vec.clone(), path_vec.len() as u32),
+                            Path::new(path_vec.clone(), path.cost()),
                         )
                     })
                 })
@@ -1319,12 +1354,14 @@ impl<N: Neighborhood + Default> Grid<N> {
             }
 
             // Check all the adjacent positions of the node, taking into account cardinal/ordinal settings
-            let directions: Box<dyn Iterator<Item = Dir>> =
-                if self.chunk_settings.diagonal_connections {
-                    Box::new(Dir::all())
-                } else {
-                    Box::new(Dir::cardinal())
-                };
+            let use_all_dirs =
+                self.chunk_settings.diagonal_connections || self.neighborhood.is_ordinal();
+
+            let directions: Box<dyn Iterator<Item = Dir>> = if use_all_dirs {
+                Box::new(Dir::all())
+            } else {
+                Box::new(Dir::cardinal())
+            };
 
             for dir in directions {
                 let dir_vec = dir.offset();
@@ -1333,13 +1370,24 @@ impl<N: Neighborhood + Default> Grid<N> {
                 let ny = node.pos.y as i32 + dir_vec.y;
                 let nz = node.pos.z as i32 + dir_vec.z;
 
+                if nx < 0 || ny < 0 || nz < 0 {
+                    continue;
+                }
+
+                let neighbor_pos = UVec3::new(nx as u32, ny as u32, nz as u32);
+
+                if !self.in_bounds(neighbor_pos) {
+                    continue;
+                }
+
                 if let Some(neighbor) = self
                     .graph
                     .node_at(UVec3::new(nx as u32, ny as u32, nz as u32))
                 {
                     // Check if neighbor is in a different chunk
                     if node.chunk_index != neighbor.chunk_index {
-                        let path = Path::from_slice(&[node.pos, neighbor.pos], 1);
+                        let cost = self.navcell(neighbor.pos).cost;
+                        let path = Path::from_slice(&[node.pos, neighbor.pos], cost);
 
                         connections.push((node.pos, neighbor.pos, path));
                     }
@@ -2561,5 +2609,140 @@ mod tests {
         ));
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
+    }
+
+    // Regression test to make sure that chunk sizes not divisible by the grid dimensions are handled correctly
+    #[test]
+    fn test_non_divisible_chunk_size() {
+        let settings = GridSettingsBuilder::new_2d(10, 10).chunk_size(3).build();
+
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+        grid.build();
+
+        assert_eq!(grid.dimensions(), UVec3::new(10, 10, 1));
+        assert_eq!(grid.chunks.dim(), (4, 4, 1));
+        let edge_chunk = grid.chunk_at_position(UVec3::new(9, 9, 0)).unwrap();
+        assert_eq!(edge_chunk.max(), UVec3::new(10, 10, 1));
+
+        // Pathfind from (0,0,0) to (9,9,0). Should get a path back.
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(0, 0, 0),
+            UVec3::new(9, 9, 0),
+        ));
+
+        assert!(
+            path.is_some(),
+            "Path should exist for non-divisible chunk size"
+        );
+
+        // Make sure impasaable cells were set for the remainder
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(9, 9, 0),
+            UVec3::new(10, 10, 0),
+        ));
+
+        assert!(
+            path.is_none(),
+            "Path should not exist to out of bounds cell"
+        );
+    }
+
+    // Regression test for a bug found with 3d face node calculation
+    #[test]
+    fn test_3d_diagonal_face_nodes() {
+        let settings = GridSettingsBuilder::new_3d(16, 8, 16)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .default_impassable()
+            .build();
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        for z in 0..8u32 {
+            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        }
+
+        for z in 8..16u32 {
+            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        }
+
+        grid.build();
+
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 0, 2),
+            UVec3::new(4, 1, 12),
+        ));
+
+        assert!(
+            path.is_some(),
+            "3d diagonal face nodes are not calculated correctly"
+        );
+    }
+
+    // Regression test for a bug where HPA* was failing when the start position was on an edge node in 3d
+    #[test]
+    fn test_hpa_start_at_boundary_node() {
+        let settings = GridSettingsBuilder::new_3d(16, 8, 16)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .default_impassable()
+            .build();
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        for z in 0..8u32 {
+            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        }
+
+        for z in 8..16u32 {
+            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        }
+
+        grid.build();
+
+        let path_down = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 1, 7),
+            UVec3::new(4, 0, 12),
+        ));
+
+        assert!(
+            path_down.is_some(),
+            "No path exists up across diagonal face nodes"
+        );
+
+        let path_up = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 0, 12),
+            UVec3::new(4, 1, 7),
+        ));
+
+        assert!(
+            path_up.is_some(),
+            "No path exists down across diagonal face nodes"
+        );
+    }
+
+    // Regression test for rebuilding vertical node connections in 3d
+    #[test]
+    fn test_rebuilding_vertical_node_connections() {
+        let settings = GridSettingsBuilder::new_3d(16, 16, 8)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .default_impassable()
+            .build();
+
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        // Start chunk north face cell (x=3, z=3) at y=7
+        grid.set_nav(UVec3::new(3, 7, 3), Nav::Passable(1));
+
+        // Neighbor chunk south face cell offset in both local axes (x+1, z+1) at y=8
+        grid.set_nav(UVec3::new(4, 8, 4), Nav::Passable(1));
+
+        grid.build();
+
+        // The boundary node on the start side should exist.
+        let start_boundary_node = grid.graph.node_at(UVec3::new(3, 7, 3));
+        assert!(
+            start_boundary_node.is_some(),
+            "Expected boundary node at (3,7,3) wasn't created"
+        );
     }
 }

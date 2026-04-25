@@ -1,24 +1,17 @@
 //! This module defines pathfinding functions which can be called directly.
 
-use bevy::{
-    ecs::entity::Entity,
-    log,
-    math::UVec3,
-    platform::collections::{HashMap, HashSet},
-};
+use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 use ndarray::ArrayView3;
 
 use crate::{
     astar::astar_grid,
-    chunk::Chunk,
     components::PathfindMode,
     dijkstra::dijkstra_grid,
     grid::Grid,
-    hpa::hpa,
+    hpa::{hpa, HpaScratch},
     nav::NavCell,
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
-    node::Node,
     path::Path,
     prelude::{NavMask, Pathfind},
     raycast::bresenham_path_internal,
@@ -252,8 +245,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
         }
     }
 
-    let start_chunk = grid.chunk_at_position(start)?;
-    let goal_chunk = grid.chunk_at_position(goal)?;
+    // Clone chunk data to avoid borrow conflicts during graph mutation
+    let start_chunk = grid.chunk_at_position(start)?.clone();
+    let goal_chunk = grid.chunk_at_position(goal)?.clone();
 
     // If the start and goal are in the same chunk, use AStar directly
     if start_chunk == goal_chunk {
@@ -275,167 +269,119 @@ pub(crate) fn pathfind<N: Neighborhood>(
         }
     }
 
-    // Find viable nodes in the start and goal chunks
-    let (start_nodes, start_paths) =
-        filter_and_rank_chunk_nodes(grid, start_chunk, start, goal, mask)?;
-    let (goal_nodes, goal_paths) =
-        filter_and_rank_chunk_nodes(grid, goal_chunk, goal, start, mask)?;
-
-    let mut path: Vec<UVec3> = Vec::new();
-    let mut cost = 0;
-
-    for start_node in &start_nodes {
-        for goal_node in goal_nodes.clone() {
-            let node_path = hpa(grid, start_node.pos, goal_node.pos, blocking, mask, limits);
-
-            if let Some(mut node_path) = node_path {
-                let start_keys: HashSet<_> = start_paths.keys().copied().collect();
-                let goal_keys: HashSet<_> = goal_paths.keys().copied().collect();
-
-                trim_path(
-                    &mut node_path,
-                    &start_keys,
-                    &goal_keys,
-                    start_chunk,
-                    goal_chunk,
-                );
-
-                let start_pos = node_path.path.front().unwrap();
-                let goal_pos = node_path.path.back().unwrap();
-
-                // Add start_path to the node_path
-                let start_path = start_paths.get(&(start_pos - start_chunk.min())).unwrap();
-                path.extend(start_path.path().iter().map(|pos| *pos + start_chunk.min()));
-                cost += start_path.cost();
-
-                // Add the node_path to the path (check for connection point overlap)
-                let node_positions = node_path.path();
-                if !path.is_empty()
-                    && !node_positions.is_empty()
-                    && path.last() == Some(&node_positions[0])
-                {
-                    // Skip the first position of node_path since it duplicates the last position of start_path
-                    path.extend(node_positions.iter().skip(1));
-                } else {
-                    path.extend(node_positions.iter());
-                }
-                cost += node_path.cost();
-
-                // Add goal path to path (check for connection point overlap)
-                let end_path = goal_paths.get(&(goal_pos - goal_chunk.min())).unwrap();
-                let goal_positions: Vec<UVec3> = end_path
-                    .path()
-                    .iter()
-                    .rev()
-                    .map(|pos| *pos + goal_chunk.min())
-                    .collect();
-
-                if !path.is_empty()
-                    && !goal_positions.is_empty()
-                    && path.last() == Some(&goal_positions[0])
-                {
-                    // Skip the first position of goal_path since it duplicates the last position of node_path
-                    path.extend(goal_positions.iter().skip(1));
-                } else {
-                    path.extend(goal_positions.iter());
-                }
-                cost += end_path.cost();
-
-                if path.is_empty() {
-                    return None;
-                }
-
-                // On some occassions extending the goal path can add in a duplicate goal position at the end.
-                // It's cheaper/cleaner to just clean up after it.
-                if path.len() >= 2 && path[path.len() - 1] == path[path.len() - 2] {
-                    path.pop();
-                }
-
-                if !refined && !waypoints {
-                    // If we're not refining, return the path as is
-                    let mut path = Path::new(path, cost);
-                    path.graph_path = node_path.path;
-                    return Some(path);
-                }
-
-                if waypoints {
-                    let mut waypoints_path = extract_waypoints(
-                        &grid.neighborhood,
-                        &grid.view(),
-                        &Path::new(path, cost),
-                        mask,
-                    );
-                    if waypoints_path.is_empty() {
-                        log::warn!("Waypoints path is empty, returning None");
-                        return None;
-                    }
-
-                    // Remove the starting position from the waypoints path
-                    waypoints_path.path.pop_front();
-
-                    return Some(waypoints_path);
-                }
-
-                let mut refined_path = optimize_path(
-                    &grid.neighborhood,
-                    &grid.view(),
-                    mask,
-                    &Path::from_slice(&path, cost),
-                );
-
-                // remove the starting position from the refined path
-                refined_path.path.pop_front();
-
-                // add the graph path to the refined path
-                refined_path.graph_path = node_path.path;
-
-                return Some(refined_path);
-            }
+    // Get all nodes in the start chunk
+    let start_paths: HashMap<UVec3, Path> = {
+        let chunk_view = grid.chunk_view(&start_chunk);
+        let local_start = start - start_chunk.min();
+        let node_goals: Vec<UVec3> = grid
+            .graph()
+            .nodes_in_chunk(&start_chunk)
+            .iter()
+            .map(|n| n.pos - start_chunk.min())
+            .collect();
+        if node_goals.is_empty() {
+            return None;
         }
+        let mask_local = mask.translate_by(-start_chunk.min().as_ivec3());
+        dijkstra_grid(&chunk_view, local_start, &node_goals, false, &mask_local)
+    };
+
+    if start_paths.is_empty() {
+        return None;
     }
 
-    None
-}
-
-// Some times the Graph A* will return a path that has valid but redundant nodes at the start and end
-// of the path. Leading to awkward paths where the agent appears to veers off before heading to the goal.
-// This trims the path to ensure that only one entrance and exit node is used for the start and goal chunks.
-pub(crate) fn trim_path(
-    path: &mut Path,
-    start_keys: &HashSet<UVec3>, // local positions in start_paths
-    goal_keys: &HashSet<UVec3>,  // local positions in goal_paths
-    start_chunk: &Chunk,
-    goal_chunk: &Chunk,
-) {
-    // === Trim start ===
-    if let Some(i) = path
-        .path
-        .iter()
-        .position(|pos| start_keys.contains(&(*pos - start_chunk.min())))
-    {
-        // Remove everything before this index
-        for _ in 0..i {
-            path.path.pop_front();
+    // Dijkstra from goal → all boundary nodes in goal chunk (local coords)
+    let goal_paths: HashMap<UVec3, Path> = {
+        let chunk_view = grid.chunk_view(&goal_chunk);
+        let local_goal = goal - goal_chunk.min();
+        let node_goals: Vec<UVec3> = grid
+            .graph()
+            .nodes_in_chunk(&goal_chunk)
+            .iter()
+            .map(|n| n.pos - goal_chunk.min())
+            .collect();
+        if node_goals.is_empty() {
+            return None;
         }
+        let mask_local = mask.translate_by(-goal_chunk.min().as_ivec3());
+        dijkstra_grid(&chunk_view, local_goal, &node_goals, false, &mask_local)
+    };
+
+    if goal_paths.is_empty() {
+        return None;
     }
 
-    // === Trim end ===
-    if let Some(i) = path
-        .path
-        .iter()
-        .rposition(|pos| goal_keys.contains(&(*pos - goal_chunk.min())))
-    {
-        // Remove everything after this index
-        let len = path.path.len();
-        for _ in (i + 1)..len {
-            path.path.pop_back();
-        }
+    // Build the scratch pad for the low-level HPA* search
+    let mut start_outgoing: HashMap<UVec3, Path> = HashMap::new();
+    for (local_pos, local_path) in &start_paths {
+        let boundary = *local_pos + start_chunk.min();
+        let global_path = Path::new(
+            local_path
+                .path()
+                .iter()
+                .map(|p| *p + start_chunk.min())
+                .collect(),
+            local_path.cost(),
+        );
+        start_outgoing.insert(boundary, global_path);
     }
 
-    assert!(
-        !path.path.is_empty(),
-        "BUG: trim_path() removed all nodes — this should never happen"
+    let mut edge_to_goal: HashMap<UVec3, Path> = HashMap::new();
+    for (local_pos, local_path) in &goal_paths {
+        let boundary = *local_pos + goal_chunk.min();
+        let global_path = Path::new(
+            local_path
+                .path()
+                .iter()
+                .rev()
+                .map(|p| *p + goal_chunk.min())
+                .collect(),
+            local_path.cost(),
+        );
+        edge_to_goal.insert(boundary, global_path);
+    }
+
+    let augmentation = HpaScratch {
+        start,
+        goal,
+        start_edges: start_outgoing,
+        edge_to_goal,
+    };
+
+    let result = hpa(
+        grid,
+        start,
+        goal,
+        Some(&augmentation),
+        blocking,
+        mask,
+        limits,
     );
+
+    let mut node_path = result?;
+
+    if waypoints {
+        let mut waypoints_path =
+            extract_waypoints(&grid.neighborhood, &grid.view(), &node_path, mask);
+        if waypoints_path.is_empty() {
+            log::warn!("Waypoints path is empty, returning None");
+            return None;
+        }
+        // pop starting position
+        waypoints_path.path.pop_front();
+        return Some(waypoints_path);
+    }
+
+    if refined {
+        let mut refined_path = optimize_path(&grid.neighborhood, &grid.view(), mask, &node_path);
+        // pop starting position
+        refined_path.path.pop_front();
+        refined_path.graph_path = node_path.graph_path;
+        return Some(refined_path);
+    }
+
+    node_path.path.pop_front();
+    Some(node_path)
 }
 
 /// Extract waypoints from a path by checking for line of sight between nodes.
@@ -638,131 +584,6 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     let mut path = Path::new(refined_path.clone(), cost);
     path.graph_path = refined_path.into();
     path
-}
-/*#[inline(always)]
-pub(crate) fn optimize_path<N: Neighborhood>(
-    neighborhood: &N,
-    grid: &ArrayView3<NavCell>,
-    mask: &NavMaskData,
-    path: &Path,
-) -> Path {
-    if path.is_empty() {
-        return path.clone();
-    }
-
-    let filtered = !neighborhood.filters().is_empty();
-
-    let mut refined_path = Vec::with_capacity(path.len());
-    let mut i = 0;
-
-    refined_path.push(path.path[i]); // Always keep the first node
-
-    while i < path.len() {
-        let mut shortcut_taken = false;
-
-        for farthest in (i + 1..path.len()).rev() {
-            let candidate = path.path[farthest];
-
-            // Reject if direction changes drastically
-            /*if let Some(prev_dir) = last_dir {
-                if dir != prev_dir && dir.dot(prev_dir) < 0 {
-                    continue; // Skip this candidate
-                }
-            }*/
-
-            let maybe_shortcut = bresenham_path(
-                grid,
-                path.path[i],
-                candidate,
-                neighborhood.is_ordinal(),
-                filtered,
-                false,
-            );
-
-            if let Some(shortcut) = maybe_shortcut {
-                refined_path.extend(shortcut.into_iter().skip(1));
-                i = farthest;
-                shortcut_taken = true;
-                break;
-            }
-        }
-
-        if !shortcut_taken {
-            i += 1;
-            if i < path.len() {
-                refined_path.push(path.path[i]);
-            }
-        }
-    }
-
-    // This is trash.
-    //let refined_path = push_turns_to_corners(&refined_path, grid);
-
-    // Recompute cost of new path
-    let cost = refined_path
-        .iter()
-        .map(|pos| grid[[pos.x as usize, pos.y as usize, pos.z as usize]].cost)
-        .sum();
-
-    let mut path = Path::new(refined_path.clone(), cost);
-    path.graph_path = refined_path.into();
-    path
-}*/
-
-// Filters and ranks nodes within a chunk based on reachability and proximity.
-#[inline(always)]
-fn filter_and_rank_chunk_nodes<'a, N: Neighborhood>(
-    grid: &'a Grid<N>,
-    chunk: &Chunk,
-    source: UVec3,
-    target: UVec3,
-    mask: &NavMaskData,
-) -> Option<(Vec<&'a Node>, HashMap<UVec3, Path>)> {
-    let nodes = grid.graph().nodes_in_chunk(chunk);
-
-    let min = chunk.min().as_ivec3();
-
-    let mask_local = mask.translate_by(-min);
-
-    // Get paths from source to all nodes in this chunk
-    let paths = dijkstra_grid(
-        &grid.chunk_view(chunk),
-        source - chunk.min(),
-        &nodes
-            .iter()
-            .map(|node| node.pos - chunk.min())
-            .collect::<Vec<_>>(),
-        false,
-        &mask_local,
-    );
-
-    let filtered_nodes = nodes
-        .iter()
-        .filter(|node| paths.contains_key(&(node.pos - chunk.min())))
-        .collect::<Vec<_>>();
-
-    if filtered_nodes.is_empty() {
-        return None;
-    }
-
-    let mut ranked_nodes = filtered_nodes
-        .iter()
-        .map(|node| {
-            let d_start = manhattan_distance(node.pos, source);
-            let d_goal = manhattan_distance(node.pos, target);
-            (*node, d_start + d_goal)
-        })
-        .collect::<Vec<_>>();
-
-    ranked_nodes.sort_by_key(|(_, dist)| *dist);
-    Some((ranked_nodes.into_iter().map(|(n, _)| *n).collect(), paths))
-}
-
-#[inline(always)]
-fn manhattan_distance(a: UVec3, b: UVec3) -> i32 {
-    (a.x as i32 - b.x as i32).abs()
-        + (a.y as i32 - b.y as i32).abs()
-        + (a.z as i32 - b.z as i32).abs()
 }
 
 /// Recursively reroutes a path by astar pathing to further chunks until a path can be found.

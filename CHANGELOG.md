@@ -1,3 +1,22 @@
+## v0.6.2
+### Features
+- Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is faster.
+- Debug Gizmos now support 3d voxel maps. Use the `Square3d` DebugTilemapType to enable.
+- Added missing `reflect` to the `AgentPos` component.
+
+### Feature Fix
+- Indivisble chunk sizes now add an extra buffer of impassable cells so pathfinding works as expected near the grid boundary.
+- A couple of bugs were fixed that caused face edge calculation and pathing issues at the edge in true 3d.
+
+### Bug Fixes
+- Added a cost guard to djikstra neighbors which should speed up building the grid
+- Fixed graph pathing issues used in HPA* collision rerouting
+- Fixed coarse paths returning with the start position in front
+- Fixed some cost calculations in refinement after trimming
+- Fixed collision avoidance vec extension [caused duplicate positions in avoidance path] (minor)
+- Fixed edge cost in some scenarios (minor issue)
+- Fixed a couple of bugs in the 3d_voxel_world example.
+
 ## v0.6.1
 - Fix for Waypoint refinement not factoring in cell cost accurately.
 

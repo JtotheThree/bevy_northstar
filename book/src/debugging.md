@@ -70,6 +70,17 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 ```
 
+# Debugging in 3d
+Debug Gizmos are available for 3d voxel maps. Use `DebugTilemapType::Square3d` for the tilemap type.
+
+You can set it when you initialize and build `DebugGridBuilder` with:
+
+```rust,no_run
+DebugGridBuilder::new(1, 1).square_3d()
+```
+
+Using `enable_cells()` to draw cell gizmos in 3d will only draw gizmos at open cells. Even with that filter, it will greatly impact rendering performance. Only recommended if you're struggling to debug an issue.
+
 # Debugging Paths
 
 Debugging paths for an entity requires you to add a `DebugPath` component to the entity or entities of your choosing. This component allows you to selectively debug specific paths.
@@ -95,6 +106,17 @@ See [Getting Started](getting_started.md#quick-northstarplugin-pathfinding-syste
 ### `isometric()`
 
 Sets the debug gizmos to draw in isometric perspective.
+
+### `square_3d()`
+
+Sets the debug gizmos to true 3d. Needed for 3d voxel games.
+
+### `swap_yz()`
+
+Swaps the y and z axes for the debug gizmos.
+There's a disconnect between Psuedo 3d and Full 3d xyz coordinates.
+Until we have grid wrappers this is the easiest way if you need to remap the coordinates.
+Only affects `DebugTilemapType::Square3d`.
 
 ### `enable_chunks()`
 
@@ -129,6 +151,8 @@ As you can see above, viewing all the connections at once is quite noisy. Enabli
 # `DebugCursor` Component
 
 In order for the debug plugin to determine which node your cursor is hovering over, you need to manually update the `DebugCursor` component. While tedious this is required because not every game will have the same windowing and camera setups. `DebugCursor` is inserted along with `DebugGrid` so there is no need to insert it manually.
+
+Note: The DebugCursor doesn't currently work in true 3d with the Square3d debug plugin setting.
 
 For most cases you can just dump the raw world cursor position in your input systems or just add a simple system to handle it:
 
