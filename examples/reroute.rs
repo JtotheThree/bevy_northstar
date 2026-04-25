@@ -206,6 +206,7 @@ fn smooth_move(
 }
 
 /// When an agent finishes its path, send it back the other way.
+#[allow(clippy::type_complexity)]
 fn patrol_reverse(
     mut query: Query<(Entity, &AgentPos, &Patrol, Option<&NextPos>, Option<&Path>)>,
     mut commands: Commands,
