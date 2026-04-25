@@ -5,6 +5,7 @@
 - Added missing `reflect` to the `AgentPos` component.
 
 ### Feature Fix
+- Indivisble chunk sizes now add an extra buffer of impassable cells so pathfinding works as expected near the grid boundary.
 - A couple of bugs were fixed that caused face edge calculation and pathing issues at the edge in true 3d.
 
 ### Bug Fixes
