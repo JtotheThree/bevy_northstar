@@ -493,7 +493,7 @@ fn avoidance<N: Neighborhood + 'static>(
 
                 // Combine the new path with the old path
                 let mut combined_path = new_path.path().to_vec();
-                combined_path.extend(old_path);
+                combined_path.extend(&old_path[1..]);
 
                 if combined_path.is_empty() {
                     log::error!("Combined path is empty for entity: {:?}", entity);

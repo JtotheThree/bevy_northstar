@@ -57,6 +57,10 @@ pub(crate) fn dijkstra_grid(
         let neighbors = {
             let (current_pos, &(_, current_cost)) = visited.get_index(index).unwrap();
 
+            if cost > current_cost {
+                continue;
+            }
+
             if remaining_goals.remove(current_pos) {
                 goal_costs.insert(*current_pos, current_cost);
                 if only_closest_goal || remaining_goals.is_empty() {

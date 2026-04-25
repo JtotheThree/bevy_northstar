@@ -1052,31 +1052,28 @@ impl<N: Neighborhood + Default> Grid<N> {
             let pos = UVec3::new(x as u32, y as u32, 0);
             nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
         }
-        // If no nodes found and ordinal movement is allowed, try checking adjacent edge cells
-        if nodes.is_empty() && self.neighborhood.is_ordinal() {
+        if self.neighborhood.is_ordinal() {
             let mut ordinal_nodes = Vec::new();
             for ((x, y), start_cell) in start_face.indexed_iter() {
                 if start_cell.is_impassable() {
                     continue;
                 }
-
-                if x > 0 {
-                    let left = end_face[[x - 1, y]].clone();
-                    if !left.is_impassable() {
-                        let pos = UVec3::new(x as u32, y as u32, 0);
-                        ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
-                    }
+                // Skip cells that already have an intersection
+                if intersection[(x, y)] {
+                    continue;
                 }
 
-                if x < end_face.shape()[0] - 1 {
-                    let right = end_face[[x + 1, y]].clone();
-                    if !right.is_impassable() {
-                        let pos = UVec3::new(x as u32, y as u32, 0);
-                        ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
-                    }
+                // Only check direct height shifts
+                #[allow(clippy::if_same_then_else)]
+                if y > 0 && !end_face[[x, y - 1]].is_impassable() {
+                    let pos = UVec3::new(x as u32, y as u32, 0);
+                    ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
+                } else if y < end_face.shape()[1] - 1 && !end_face[[x, y + 1]].is_impassable() {
+                    let pos = UVec3::new(x as u32, y as u32, 0);
+                    ordinal_nodes.push(Node::new(pos, chunk.clone(), Some(dir)));
                 }
             }
-            return ordinal_nodes;
+            nodes.extend(ordinal_nodes);
         }
 
         nodes
@@ -1245,7 +1242,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     all_connections.push((
                         world_start,
                         world_goal,
-                        Path::new(path_vec.clone(), path_vec.len() as u32),
+                        Path::new(path_vec.clone(), path.cost()),
                     ));
                 }
             }
@@ -1295,7 +1292,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         (
                             world_start,
                             world_goal,
-                            Path::new(path_vec.clone(), path_vec.len() as u32),
+                            Path::new(path_vec.clone(), path.cost()),
                         )
                     })
                 })
@@ -1353,7 +1350,8 @@ impl<N: Neighborhood + Default> Grid<N> {
                 {
                     // Check if neighbor is in a different chunk
                     if node.chunk_index != neighbor.chunk_index {
-                        let path = Path::from_slice(&[node.pos, neighbor.pos], 1);
+                        let cost = self.navcell(neighbor.pos).cost;
+                        let path = Path::from_slice(&[node.pos, neighbor.pos], cost);
 
                         connections.push((node.pos, neighbor.pos, path));
                     }
@@ -2607,5 +2605,76 @@ mod tests {
         ));
 
         assert!(path.is_none(), "Path should not exist to out of bounds cell");
+
+    // Regression test for a bug found with 3d face node calculation
+    #[test]
+    fn test_3d_diagonal_face_nodes() {
+        let settings = GridSettingsBuilder::new_3d(16, 8, 16)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .default_impassable()
+            .build();
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        for z in 0..8u32 {
+            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        }
+
+        for z in 8..16u32 {
+            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        }
+
+        grid.build();
+
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 0, 2),
+            UVec3::new(4, 1, 12),
+        ));
+
+        assert!(
+            path.is_some(),
+            "3d diagonal face nodes are not calculated correctly"
+        );
+    }
+
+    // Regression test for a bug where HPA* was failing when the start position was on an edge node in 3d
+    #[test]
+    fn test_hpa_start_at_boundary_node() {
+        let settings = GridSettingsBuilder::new_3d(16, 8, 16)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .default_impassable()
+            .build();
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        for z in 0..8u32 {
+            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        }
+
+        for z in 8..16u32 {
+            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        }
+
+        grid.build();
+
+        let path_down = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 1, 7),
+            UVec3::new(4, 0, 12),
+        ));
+
+        assert!(
+            path_down.is_some(),
+            "No path exists up across diagonal face nodes"
+        );
+
+        let path_up = grid.pathfind(&mut PathfindArgs::new(
+            UVec3::new(4, 0, 12),
+            UVec3::new(4, 1, 7),
+        ));
+
+        assert!(
+            path_up.is_some(),
+            "No path exists down across diagonal face nodes"
+        );
     }
 }

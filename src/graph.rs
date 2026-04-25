@@ -77,6 +77,14 @@ impl Graph {
         }
     }
 
+    // Removes the edges for a given node
+    #[allow(dead_code)]
+    pub(crate) fn remove_edges_to(&mut self, positions: &[UVec3]) {
+        for node in self.nodes.iter_mut() {
+            node.1.remove_edges_to_positions(positions);
+        }
+    }
+
     /// Remove all nodes for edge directions in the Chunk.
     /// This is used to clean up nodes that are no longer needed
     /// when edges are rebuilt.

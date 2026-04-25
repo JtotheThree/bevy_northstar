@@ -93,6 +93,7 @@ impl Path {
     /// Returns a mutable slice of the path positions.
     /// You can manually alter the path using this slice.
     pub fn as_mut_slices(&mut self) -> &mut [UVec3] {
+        self.path.make_contiguous();
         self.path.as_mut_slices().0
     }
 
