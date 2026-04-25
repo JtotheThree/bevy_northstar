@@ -2605,6 +2605,7 @@ mod tests {
         ));
 
         assert!(path.is_none(), "Path should not exist to out of bounds cell");
+    }
 
     // Regression test for a bug found with 3d face node calculation
     #[test]
