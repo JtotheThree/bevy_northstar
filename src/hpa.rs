@@ -370,7 +370,9 @@ fn find_mask_path<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
+    use bevy::math::IVec3;
+
+use crate::{
         grid::GridSettingsBuilder,
         nav::Nav,
         pathfind::PathfindArgs,
@@ -383,7 +385,7 @@ mod tests {
     fn test_hpa() {
         let grid_settings = GridSettingsBuilder::new_2d(16, 16).chunk_size(4).build();
         let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
-        grid.set_nav(UVec3::new(1, 1, 0), Nav::Impassable);
+        grid.set_nav(IVec3::new(1, 1, 0), Nav::Impassable);
         grid.build();
 
         let start = UVec3::new(2, 4, 0);
@@ -421,7 +423,7 @@ mod tests {
     fn test_hpa_with_mask() {
         let grid_settings = GridSettingsBuilder::new_2d(16, 16).chunk_size(4).build();
         let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
-        grid.set_nav(UVec3::new(1, 1, 0), Nav::Impassable);
+        grid.set_nav(IVec3::new(1, 1, 0), Nav::Impassable);
         grid.build();
 
         let start = UVec3::new(2, 4, 0);
@@ -477,8 +479,8 @@ mod tests {
 
         // Test max_distance
 
-        let start = UVec3::new(0, 0, 0);
-        let goal = UVec3::new(7, 7, 7);
+        let start = IVec3::new(0, 0, 0);
+        let goal = IVec3::new(7, 7, 7);
 
         let path = grid.pathfind(&mut PathfindArgs::new(start, goal).max_distance(5));
 

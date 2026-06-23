@@ -702,8 +702,8 @@ mod tests {
         let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
         grid.build();
 
-        let start = UVec3::new(2, 8, 0);
-        let goal = UVec3::new(13, 8, 0);
+        let start = IVec3::new(2, 8, 0);
+        let goal = IVec3::new(13, 8, 0);
 
         // Add the NavMask with high cost
         let layer = NavMaskLayer::new();

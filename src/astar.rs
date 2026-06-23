@@ -6,7 +6,7 @@ use std::collections::BinaryHeap;
 
 use crate::{
     FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, graph::Graph, in_bounds_3d,
-    nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph,
+    nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::{Path, PathLocal}, size_hint_graph,
     size_hint_grid,
 };
 
@@ -32,7 +32,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
     limits: SearchLimits,
-) -> Option<Path> {
+) -> Option<PathLocal> {
     let bounded = limits.boundary.is_some();
     let boundary = limits.boundary.unwrap_or(NavRegion {
         min: UVec3::ZERO,
@@ -89,7 +89,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
                 }
 
                 steps.reverse();
-                return Some(Path::new(steps, current_cost));
+                return Some(PathLocal::new(steps, current_cost));
             }
 
             if cost > current_cost {
@@ -194,7 +194,7 @@ pub(crate) fn astar_grid<N: Neighborhood>(
         }
 
         steps.reverse();
-        Some(Path::new(steps, visited[&closest_node].1))
+        Some(PathLocal::new(steps, visited[&closest_node].1))
     } else {
         None
     }
@@ -218,7 +218,7 @@ pub(crate) fn astar_graph<N: Neighborhood>(
     graph: &Graph,
     start: UVec3,
     goal: UVec3,
-) -> Option<Path> {
+) -> Option<PathLocal> {
     let size_hint = size_hint_graph(neighborhood, graph, start, goal);
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
@@ -245,7 +245,7 @@ pub(crate) fn astar_graph<N: Neighborhood>(
                 }
 
                 steps.reverse();
-                return Some(Path::new(steps, current_cost));
+                return Some(PathLocal::new(steps, current_cost));
             }
 
             if cost > current_cost {
@@ -298,7 +298,9 @@ pub(crate) fn astar_graph<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use bevy::math::IVec3;
+
+use super::*;
     use crate::chunk::Chunk;
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
@@ -343,7 +345,7 @@ mod tests {
 
         let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
 
-        grid.set_nav(UVec3::new(1, 1, 1), Nav::Impassable);
+        grid.set_nav(IVec3::new(1, 1, 1), Nav::Impassable);
 
         grid.build();
 
@@ -383,27 +385,27 @@ mod tests {
         // Fill the bottoom left hand layer with passable cells
         for x in 0..1 {
             for y in 0..3 {
-                grid.set_nav(UVec3::new(x, y, 0), Nav::Passable(1));
+                grid.set_nav(IVec3::new(x, y, 0), Nav::Passable(1));
             }
         }
 
         for x in 2..3 {
             for y in 0..3 {
-                grid.set_nav(UVec3::new(x, y, 2), Nav::Passable(1));
+                grid.set_nav(IVec3::new(x, y, 2), Nav::Passable(1));
             }
         }
 
         // Add a single ramp to transition from the bottom layer to the top layer
         grid.set_nav(
-            UVec3::new(1, 1, 0),
+            IVec3::new(1, 1, 0),
             Nav::Portal(crate::nav::Portal {
-                target: UVec3::new(1, 1, 2),
+                target: IVec3::new(1, 1, 2),
                 cost: 1,
                 one_way: false,
             }),
         );
         // Make sure the ramp destination is passable
-        grid.set_nav(UVec3::new(1, 1, 2), Nav::Passable(1));
+        grid.set_nav(IVec3::new(1, 1, 2), Nav::Passable(1));
 
         grid.build();
 
@@ -489,7 +491,7 @@ mod tests {
         graph.connect_node(
             UVec3::new(0, 0, 0),
             UVec3::new(1, 1, 1),
-            Path::new(vec![UVec3::new(0, 0, 0), UVec3::new(1, 1, 1)], 1),
+            PathLocal::new(vec![UVec3::new(0, 0, 0), UVec3::new(1, 1, 1)], 1),
         );
         graph.connect_node(
             UVec3::new(1, 1, 1),

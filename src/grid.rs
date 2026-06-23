@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bevy::{
     ecs::entity::Entity,
-    log::{self, debug},
+    log::{self, debug, warn},
     math::{IVec3, UVec3},
     platform::collections::{HashMap, HashSet},
     prelude::Component,
@@ -25,7 +25,7 @@ use crate::{
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
     node::Node,
-    path::Path,
+    path::{Path, path_to_local},
     pathfind::{PathfindArgs, pathfind, pathfind_astar, pathfind_thetastar, reroute_path},
     position_in_cubic_window,
     prelude::{NavMask, Pathfind, PathfindMode},
@@ -124,6 +124,7 @@ pub struct GridSettings(pub(crate) GridInternalSettings);
 #[derive(Clone)]
 pub struct GridSettingsBuilder {
     dimensions: UVec3,
+    origin: IVec3,
     chunk_settings: ChunkSettings,
     cost_settings: NavSettings,
     collision_settings: CollisionSettings,
@@ -134,6 +135,7 @@ impl Default for GridSettingsBuilder {
     fn default() -> Self {
         GridSettingsBuilder {
             dimensions: UVec3::new(64, 64, 1),
+            origin: IVec3::ZERO,
             chunk_settings: ChunkSettings::default(),
             cost_settings: NavSettings::default(),
             collision_settings: CollisionSettings::default(),
@@ -173,6 +175,12 @@ impl GridSettingsBuilder {
             dimensions: UVec3::new(width, height, depth),
             ..Default::default()
         }
+    }
+
+    /// Origin of the world center.
+    pub fn origin(mut self, origin: IVec3) -> Self {
+        self.origin = origin;
+        self
     }
 
     /// Size of each square chunk the grid is divided into.
@@ -286,6 +294,7 @@ impl GridSettingsBuilder {
     pub fn build(self) -> GridSettings {
         GridSettings(GridInternalSettings {
             dimensions: self.dimensions,
+            origin: self.origin,
             chunk_settings: self.chunk_settings,
             cost_settings: self.cost_settings,
             collision_settings: self.collision_settings,
@@ -297,6 +306,7 @@ impl GridSettingsBuilder {
 #[derive(Clone)]
 pub(crate) struct GridInternalSettings {
     pub(crate) dimensions: UVec3,
+    pub(crate) origin: IVec3,
     pub(crate) chunk_settings: ChunkSettings,
     pub(crate) cost_settings: NavSettings,
     pub(crate) collision_settings: CollisionSettings,
@@ -354,6 +364,7 @@ pub struct Grid<N: Neighborhood> {
     pub(crate) neighborhood: N,
 
     dimensions: UVec3,
+    origin: IVec3,
     chunk_settings: ChunkSettings,
     collision_settings: CollisionSettings,
 
@@ -373,6 +384,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     pub fn new(settings: &GridSettings) -> Self {
         let GridInternalSettings {
             dimensions,
+            origin,
             chunk_settings,
             cost_settings,
             collision_settings,
@@ -446,6 +458,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         Self {
             neighborhood: N::from_settings(&settings.0.neighborhood_settings),
             dimensions,
+            origin: IVec3::ZERO,
             chunk_settings,
             collision_settings,
 
@@ -481,39 +494,52 @@ impl<N: Neighborhood + Default> Grid<N> {
         &self.graph
     }
 
-    /// Test if a grid cell is passable at a given [`bevy::math::UVec3`] position.
-    pub fn is_passable(&self, pos: UVec3) -> bool {
-        if !self.in_bounds(pos) {
+    /// Test if a grid cell is passable at a given [`bevy::math::IVec3`] position.
+    pub fn is_passable(&self, pos: IVec3) -> bool {
+        let Some(local) = self.world_to_local(pos) else {
+            return false;
+        };
+
+        if !self.in_bounds(local) {
             return false;
         }
 
-        self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_passable()
+        self.grid[[local.x as usize, local.y as usize, local.z as usize]].is_passable()
     }
 
-    /// Test if a grid cell is a portal to a target [`bevy::math::UVec3`] cell.
-    pub fn is_portal(&self, pos: UVec3) -> bool {
-        if !self.in_bounds(pos) {
+    /// Test if a grid cell is a portal to a target [`bevy::math::IVec3`] cell.
+    pub fn is_portal(&self, pos: IVec3) -> bool {
+        let Some(local) = self.world_to_local(pos) else {
+            return false;
+        };
+        if !self.in_bounds(local) {
             return false;
         }
 
-        self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]].is_portal()
+        self.grid[[local.x as usize, local.y as usize, local.z as usize]].is_portal()
     }
 
-    /// Set the [`Nav`] settings at a given [`bevy::math::UVec3`] position in the grid.
-    pub fn set_nav(&mut self, pos: UVec3, nav: Nav) {
-        if !self.in_bounds(pos) {
+    /// Set the [`Nav`] settings at a given [`bevy::math::IVec3`] position in the grid.
+    pub fn set_nav(&mut self, pos: IVec3, nav: Nav) {
+        let Some(local) = self.world_to_local(pos) else {
+            panic!("Attempted to set nav at out-of-bounds position at {pos}");
+        };
+
+        if !self.in_bounds(local) {
             panic!("Attempted to set nav at out-of-bounds position at {pos}");
         }
 
         // If the grid not dirty, we need to flag every chunk, edge, and nodes that needs to be rebuilt.
         if self.built {
             self.dirty = true;
-            self.mark_dirty_for_pos(pos);
+            self.mark_dirty_for_pos(local);
         }
 
         // Handle portals
         if let Nav::Portal(portal) = nav {
-            let target = portal.target;
+            let target = self.world_to_local(portal.target).unwrap_or_else(|| {
+                panic!("Portal target {} is out of bounds", portal.target);
+            });
 
             // Check if the target is in bounds as well
             if !self.in_bounds(target) {
@@ -526,7 +552,7 @@ impl<N: Neighborhood + Default> Grid<N> {
 
                 // Create a reverse portal at the target position.
                 let reverse_portal = Portal::to(pos, portal.cost, true);
-                self.set_nav(target, Nav::Portal(reverse_portal));
+                self.set_nav(self.local_to_world(target), Nav::Portal(reverse_portal));
             }
         }
 
@@ -534,8 +560,17 @@ impl<N: Neighborhood + Default> Grid<N> {
         self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]] = navcell;
     }
 
-    /// Gets the [`Nav`] settings at a given [`bevy::math::UVec3`] position in the grid.
-    pub fn nav(&self, pos: UVec3) -> Option<Nav> {
+    /// Gets the [`Nav`] settings at a given [`bevy::math::IVec3`] position in the grid.
+    pub fn nav(&self, pos: IVec3) -> Option<Nav> {
+        let Some(local) = self.world_to_local(pos) else {
+            return None;
+        };
+
+        self.nav_local(local)
+    }
+
+    // Gets the [`Nav`] settings at a given [`bevy::math::UVec3`] position in the grid.
+    pub(crate) fn nav_local(&self, pos: UVec3) -> Option<Nav> {
         if self.in_bounds(pos) {
             Some(self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]].nav())
         } else {
@@ -606,6 +641,33 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Checks if a position is within the bounds of the grid.
     pub fn in_bounds(&self, pos: UVec3) -> bool {
         pos.x < self.dimensions.x && pos.y < self.dimensions.y && pos.z < self.dimensions.z
+    }
+
+    pub(crate) fn in_bounds_world(&self, world: IVec3) -> bool {
+        self.world_to_local(world).is_some()
+    }
+
+    pub(crate) fn local_to_world(&self, local: UVec3) -> IVec3 {
+        IVec3::new(
+            local.x as i32 + self.origin.x,
+            local.y as i32 + self.origin.y,
+            local.z as i32 + self.origin.z,
+        )
+    }
+
+    pub(crate) fn world_to_local(&self, world: IVec3) -> Option<UVec3> {
+        let local = world - self.origin;
+        if local.x < 0 || local.y < 0 || local.z < 0 {
+            return None;
+        }
+        
+        let local = UVec3::new(local.x as u32, local.y as u32, local.z as u32);
+
+        if !self.in_bounds(local) {
+            return None;
+        }
+
+        Some(local)
     }
 
     /// Returns the neighbors of a given position in the grid.
@@ -803,7 +865,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     .bounds()
                     .map(|pos| {
                         let (pos, bits, special) =
-                            compute_cell_neighbors(neighborhood, &grid_view, pos);
+                            self.compute_cell_neighbors(&grid_view, pos);
                         (pos, bits, special)
                     })
                     .collect::<Vec<_>>();
@@ -1187,6 +1249,11 @@ impl<N: Neighborhood + Default> Grid<N> {
                         pos.2 as u32 + chunk.min().z,
                     );
 
+                    let Some(target) = self.world_to_local(target) else {
+                        warn!("Portal target is outside of the world bounds: {:?}", target);
+                        continue;
+                    };
+
                     if let Some(target_chunk) = self.chunk_at_position(target) {
                         if chunk == target_chunk {
                             continue;
@@ -1342,8 +1409,13 @@ impl<N: Neighborhood + Default> Grid<N> {
                 // Connect the portal node to its target directly
                 // Collect the portal info
                 if let Nav::Portal(Portal { target, cost, .. }) =
-                    self.nav(node.pos).unwrap_or(Nav::Impassable)
+                    self.nav_local(node.pos).unwrap_or(Nav::Impassable)
                 {
+                    let Some(target) = self.world_to_local(target) else {
+                        warn!("Portal target is outside of the world bounds: {:?}", target);
+                        continue;
+                    };
+
                     // If the target is in the same chunk, skip
                     if node.chunk_index == self.chunk_at_position(target).unwrap().index() {
                         continue;
@@ -1427,6 +1499,23 @@ impl<N: Neighborhood + Default> Grid<N> {
         })
     }
 
+
+    fn compute_cell_neighbors(
+        &self,
+        grid_view: &ArrayView3<NavCell>,
+        pos: UVec3,
+    ) -> (UVec3, u32, Vec<UVec3>) {
+        let bits = self.neighborhood.neighbors(grid_view, pos);
+        let nav = grid_view[[pos.x as usize, pos.y as usize, pos.z as usize]].nav();
+
+        let special = match nav {
+            Nav::Portal(p) => vec![self.world_to_local(p.target).unwrap()],
+            _ => Vec::new(),
+        };
+
+        (pos, bits, special)
+    }
+
     /// Recursively reroutes a path using astar pathing to further away chunks until a path can be found.
     ///
     /// Useful if local collision avoidance is failing.
@@ -1448,9 +1537,9 @@ impl<N: Neighborhood + Default> Grid<N> {
     pub fn reroute_path(
         &self,
         path: &Path,
-        start: UVec3,
+        start: IVec3,
         pathfind: &Pathfind,
-        blocking: &HashMap<UVec3, Entity>,
+        blocking: &HashMap<IVec3, Entity>,
         mask: Option<&mut NavMask>,
     ) -> Option<Path> {
         if self.needs_build() {
@@ -1474,19 +1563,26 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// # Returns
     /// `true` if a path exists, `false` otherwise.
     ///
-    pub fn is_path_viable(&self, start: UVec3, goal: UVec3) -> bool {
+    pub fn is_path_viable(&self, start: IVec3, goal: IVec3) -> bool {
+        let Some(start_local) = self.world_to_local(start) else {
+            return false;
+        };
+        let Some(goal_local) = self.world_to_local(goal) else {
+            return false;
+        };
+
         if self.needs_build() {
             return false;
         }
 
-        if !self.in_bounds(start) || !self.in_bounds(goal) {
+        if !self.in_bounds(start_local) || !self.in_bounds(goal_local) {
             return false;
         }
 
         pathfind(
             self,
-            start,
-            goal,
+            start_local,
+            goal_local,
             &HashMap::new(),
             &mut NavMaskData::new(),
             false,
@@ -1625,7 +1721,16 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
-        if !self.in_bounds(request.start) || !self.in_bounds(request.goal) {
+        let Some(start) = self.world_to_local(request.start) else {
+            log::error!("Start position is out of bounds in world coordinates: {:?}", request.start);
+            return None;
+        };
+        let Some(goal) = self.world_to_local(request.goal) else {
+            log::error!("Goal position is out of bounds in world coordinates: {:?}", request.goal);
+            return None;
+        };
+
+        if !self.in_bounds(start) || !self.in_bounds(goal) {
             log::error!(
                 "Start or goal position is out of bounds. Start: {:?}, Goal: {:?}, Grid Dimensions: {:?}",
                 request.start,
@@ -1636,7 +1741,15 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         let empty_blocking = HashMap::new();
-        let blocking = request.blocking.unwrap_or(&empty_blocking);
+        let blocking_world = request.blocking.unwrap_or(&empty_blocking);
+
+        let blocking = blocking_world
+            .iter()
+            .filter_map(|(pos, entity)| {
+                self.world_to_local(*pos)
+                    .map(|local_pos| (local_pos, *entity))
+            })
+            .collect::<HashMap<UVec3, Entity>>();
 
         match request.mode {
             PathfindMode::Refined => {
@@ -1645,9 +1758,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         if let Ok(mut data) = nav_mask.data.lock() {
                             pathfind(
                                 self,
-                                request.start,
-                                request.goal,
-                                blocking,
+                                start,
+                                goal,
+                                &blocking,
                                 &mut data,
                                 true,
                                 false,
@@ -1664,9 +1777,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                         let mut empty_mask = NavMaskData::new();
                         pathfind(
                             self,
-                            request.start,
-                            request.goal,
-                            blocking,
+                            start,
+                            goal,
+                            &blocking,
                             &mut empty_mask,
                             true,
                             false,
@@ -1680,9 +1793,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
                     pathfind(
                         self,
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &mut data,
                         false,
                         false,
@@ -1693,9 +1806,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     let mut empty_mask = NavMaskData::new();
                     pathfind(
                         self,
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &mut empty_mask,
                         false,
                         false,
@@ -1709,9 +1822,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     pathfind_astar(
                         &self.neighborhood,
                         &self.grid.view(),
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &data,
                         request.limits,
                     )
@@ -1721,9 +1834,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     pathfind_astar(
                         &self.neighborhood,
                         &self.grid.view(),
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &empty_mask,
                         request.limits,
                     )
@@ -1734,9 +1847,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
                     pathfind(
                         self,
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &mut data,
                         false,
                         true,
@@ -1747,9 +1860,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     let mut empty_mask = NavMaskData::new();
                     pathfind(
                         self,
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &mut empty_mask,
                         false,
                         true,
@@ -1763,9 +1876,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     pathfind_thetastar(
                         &self.neighborhood,
                         &self.grid.view(),
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &data,
                         request.limits,
                     )
@@ -1775,9 +1888,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                     pathfind_thetastar(
                         &self.neighborhood,
                         &self.grid.view(),
-                        request.start,
-                        request.goal,
-                        blocking,
+                        start,
+                        goal,
+                        &blocking,
                         &empty_mask,
                         request.limits,
                     )
@@ -1787,25 +1900,10 @@ impl<N: Neighborhood + Default> Grid<N> {
     }
 }
 
-fn compute_cell_neighbors<N: Neighborhood>(
-    neighborhood: &N,
-    grid_view: &ArrayView3<NavCell>,
-    pos: UVec3,
-) -> (UVec3, u32, Vec<UVec3>) {
-    let bits = neighborhood.neighbors(grid_view, pos);
-    let nav = grid_view[[pos.x as usize, pos.y as usize, pos.z as usize]].nav();
-
-    let special = match nav {
-        Nav::Portal(p) => vec![p.target],
-        _ => Vec::new(),
-    };
-
-    (pos, bits, special)
-}
 
 #[cfg(test)]
 mod tests {
-    use bevy::math::UVec3;
+    use bevy::math::{IVec3, UVec3};
 
     use crate::{
         dir::Dir,
@@ -1821,6 +1919,7 @@ mod tests {
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
         dimensions: UVec3::new(12, 12, 1),
+        origin: IVec3::ZERO,
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 1,
@@ -1841,6 +1940,7 @@ mod tests {
 
     const GRID_SETTINGS_3D: GridSettings = GridSettings(GridInternalSettings {
         dimensions: UVec3::new(12, 12, 12),
+        origin: IVec3::ZERO,
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 4,
@@ -2118,11 +2218,11 @@ mod tests {
         grid.build();
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(10, 10, 0),
-            UVec3::new(4, 4, 0),
+            IVec3::new(10, 10, 0),
+            IVec3::new(4, 4, 0),
         ));
         let raw_path = grid
-            .pathfind(&mut PathfindArgs::new(UVec3::new(10, 10, 0), UVec3::new(4, 4, 0)).astar());
+            .pathfind(&mut PathfindArgs::new(IVec3::new(10, 10, 0), IVec3::new(4, 4, 0)).astar());
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
@@ -2232,8 +2332,8 @@ mod tests {
         grid.build();
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(7, 7, 0),
-            UVec3::new(121, 121, 0),
+            IVec3::new(7, 7, 0),
+            IVec3::new(121, 121, 0),
         ));
 
         assert!(path.is_some());
@@ -2251,8 +2351,8 @@ mod tests {
 
         grid.build();
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(31, 31, 3),
+            IVec3::new(0, 0, 0),
+            IVec3::new(31, 31, 3),
         ));
 
         assert!(path.is_some());
@@ -2265,7 +2365,7 @@ mod tests {
         grid.build();
 
         let path = grid
-            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 0)).astar());
+            .pathfind(&mut PathfindArgs::new(IVec3::new(0, 0, 0), IVec3::new(10, 10, 0)).astar());
 
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 10);
@@ -2278,21 +2378,21 @@ mod tests {
         // Block off a section of the grid to make sure the path is not viable
         for x in 0..12 {
             grid.set_nav(
-                UVec3::new(x, 5, 0),
+                IVec3::new(x, 5, 0),
                 Nav::Impassable, // Set as wall
             );
         }
 
         grid.build();
 
-        let viable = grid.is_path_viable(UVec3::new(0, 0, 0), UVec3::new(10, 0, 0));
+        let viable = grid.is_path_viable(IVec3::new(0, 0, 0), IVec3::new(10, 0, 0));
         assert!(viable);
 
-        let not_viable = grid.is_path_viable(UVec3::new(0, 0, 0), UVec3::new(8, 8, 0));
+        let not_viable = grid.is_path_viable(IVec3::new(0, 0, 0), IVec3::new(8, 8, 0));
         assert!(!not_viable);
 
         let out_of_bounds_not_viable =
-            grid.is_path_viable(UVec3::new(100, 100, 0), UVec3::new(200, 200, 0));
+            grid.is_path_viable(IVec3::new(100, 100, 0), IVec3::new(200, 200, 0));
         assert!(!out_of_bounds_not_viable);
     }
 
@@ -2410,14 +2510,14 @@ mod tests {
 
         // There should be a path from (0,0,0) to (15,15,0)
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(15, 15, 0),
         ));
         assert!(path.is_some(), "Path should exist in empty grid");
 
         // Block a vertical wall at x=8
         for y in 0..16 {
-            grid.set_nav(UVec3::new(8, y, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(8, y, 0), Nav::Impassable);
         }
         grid.build();
 
@@ -2430,8 +2530,8 @@ mod tests {
 
         // Now there should be no path from left to right
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(15, 15, 0),
         ));
 
         assert!(path.is_none(), "Path should not exist after wall");
@@ -2439,16 +2539,16 @@ mod tests {
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
         let _ = grid
-            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
+            .pathfind(&mut PathfindArgs::new(IVec3::new(0, 0, 0), IVec3::new(15, 15, 0)).astar());
 
         // Open a gap in the wall at (8,8)
-        grid.set_nav(UVec3::new(8, 8, 0), Nav::Passable(1));
+        grid.set_nav(IVec3::new(8, 8, 0), Nav::Passable(1));
         grid.build();
 
         // Now a path should exist again, and should pass through (8,8,0)
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(15, 15, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(15, 15, 0),
         ));
         assert!(path.is_some(), "Path should exist after opening gap");
         let path = path.unwrap();
@@ -2470,7 +2570,7 @@ mod tests {
         // Astar should never panic on getting neighbors
         // if everything is set up correctly
         let _ = grid
-            .pathfind(&mut PathfindArgs::new(UVec3::new(0, 0, 0), UVec3::new(15, 15, 0)).astar());
+            .pathfind(&mut PathfindArgs::new(IVec3::new(0, 0, 0), IVec3::new(15, 15, 0)).astar());
     }
 
     #[test]
@@ -2486,15 +2586,15 @@ mod tests {
         );
 
         // Mark a position dirty and check needs_build
-        grid.set_nav(UVec3::new(1, 1, 0), Nav::Impassable);
+        grid.set_nav(IVec3::new(1, 1, 0), Nav::Impassable);
         assert!(
             grid.needs_build(),
             "Grid should need build after marking dirty"
         );
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(10, 10, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(10, 10, 0),
         ));
 
         assert!(path.is_none(), "Path should not exist after marking dirty");
@@ -2512,9 +2612,9 @@ mod tests {
 
         // Create a portal at (5,5,0) leading to (10,10,0)
         grid.set_nav(
-            UVec3::new(2, 2, 0),
+            IVec3::new(2, 2, 0),
             Nav::Portal(Portal {
-                target: UVec3::new(10, 10, 0),
+                target: IVec3::new(10, 10, 0),
                 cost: 1,
                 one_way: false,
             }),
@@ -2522,7 +2622,7 @@ mod tests {
 
         // Fill 5,0,0 to 5,12,0 with impassable nav
         for y in 0..12 {
-            grid.set_nav(UVec3::new(5, y, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(5, y, 0), Nav::Impassable);
         }
 
         grid.build();
@@ -2546,8 +2646,8 @@ mod tests {
             .expect("Portal edge to (10,10,0) should exist");
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(11, 11, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(11, 11, 0),
         ));
 
         assert!(path.is_some(), "Path should exist with portal");
@@ -2566,32 +2666,32 @@ mod tests {
         // Fill 0,0,0 to 7,7,0 with passable nav
         for x in 0..8 {
             for y in 0..16 {
-                grid.set_nav(UVec3::new(x, y, 0), Nav::Passable(1));
+                grid.set_nav(IVec3::new(x, y, 0), Nav::Passable(1));
             }
         }
 
         // Fill 8,8,2 to 15, 15,3 with passable nav
         for x in 8..16 {
             for y in 0..16 {
-                grid.set_nav(UVec3::new(x, y, 2), Nav::Passable(1));
+                grid.set_nav(IVec3::new(x, y, 2), Nav::Passable(1));
             }
         }
 
-        grid.set_nav(UVec3::new(7, 4, 1), Nav::Passable(1));
+        grid.set_nav(IVec3::new(7, 4, 1), Nav::Passable(1));
 
         grid.set_nav(
-            UVec3::new(7, 4, 0),
+            IVec3::new(7, 4, 0),
             Nav::Portal(Portal {
-                target: UVec3::new(7, 4, 2),
+                target: IVec3::new(7, 4, 2),
                 cost: 1,
                 one_way: false,
             }),
         );
 
         grid.set_nav(
-            UVec3::new(7, 4, 2),
+            IVec3::new(7, 4, 2),
             Nav::Portal(Portal {
-                target: UVec3::new(7, 4, 0),
+                target: IVec3::new(7, 4, 0),
                 cost: 1,
                 one_way: false,
             }),
@@ -2600,15 +2700,15 @@ mod tests {
         grid.build();
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(12, 4, 2),
+            IVec3::new(0, 0, 0),
+            IVec3::new(12, 4, 2),
         ));
 
         assert!(path.is_some(), "Path should exist with portal");
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(12, 4, 2),
-            UVec3::new(0, 0, 0),
+            IVec3::new(12, 4, 2),
+            IVec3::new(0, 0, 0),
         ));
 
         assert!(path.is_some(), "Path should exist with portal in reverse");
@@ -2629,8 +2729,8 @@ mod tests {
 
         // Pathfind from (0,0,0) to (9,9,0). Should get a path back.
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(0, 0, 0),
-            UVec3::new(9, 9, 0),
+            IVec3::new(0, 0, 0),
+            IVec3::new(9, 9, 0),
         ));
 
         assert!(
@@ -2640,8 +2740,8 @@ mod tests {
 
         // Make sure impasaable cells were set for the remainder
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(9, 9, 0),
-            UVec3::new(10, 10, 0),
+            IVec3::new(9, 9, 0),
+            IVec3::new(10, 10, 0),
         ));
 
         assert!(
@@ -2660,19 +2760,19 @@ mod tests {
             .build();
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
 
-        for z in 0..8u32 {
-            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        for z in 0..8i32 {
+            grid.set_nav(IVec3::new(4, 0, z), Nav::Passable(1));
         }
 
-        for z in 8..16u32 {
-            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        for z in 8..16i32 {
+            grid.set_nav(IVec3::new(4, 1, z), Nav::Passable(1));
         }
 
         grid.build();
 
         let path = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(4, 0, 2),
-            UVec3::new(4, 1, 12),
+            IVec3::new(4, 0, 2),
+            IVec3::new(4, 1, 12),
         ));
 
         assert!(
@@ -2691,19 +2791,19 @@ mod tests {
             .build();
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
 
-        for z in 0..8u32 {
-            grid.set_nav(UVec3::new(4, 1, z), Nav::Passable(1));
+        for z in 0..8i32 {
+            grid.set_nav(IVec3::new(4, 1, z), Nav::Passable(1));
         }
 
-        for z in 8..16u32 {
-            grid.set_nav(UVec3::new(4, 0, z), Nav::Passable(1));
+        for z in 8..16i32 {
+            grid.set_nav(IVec3::new(4, 0, z), Nav::Passable(1));
         }
 
         grid.build();
 
         let path_down = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(4, 1, 7),
-            UVec3::new(4, 0, 12),
+            IVec3::new(4, 1, 7),
+            IVec3::new(4, 0, 12),
         ));
 
         assert!(
@@ -2712,8 +2812,8 @@ mod tests {
         );
 
         let path_up = grid.pathfind(&mut PathfindArgs::new(
-            UVec3::new(4, 0, 12),
-            UVec3::new(4, 1, 7),
+            IVec3::new(4, 0, 12),
+            IVec3::new(4, 1, 7),
         ));
 
         assert!(
@@ -2734,10 +2834,10 @@ mod tests {
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
 
         // Start chunk north face cell (x=3, z=3) at y=7
-        grid.set_nav(UVec3::new(3, 7, 3), Nav::Passable(1));
+        grid.set_nav(IVec3::new(3, 7, 3), Nav::Passable(1));
 
         // Neighbor chunk south face cell offset in both local axes (x+1, z+1) at y=8
-        grid.set_nav(UVec3::new(4, 8, 4), Nav::Passable(1));
+        grid.set_nav(IVec3::new(4, 8, 4), Nav::Passable(1));
 
         grid.build();
 

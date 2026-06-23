@@ -313,7 +313,7 @@ pub(crate) fn bresenham_path_internal(
 
 #[cfg(test)]
 mod tests {
-    use bevy::math::UVec3;
+    use bevy::math::{IVec3, UVec3};
     use ndarray::Array3;
 
     use crate::{
@@ -329,6 +329,7 @@ mod tests {
 
     const GRID_SETTINGS: GridSettings = GridSettings(GridInternalSettings {
         dimensions: UVec3::new(12, 12, 1),
+        origin: IVec3::ZERO,
         chunk_settings: ChunkSettings {
             size: 4,
             depth: 1,
@@ -396,7 +397,7 @@ mod tests {
 
         let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&GRID_SETTINGS);
 
-        grid.set_nav(UVec3::new(5, 5, 0), Nav::Impassable);
+        grid.set_nav(IVec3::new(5, 5, 0), Nav::Impassable);
         grid.build();
 
         let path = bresenham_path_internal(

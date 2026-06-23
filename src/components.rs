@@ -2,7 +2,7 @@
 use bevy::{
     color::palettes::css,
     ecs::entity::Entity,
-    math::{UVec3, Vec2, Vec3},
+    math::{IVec3, UVec3, Vec2, Vec3},
     platform::collections::HashMap,
     prelude::{Color, Component},
     reflect::Reflect,
@@ -14,7 +14,7 @@ use crate::{NavRegion, SearchLimits, debug::DebugTilemapType, nav_mask::NavMask}
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
 #[derive(Component, Reflect, Default, Debug, Clone, Eq, PartialEq, Hash)]
-pub struct AgentPos(pub UVec3);
+pub struct AgentPos(pub IVec3);
 
 /****************************************
     PATHFINDING COMPONENTS
@@ -58,7 +58,7 @@ pub enum PathfindMode {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 pub struct Pathfind {
     /// The goal to pathfind to.
-    pub goal: UVec3,
+    pub goal: IVec3,
 
     /// The [`PathfindMode`] to use for pathfinding.
     /// If `None`, it will use the default mode set in [`crate::plugin::NorthstarPluginSettings`].
@@ -79,12 +79,12 @@ impl Pathfind {
     /// use bevy::math::UVec3;
     /// use bevy_northstar::prelude::*;
     ///
-    /// let pathfind = Pathfind::new(UVec3::new(5, 5, 0))
+    /// let pathfind = Pathfind::new(IVec3::new(5, 5, 0))
     ///     .mode(PathfindMode::AStar)
     ///     .partial();
     /// ```
     ///
-    pub fn new(goal: UVec3) -> Self {
+    pub fn new(goal: IVec3) -> Self {
         Pathfind {
             goal,
             ..Default::default()
@@ -93,17 +93,17 @@ impl Pathfind {
 
     /// Shorthand constructor for 2D pathfinding to avoid needing to construct a [`bevy::math::UVec3`].
     /// This will set the z-coordinate to 0.
-    pub fn new_2d(x: u32, y: u32) -> Self {
+    pub fn new_2d(x: i32, y: i32) -> Self {
         Pathfind {
-            goal: UVec3::new(x, y, 0),
+            goal: IVec3::new(x, y, 0),
             ..Default::default()
         }
     }
 
     /// Shorthand constructor for 3D pathfinding to avoid needing to construct a [`bevy::math::UVec3`].
-    pub fn new_3d(x: u32, y: u32, z: u32) -> Self {
+    pub fn new_3d(x: i32, y: i32, z: i32) -> Self {
         Pathfind {
-            goal: UVec3::new(x, y, z),
+            goal: IVec3::new(x, y, z),
             ..Default::default()
         }
     }

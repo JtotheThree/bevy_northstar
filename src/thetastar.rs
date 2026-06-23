@@ -217,7 +217,9 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use bevy::math::IVec3;
+
+use super::*;
 
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
@@ -229,7 +231,7 @@ mod tests {
         let grid_settings = GridSettingsBuilder::new_2d(9, 9).chunk_size(3).build();
         let mut grid = Grid::<OrdinalNeighborhood>::new(&grid_settings);
 
-        grid.set_nav(UVec3::new(2, 1, 0), Nav::Impassable);
+        grid.set_nav(IVec3::new(2, 1, 0), Nav::Impassable);
 
         grid.build();
 

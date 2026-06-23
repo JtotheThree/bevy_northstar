@@ -24,7 +24,7 @@ fn grid_change_with_reroute_avoids_blocked_cell() {
     let mut grid = CardinalGrid::new(&settings);
     for x in 0..size {
         for y in 0..size {
-            grid.set_nav(UVec3::new(x, y, 0), Nav::Passable(1));
+            grid.set_nav(IVec3::new(x as i32, y as i32, 0), Nav::Passable(1));
         }
     }
     grid.build();
@@ -51,7 +51,7 @@ fn grid_change_with_reroute_avoids_blocked_cell() {
     assert!(has_path, "agent should have an active path after init");
 
     // Block a cell on the straight-line path.
-    let blocked = UVec3::new(4, 8, 0);
+    let blocked = IVec3::new(4, 8, 0);
     {
         let mut state = app.world_mut().query::<&mut CardinalGrid>();
         let mut grid = state.single_mut(app.world_mut()).unwrap();
@@ -73,13 +73,13 @@ fn grid_change_with_reroute_avoids_blocked_cell() {
     // The new path must not pass through the blocked cell.
     if let Some(path) = app.world().get::<Path>(agent) {
         assert!(
-            !path.is_position_in_path(blocked),
+            !path.is_position_in_path(blocked.as_uvec3()),
             "rerouted path should not contain the blocked cell"
         );
     }
     if let Some(next) = app.world().get::<NextPos>(agent) {
         assert_ne!(
-            next.0, blocked,
+            next.0, blocked.as_uvec3(),
             "next waypoint should not be the blocked cell"
         );
     }

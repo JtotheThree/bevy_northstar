@@ -1,6 +1,6 @@
 //! This module defines pathfinding functions which can be called directly.
 
-use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
+use bevy::{ecs::entity::Entity, log::{self, warn}, math::{IVec3, UVec3}, platform::collections::HashMap};
 use ndarray::ArrayView3;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     nav::NavCell,
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
-    path::Path,
+    path::{Path, PathLocal, path_to_local},
     prelude::{NavMask, Pathfind},
     raycast::bresenham_path_internal,
     thetastar::thetastar_grid,
@@ -37,9 +37,9 @@ use crate::{
 /// ```
 #[derive(Debug)]
 pub struct PathfindArgs<'a> {
-    pub(crate) start: UVec3,
-    pub(crate) goal: UVec3,
-    pub(crate) blocking: Option<&'a HashMap<UVec3, Entity>>,
+    pub(crate) start: IVec3,
+    pub(crate) goal: IVec3,
+    pub(crate) blocking: Option<&'a HashMap<IVec3, Entity>>,
     pub(crate) mask: Option<&'a mut NavMask>,
     pub(crate) mode: PathfindMode,
     pub(crate) limits: SearchLimits,
@@ -47,7 +47,7 @@ pub struct PathfindArgs<'a> {
 
 impl<'a> PathfindArgs<'a> {
     /// Create a new pathfinding request
-    pub fn new(start: UVec3, goal: UVec3) -> Self {
+    pub fn new(start: IVec3, goal: IVec3) -> Self {
         Self {
             start,
             goal,
@@ -118,7 +118,7 @@ impl<'a> PathfindArgs<'a> {
     }
 
     /// Provides a blocking hashmap, this is used for dynamic obstacles (i.e. collision)
-    pub fn blocking(mut self, blocking: &'a HashMap<UVec3, Entity>) -> Self {
+    pub fn blocking(mut self, blocking: &'a HashMap<IVec3, Entity>) -> Self {
         self.blocking = Some(blocking);
         self
     }
@@ -131,10 +131,6 @@ impl<'a> PathfindArgs<'a> {
 }
 
 /// AStar pathfinding
-///
-/// This function is provided if you want to supply your own grid.
-/// If you're using the built in [`Grid`] you can use the pathfinding helper functions
-/// provided in the [`Grid`] struct.
 ///
 /// # Arguments
 /// * `neighborhood` - The [`Neighborhood`] to use for the pathfinding.
@@ -599,16 +595,39 @@ pub(crate) fn optimize_path<N: Neighborhood>(
 pub(crate) fn reroute_path<N: Neighborhood>(
     grid: &Grid<N>,
     path: &Path,
-    start: UVec3,
+    start: IVec3,
     pathfind: &Pathfind,
-    blocking: &HashMap<UVec3, Entity>,
+    blocking: &HashMap<IVec3, Entity>,
     mask: &mut NavMaskData,
 ) -> Option<Path> {
+    // Convert all to local coordinates
+    let Some(start_local) = grid.world_to_local(start) else {
+        warn!("Failed to convert start position to local coordinates.");
+        return None;
+    };
+
+    let Some(goal_local) = grid.world_to_local(pathfind.goal) else {
+        warn!("Failed to convert goal position to local coordinates.");
+        return None;
+    };
+
+    let Some(path_local) = path_to_local(grid, path) else {
+        warn!("Failed to convert path to local coordinates.");
+        return None;
+    };
+
+    let Some(blocking_local) = blocking_to_local(grid, blocking) else {
+        warn!("Failed to convert blocking positions to local coordinates.");
+        return None;
+    };
+
+
+
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path
     // recursively until it can find a path out.
     // If it can't find a path out, it will return None.
 
-    if !grid.in_bounds(start) || !grid.in_bounds(pathfind.goal) {
+    if !grid.in_bounds(start_local) || !grid.in_bounds(goal_local) {
         return None;
     }
 
@@ -620,9 +639,9 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 return pathfind_astar(
                     &grid.neighborhood,
                     &grid.view(),
-                    start,
-                    pathfind.goal,
-                    blocking,
+                    start_local,
+                    goal_local,
+                    &blocking_local,
                     mask,
                     pathfind.limits,
                 );
@@ -631,9 +650,9 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 return pathfind_thetastar(
                     &grid.neighborhood,
                     &grid.view(),
-                    start,
-                    pathfind.goal,
-                    blocking,
+                    start_local,
+                    goal_local,
+                    &blocking_local,
                     mask,
                     pathfind.limits,
                 );
@@ -644,22 +663,27 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     let max_attempts = 3;
 
     let new_path = path.graph_path.iter().take(max_attempts).find_map(|pos| {
+        let Some(pos) = grid.world_to_local(*pos) else {
+            warn!("Failed to convert position to local coordinates.");
+            return None;
+        };
+
         let new_path = match pathfind.mode.unwrap() {
             PathfindMode::Refined | PathfindMode::Coarse | PathfindMode::AStar => pathfind_astar(
                 &grid.neighborhood,
                 &grid.view(),
-                start,
-                *pos,
-                blocking,
+                start_local,
+                pos,
+                &blocking_local,
                 mask,
                 pathfind.limits,
             ),
             PathfindMode::Waypoints | PathfindMode::ThetaStar => pathfind_thetastar(
                 &grid.neighborhood,
                 &grid.view(),
-                start,
-                *pos,
-                blocking,
+                start_local,
+                pos,
+                &blocking_local,
                 mask,
                 pathfind.limits,
             ),
@@ -715,4 +739,33 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     }
 
     None
+}
+
+
+pub(crate) fn blocking_to_local<N: Neighborhood + 'static>(
+    grid: &Grid<N>,
+    blocking: &HashMap<IVec3, Entity>,
+) -> Option<HashMap<UVec3, Entity>> {
+    let mut local_blocking = HashMap::new();
+    for (pos, entity) in blocking {
+        if let Some(local_pos) = grid.world_to_local(*pos) {
+            local_blocking.insert(local_pos, *entity);
+        } else {
+            return None;
+        }
+    }
+
+    Some(local_blocking)
+}
+
+pub(crate) fn blocking_to_world<N: Neighborhood + 'static>(
+    grid: &Grid<N>,
+    blocking: &HashMap<UVec3, Entity>,
+) -> HashMap<IVec3, Entity> {
+    let mut world_blocking = HashMap::new();
+    for (pos, entity) in blocking {
+        let world_pos = grid.local_to_world(*pos);
+        world_blocking.insert(world_pos, *entity);
+    }
+    world_blocking
 }

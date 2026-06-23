@@ -1,5 +1,5 @@
 //! `Nav` and `NavCell` structs for navigation and movement cost data.
-use bevy::math::UVec3;
+use bevy::math::{IVec3, UVec3};
 
 use crate::{MovementCost, prelude::ORDINAL_3D_OFFSETS};
 
@@ -117,7 +117,7 @@ pub struct Portal {
     pub cost: MovementCost,
     /// The target position this portal goes to.
     /// For ramps you can set the target to same x,y and use a higher z position.
-    pub target: UVec3,
+    pub target: IVec3,
     /// If one_way is true, a reverse portal at the target position will be created.
     /// This is useful for ramps or ladders whare you'd expect to go up or down.
     pub one_way: bool,
@@ -126,7 +126,7 @@ pub struct Portal {
 impl Portal {
     /// Creates a new `Portal` with the given target position and movement cost.
     /// Set `one_way` to true if you do not want to crate a reverse portal at the target position.
-    pub fn to(target: UVec3, cost: MovementCost, one_way: bool) -> Self {
+    pub fn to(target: IVec3, cost: MovementCost, one_way: bool) -> Self {
         Self {
             target,
             cost,
@@ -135,7 +135,7 @@ impl Portal {
     }
 
     /// Returns the target position of the portal.
-    pub fn to_cell(&self) -> UVec3 {
+    pub fn to_cell(&self) -> IVec3 {
         self.target
     }
 }

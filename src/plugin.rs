@@ -157,7 +157,7 @@ pub struct PathingSet;
 /// The `BlockingMap` `Resource` contains a map of positions of entities holding the `Blocking` component.
 /// The map is rebuilt every frame at the beginning of the `PathingSet`.
 #[derive(Resource, Default)]
-pub struct BlockingMap(pub HashMap<UVec3, Entity>);
+pub struct BlockingMap(pub HashMap<IVec3, Entity>);
 
 /// The `DirectionMap` `Resource` contains a map of every pathfinding entity's last moved direction.
 /// This is mainly used for collision avoidance but could be used for other purposes.
@@ -396,8 +396,8 @@ fn avoidance<N: Neighborhood + 'static>(
     grid: &Grid<N>,
     entity: Entity,
     path: &mut Path,
-    position: UVec3,
-    blocking_map: &HashMap<UVec3, Entity>,
+    position: IVec3,
+    blocking_map: &HashMap<IVec3, Entity>,
     mask: &NavMask,
     direction: &HashMap<Entity, Vec3>,
     avoidance_distance: usize,
@@ -423,7 +423,7 @@ fn avoidance<N: Neighborhood + 'static>(
 
     let difference = next_position.as_vec3() - position.as_vec3();
 
-    let unblocked_pos: Vec<UVec3> = path
+    let unblocked_pos: Vec<IVec3> = path
         .path
         .iter()
         .take(count)
