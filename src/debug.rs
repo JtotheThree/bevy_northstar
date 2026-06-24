@@ -489,12 +489,12 @@ fn draw_debug_map<N: Neighborhood + 'static>(
 }
 
 fn draw_debug_paths<N: Neighborhood + 'static>(
-    grid_children: Query<(Entity, &Children), With<Grid<N>>>,
+    grid_children: Query<(Entity, &Grid<N>, &Children)>,
     debug_grid: Query<(&DebugGrid, &DebugOffset, Option<&DebugDepthYOffsets>)>,
     debug_paths: Query<(&DebugPath, &Path, &AgentOfGrid)>,
     mut gizmos: Gizmos,
 ) {
-    for (grid_entity, child) in grid_children {
+    for (grid_entity, grid, child) in grid_children {
         // Find the DebugGrid component for the Grid entity
         let debug_grid_vec: Vec<_> = child
             .iter()
@@ -525,11 +525,24 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
                 continue;
             }
 
+            let Some(local_path) = path
+                .path()
+                .iter()
+                .map(|pos| grid.world_to_local(*pos))
+                .collect::<Option<Vec<_>>>()
+            else {
+                continue;
+            };
+
+            if local_path.is_empty() {
+                continue;
+            }
+
             let half_tile_width = debug_grid.tile_width as f32 * 0.5;
             let half_tile_height = debug_grid.tile_height as f32 * 0.5;
 
             // Iterate over full_path drawing a line from one cell to the next cell until completed
-            let mut iter = path.path().iter();
+            let mut iter = local_path.iter();
             let mut prev = iter.next().unwrap();
 
             for next in iter {
@@ -605,7 +618,16 @@ fn draw_debug_paths<N: Neighborhood + 'static>(
             }
 
             if debug_path.draw_unrefined {
-                let mut iter = path.graph_path.iter();
+                let Some(local_graph_path) = path
+                    .graph_path()
+                    .iter()
+                    .map(|pos| grid.world_to_local(*pos))
+                    .collect::<Option<Vec<_>>>()
+                else {
+                    continue;
+                };
+
+                let mut iter = local_graph_path.iter();
                 let mut prev = if let Some(p) = iter.next() {
                     p
                 } else {
@@ -774,7 +796,7 @@ fn navcell_color(cell: &NavCell) -> Srgba {
 
 fn apply_debug_mask(cell: NavCell, mask: &Option<NavMask>, pos: UVec3) -> NavCell {
     if let Some(mask) = mask
-        && let NavMaskResult::Masked(masked_cell) = mask.get(cell.clone(), pos)
+        && let NavMaskResult::Masked(masked_cell) = mask.get_local(cell.clone(), pos)
     {
         return masked_cell;
     }

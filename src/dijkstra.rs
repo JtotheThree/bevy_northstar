@@ -10,7 +10,7 @@ use std::collections::BinaryHeap;
 
 use crate::{
     FxIndexMap, SmallestCostHolder, graph::Graph, in_bounds_3d, nav::NavCell,
-    nav_mask::NavMaskData, path::Path,
+    nav_mask::NavMaskData, path::PathLocal,
 };
 
 /// Dijkstra's algorithm for pathfinding in a grid.
@@ -31,7 +31,7 @@ pub(crate) fn dijkstra_grid(
     goals: &[UVec3],
     only_closest_goal: bool,
     mask: &NavMaskData,
-) -> HashMap<UVec3, Path> {
+) -> HashMap<UVec3, PathLocal> {
     let size_hint = grid.shape().iter().copied().product::<usize>() / 3;
 
     let masked = !mask.layers.is_empty();
@@ -144,7 +144,7 @@ pub(crate) fn dijkstra_grid(
             steps
         };
 
-        goal_data.insert(goal, Path::new(steps, cost));
+        goal_data.insert(goal, PathLocal::new(steps, cost));
     }
 
     goal_data
@@ -167,7 +167,7 @@ pub fn dijkstra_graph(
     start: UVec3,
     goals: &[UVec3],
     only_closest_goal: bool,
-) -> HashMap<UVec3, Path> {
+) -> HashMap<UVec3, PathLocal> {
     let size_hint = 64;
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
@@ -241,7 +241,7 @@ pub fn dijkstra_graph(
             steps
         };
 
-        goal_data.insert(goal, Path::new(steps, cost));
+        goal_data.insert(goal, PathLocal::new(steps, cost));
     }
 
     goal_data
@@ -301,22 +301,22 @@ mod tests {
         graph.connect_node(
             UVec3::new(0, 0, 0),
             UVec3::new(1, 1, 1),
-            Path::new(vec![UVec3::new(0, 0, 0), UVec3::new(1, 1, 1)], 1),
+            PathLocal::new(vec![UVec3::new(0, 0, 0), UVec3::new(1, 1, 1)], 1),
         );
         graph.connect_node(
             UVec3::new(1, 1, 1),
             UVec3::new(0, 0, 0),
-            Path::new(vec![UVec3::new(1, 1, 1), UVec3::new(0, 0, 0)], 1),
+            PathLocal::new(vec![UVec3::new(1, 1, 1), UVec3::new(0, 0, 0)], 1),
         );
         graph.connect_node(
             UVec3::new(1, 1, 1),
             UVec3::new(2, 2, 2),
-            Path::new(vec![UVec3::new(1, 1, 1), UVec3::new(2, 2, 2)], 1),
+            PathLocal::new(vec![UVec3::new(1, 1, 1), UVec3::new(2, 2, 2)], 1),
         );
         graph.connect_node(
             UVec3::new(2, 2, 2),
             UVec3::new(1, 1, 1),
-            Path::new(vec![UVec3::new(2, 2, 2), UVec3::new(1, 1, 1)], 1),
+            PathLocal::new(vec![UVec3::new(2, 2, 2), UVec3::new(1, 1, 1)], 1),
         );
 
         let paths = dijkstra_graph(

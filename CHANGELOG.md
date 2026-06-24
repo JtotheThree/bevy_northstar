@@ -1,3 +1,14 @@
+## v0.8.0
+### Breaking Changes
+All public interfaces now use IVec3 instead of UVec3 and coordinate u32 parameters are now i32. You will need to update your calls to Grid to use IVec3.
+- AgentPos(UVec3) is now AgentPos(IVec3): AgentPos(UVec3::new(0, 0, 0)) -> AgentPos(IVec3::new(0, 0, 0))
+- Grid.set_nav -> grid.set_nav(IVec3::new(x as i32, y as i32, 0), Nav::Impassable);
+- Pathfind struct interfaces with IVec3 now -> Pathfind::new(IVec3::new(10, 10, 0))
+
+
+## v0.7.0
+- Update to Bevy 0.19
+
 ## v0.6.2
 ### Features
 - Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is faster.

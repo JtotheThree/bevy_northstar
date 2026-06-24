@@ -145,16 +145,16 @@ fn layer_created(
             let width = tile_layer.width().unwrap();
             let height = tile_layer.height().unwrap();
 
-            for x in 0..width {
-                for y in 0..height {
-                    let tile = tile_layer.get_tile(x as i32, y as i32);
+            for x in 0..width as i32 {
+                for y in 0..height as i32 {
+                    let tile = tile_layer.get_tile(x, y);
                     if let Some(tile) = tile {
                         let tile_id = tile.id();
 
                         if tile_id == 14 {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Passable(1));
                         } else {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Impassable);
                         }
                     }
                 }
@@ -191,9 +191,9 @@ fn spawn_minions(
     let layer_entity = layer_entity.iter().next().unwrap();
 
     walkable.tiles = Vec::new();
-    for x in 0..grid.width() {
-        for y in 0..grid.height() {
-            if grid.is_passable(UVec3::new(x, y, 0)) {
+    for x in 0..grid.width() as i32 {
+        for y in 0..grid.height() as i32 {
+            if grid.is_passable(IVec3::new(x, y, 0)) {
                 let position = Vec3::new(x as f32 * 8.0, y as f32 * 8.0, 0.0);
 
                 walkable.tiles.push(position);
@@ -226,7 +226,7 @@ fn spawn_minions(
             rand::random::<f32>(),
         );
 
-        let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as u32, (goal.y / 8.0) as u32);
+        let mut pathfind = Pathfind::new_2d((goal.x / 8.0) as i32, (goal.y / 8.0) as i32);
 
         match config.mode {
             PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
@@ -247,9 +247,9 @@ fn spawn_minions(
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))
-            .insert(AgentPos(UVec3::new(
-                (position.x / 8.0) as u32,
-                (position.y / 8.0) as u32,
+            .insert(AgentPos(IVec3::new(
+                (position.x / 8.0) as i32,
+                (position.y / 8.0) as i32,
                 0,
             )))
             .insert(pathfind)
@@ -335,7 +335,7 @@ fn free_move_pathfinders(
     let map = map_query.iter().next().expect("No map found in the query");
 
     for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
-        let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
+        let tile_pos = TilePos::new(next_pos.0.x as u32, next_pos.0.y as u32);
         let world_pos = tile_pos.center_in_world(
             map.map_size,
             map.grid_size,
@@ -368,7 +368,7 @@ fn set_new_goal(
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
-        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
+        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as i32, (new_goal.y / 8.0) as i32);
 
         match config.mode {
             PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
@@ -395,7 +395,7 @@ fn handle_pathfinding_failed(
         //log::info!("Pathfinding failed for entity {entity:?}, setting new goal.");
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
-        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
+        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as i32, (new_goal.y / 8.0) as i32);
 
         match config.mode {
             PathfindMode::Refined => pathfind = pathfind.mode(PathfindMode::Refined),
@@ -467,7 +467,7 @@ fn randomize_nav(
         let mut grid = grid.into_inner();
 
         // Build a list of agentpos positions to avoid modifying their tiles
-        let agent_positions: Vec<UVec3> = positions.iter().map(|pos| pos.0).collect();
+        let agent_positions: Vec<IVec3> = positions.iter().map(|pos| pos.0).collect();
 
         // This is a bit of an extreme example.
         // Most games would not need to modify this many tiles in a variety of chunks in a single frame.
@@ -477,7 +477,7 @@ fn randomize_nav(
             let y = rand::random::<u32>() % grid.height();
             let z = rand::random::<u32>() % grid.depth();
 
-            let pos = UVec3::new(x, y, z);
+            let pos = IVec3::new(x as i32, y as i32, z as i32);
 
             if agent_positions.contains(&pos) {
                 // Skip positions that are already occupied by agents.
@@ -489,12 +489,12 @@ fn randomize_nav(
                 grid.set_nav(pos, Nav::Passable(1));
                 tiles_to_update
                     .tiles
-                    .insert(TilePos::new(pos.x, pos.y), PASSABLE_COLOR);
+                    .insert(TilePos::new(pos.x as u32, pos.y as u32), PASSABLE_COLOR);
             } else {
                 grid.set_nav(pos, Nav::Impassable);
                 tiles_to_update
                     .tiles
-                    .insert(TilePos::new(pos.x, pos.y), IMPASSABLE_COLOR);
+                    .insert(TilePos::new(pos.x as u32, pos.y as u32), IMPASSABLE_COLOR);
             }
         }
 

@@ -13,28 +13,28 @@ keywords = ["astar", "bevy", "game", "hpa", "pathfinding"]
 exclude = ["assets/*", "res/*"]
 autoexamples = false
 
-# [[example]]
-# name = "demo"
-# required-features = ["stats"]
+[[example]]
+name = "demo"
+required-features = ["stats"]
 
-# [[example]]
-# name = "isometric"
+[[example]]
+name = "isometric"
 
-# [[example]]
-# name = "collision_testing"
-# required-features = ["stats"]
+[[example]]
+name = "collision_testing"
+required-features = ["stats"]
 
-# [[example]]
-# name = "basic"
+[[example]]
+name = "basic"
 
-# [[example]]
-# name = "nav_mask"
+[[example]]
+name = "nav_mask"
 
-# [[example]]
-# name = "freeform_movement"
+[[example]]
+name = "freeform_movement"
 
-# [[example]]
-# name = "reroute"
+[[example]]
+name = "reroute"
 
 # [[example]]
 # name = "3d_voxel_world"

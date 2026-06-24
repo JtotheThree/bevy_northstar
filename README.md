@@ -97,7 +97,7 @@ fn build_grid(grid: Single<&mut CardinalGrid>) {
     let mut grid = grid.into_inner();
 
     // Let's set the position 8, 8 to a wall
-    grid.set_nav(UVec3::new(8, 8, 0), Nav::Impassable);
+    grid.set_nav(IVec3::new(8, 8, 0), Nav::Impassable);
 
     info!("Building the grid...");
 

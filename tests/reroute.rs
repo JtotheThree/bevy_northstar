@@ -31,8 +31,8 @@ fn grid_change_with_reroute_avoids_blocked_cell() {
     let grid_entity = app.world_mut().spawn(grid).id();
 
     // Agent at left edge, goal at right edge along row 8.
-    let start = UVec3::new(0, 8, 0);
-    let goal = UVec3::new(15, 8, 0);
+    let start = IVec3::new(0, 8, 0);
+    let goal = IVec3::new(15, 8, 0);
     let agent = app
         .world_mut()
         .spawn((
@@ -73,13 +73,13 @@ fn grid_change_with_reroute_avoids_blocked_cell() {
     // The new path must not pass through the blocked cell.
     if let Some(path) = app.world().get::<Path>(agent) {
         assert!(
-            !path.is_position_in_path(blocked.as_uvec3()),
+            !path.is_position_in_path(blocked),
             "rerouted path should not contain the blocked cell"
         );
     }
     if let Some(next) = app.world().get::<NextPos>(agent) {
         assert_ne!(
-            next.0, blocked.as_uvec3(),
+            next.0, blocked,
             "next waypoint should not be the blocked cell"
         );
     }

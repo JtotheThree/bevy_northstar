@@ -99,16 +99,16 @@ fn layer_created(
             let width = tile_layer.width().unwrap();
             let height = tile_layer.height().unwrap();
 
-            for x in 0..width {
-                for y in 0..height {
+            for x in 0..width as i32 {
+                for y in 0..height as i32 {
                     let tile = tile_layer.get_tile(x as i32, y as i32);
                     if let Some(tile) = tile {
                         let tile_id = tile.id();
 
                         if tile_id == 14 {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Passable(1));
                         } else {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Impassable);
                         }
                     }
                 }
@@ -140,7 +140,7 @@ fn spawn_player(
 
     let offset = anchor.as_offset(map_size, grid_size, tile_size, &TilemapType::Square);
 
-    let position = UVec3::new(60, 60, 0);
+    let position = IVec3::new(60, 60, 0);
     let translation = Vec3::new(
         offset.x + (position.x as f32 * grid_size.x) + (tile_size.x / 2.0),
         offset.y + (position.y as f32 * grid_size.y) + (tile_size.y / 2.0),
@@ -206,7 +206,7 @@ fn input(
             mask_layer
                 .insert_region_fill(
                     &grid,
-                    NavRegion::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+                    NavRegion::new(IVec3::new(64, 64, 0), IVec3::new(84, 84, 0)),
                     NavCellMask::ModifyCost(500),
                 )
                 .unwrap();
@@ -219,7 +219,7 @@ fn input(
             log::info!("Pathfinding to: {:?}", goal);
             commands
                 .entity(player)
-                .insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints))
+                .insert(Pathfind::new(IVec3::new(goal.x as i32, goal.y as i32, 0)).mode(PathfindMode::Waypoints))
                 .insert(AgentMask(nav_mask));
         }
     }
@@ -234,7 +234,7 @@ fn move_player(
     let map = map_query.iter().next().expect("No map found in the query");
 
     for (entity, mut agent_pos, next_pos, mut transform) in query.iter_mut() {
-        let tile_pos = TilePos::new(next_pos.0.x, next_pos.0.y);
+        let tile_pos = TilePos::new(next_pos.0.x as u32, next_pos.0.y as u32);
         let world_pos = tile_pos.center_in_world(
             map.map_size,
             map.grid_size,

@@ -5,8 +5,8 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, graph::Graph, in_bounds_3d,
-    nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::{Path, PathLocal}, size_hint_graph,
+    FxIndexMap, NavRegionLocal, SearchLimitsLocal, SmallestCostHolder, graph::Graph, in_bounds_3d,
+    nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::PathLocal, size_hint_graph,
     size_hint_grid,
 };
 
@@ -31,10 +31,10 @@ pub(crate) fn astar_grid<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    limits: SearchLimits,
+    limits: SearchLimitsLocal,
 ) -> Option<PathLocal> {
     let bounded = limits.boundary.is_some();
-    let boundary = limits.boundary.unwrap_or(NavRegion {
+    let boundary = limits.boundary.unwrap_or(NavRegionLocal {
         min: UVec3::ZERO,
         max: UVec3::ZERO,
     });
@@ -327,7 +327,7 @@ use super::*;
             goal,
             &HashMap::new(),
             &NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -361,7 +361,7 @@ use super::*;
             goal,
             &HashMap::new(),
             &NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -421,7 +421,7 @@ use super::*;
             goal,
             &HashMap::new(),
             &NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -457,7 +457,7 @@ use super::*;
             goal,
             &HashMap::new(),
             &NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -496,17 +496,17 @@ use super::*;
         graph.connect_node(
             UVec3::new(1, 1, 1),
             UVec3::new(0, 0, 0),
-            Path::new(vec![UVec3::new(1, 1, 1), UVec3::new(0, 0, 0)], 1),
+            PathLocal::new(vec![UVec3::new(1, 1, 1), UVec3::new(0, 0, 0)], 1),
         );
         graph.connect_node(
             UVec3::new(1, 1, 1),
             UVec3::new(2, 2, 2),
-            Path::new(vec![UVec3::new(1, 1, 1), UVec3::new(2, 2, 2)], 1),
+            PathLocal::new(vec![UVec3::new(1, 1, 1), UVec3::new(2, 2, 2)], 1),
         );
         graph.connect_node(
             UVec3::new(2, 2, 2),
             UVec3::new(1, 1, 1),
-            Path::new(vec![UVec3::new(2, 2, 2), UVec3::new(1, 1, 1)], 1),
+            PathLocal::new(vec![UVec3::new(2, 2, 2), UVec3::new(1, 1, 1)], 1),
         );
 
         let path = astar_graph(
@@ -540,7 +540,7 @@ use super::*;
         let start = UVec3::new(0, 0, 0);
         let goal = UVec3::new(7, 7, 7);
 
-        let mut search_limits = SearchLimits {
+        let mut search_limits = SearchLimitsLocal {
             boundary: None,
             distance: Some(5), // Limit to a max distance of 5
             partial: false,
@@ -581,7 +581,7 @@ use super::*;
 
         // Test boundary
 
-        search_limits.boundary = Some(NavRegion {
+        search_limits.boundary = Some(NavRegionLocal {
             min: UVec3::new(0, 0, 0),
             max: UVec3::new(4, 4, 4),
         });

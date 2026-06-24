@@ -1,5 +1,4 @@
 //! This module defines the important `Path` component.
-use bevy::gizmos::grid;
 use bevy::math::{IVec3, UVec3};
 use bevy::prelude::Component;
 use bevy::reflect::Reflect;
@@ -224,18 +223,6 @@ impl PathLocal {
         self.path.contains(&pos)
     }
 
-    /// Returns the path as a slice of `UVec3` positions.
-    /// Useful to represent the path for UI etc.
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use bevy::prelude::*;
-    /// use bevy_northstar::prelude::*;
-    ///
-    /// let path = Path::new(vec![UVec3::new(1, 2, 3), UVec3::new(4, 5, 6)], 10);
-    /// assert_eq!(path.path(), &[UVec3::new(1, 2, 3), UVec3::new(4, 5, 6)]);
-    /// ```
     pub(crate) fn path(&self) -> &[UVec3] {
         self.path.as_slices().0
     }
@@ -321,26 +308,39 @@ impl IntoIterator for PathLocal {
 }
 
 
-pub(crate) fn path_to_local<N: Neighborhood + 'static>(
+pub(crate) fn path_to_local<N: Neighborhood>(
     grid: &Grid<N>, 
     path: &Path
 ) -> Option<PathLocal> {
+    let mut local_path = Vec::with_capacity(path.path().len());
     for pos in path.path() {
-        let local_pos = grid.world_to_local(*pos);
-        if local_pos.is_none() {
-            return None;
-        }
+        local_path.push(grid.world_to_local(*pos)?);
     }
-    Some(PathLocal::new(
-        path.path().iter().map(|p| grid.world_to_local(*p).unwrap()).collect(),
-        path.cost()
-    ))
+
+    let mut local_graph_path = VecDeque::with_capacity(path.graph_path().len());
+    for pos in path.graph_path() {
+        local_graph_path.push_back(grid.world_to_local(*pos)?);
+    }
+
+    let mut local = PathLocal::new(local_path, path.cost());
+    local.graph_path = local_graph_path;
+    local.set_partial(path.is_partial());
+    Some(local)
 }
 
-pub(crate) fn path_to_world<N: Neighborhood + 'static>(
+pub(crate) fn path_to_world<N: Neighborhood>(
     grid: &Grid<N>, 
     path: &PathLocal
 ) -> Path {
     let world_path = path.path().iter().map(|p| grid.local_to_world(*p)).collect();
-    Path::new(world_path, path.cost())
+    let world_graph_path = path
+        .graph_path()
+        .iter()
+        .map(|p| grid.local_to_world(*p))
+        .collect();
+
+    let mut world = Path::new(world_path, path.cost());
+    world.graph_path = world_graph_path;
+    world.set_partial(path.is_partial());
+    world
 }

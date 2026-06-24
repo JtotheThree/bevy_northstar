@@ -44,7 +44,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     water_layer
         .insert_region_fill(
             &grid,
-            NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(10, 10, 10)),
+            NavRegion::new(IVec3::new(0, 0, 0), IVec3::new(10, 10, 10)),
             NavCellMask::ModifyCost(5),
         )
         .ok();
@@ -54,7 +54,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     red_faction_not_allowed_layer
         .insert_region_fill(
             &grid,
-            NavRegion::new(UVec3::new(11, 11, 11), UVec3::new(15, 15, 15)),
+            NavRegion::new(IVec3::new(11, 11, 11), IVec3::new(15, 15, 15)),
             NavCellMask::ImpassableOverride,
         )
         .unwrap();
@@ -64,7 +64,7 @@ fn setup_layers(mut layers: ResMut<MyNavMaskLayers>) {
     blue_faction_not_allowed_layer
         .insert_region_fill(
             &grid,
-            NavRegion::new(UVec3::new(16, 16, 16), UVec3::new(20, 20, 20)),
+            NavRegion::new(IVec3::new(16, 16, 16), IVec3::new(20, 20, 20)),
             NavCellMask::ImpassableOverride,
         )
         .unwrap();
@@ -122,6 +122,10 @@ fn setup_masks(layers: Res<MyNavMaskLayers>, mut masks: ResMut<MyNavMasks>, agen
 }
 
 fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
+    let grid_settings = GridSettingsBuilder::new_3d(32, 32, 32).build();
+    let mut grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+    grid.build();
+
     let red_faction_entity = agents.red_faction.unwrap();
     let red_faction_mask = masks.0.get(&red_faction_entity).unwrap();
 
@@ -130,12 +134,12 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
 
     // Our default test cell we'll set to passable with a cost of 1.
     let grid_cell = NavCell::new(Nav::Passable(1));
-    let water_pos = UVec3::new(5, 5, 5);
-    let red_faction_pos = UVec3::new(17, 17, 17);
-    let blue_faction_pos = UVec3::new(12, 12, 12);
+    let water_pos = IVec3::new(5, 5, 5);
+    let red_faction_pos = IVec3::new(17, 17, 17);
+    let blue_faction_pos = IVec3::new(12, 12, 12);
 
     // Test a water cell
-    match red_faction_mask.get(grid_cell.clone(), water_pos) {
+    match red_faction_mask.get(&grid, grid_cell.clone(), water_pos) {
         NavMaskResult::Masked(masked_cell) => {
             assert_eq!(masked_cell.nav(), Nav::Passable(6));
             log::info!(
@@ -148,7 +152,7 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     }
 
     // Test that the red faction agent cannot pass through the blue faction's no-go region
-    match red_faction_mask.get(grid_cell.clone(), blue_faction_pos) {
+    match red_faction_mask.get(&grid, grid_cell.clone(), blue_faction_pos) {
         NavMaskResult::Masked(masked_cell) => {
             assert_eq!(masked_cell.nav(), Nav::Impassable);
             log::info!(
@@ -161,7 +165,7 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     }
 
     // Test that the red faction agent can pass through its own territory
-    match red_faction_mask.get(grid_cell.clone(), red_faction_pos) {
+    match red_faction_mask.get(&grid, grid_cell.clone(), red_faction_pos) {
         NavMaskResult::NotMasked => {
             // This is expected since the mask does not modify this area.
             log::info!(
@@ -173,7 +177,7 @@ fn test_cells(masks: Res<MyNavMasks>, agents: Res<MyAgents>) {
     }
 
     // Test that the blue faction agent cannot pass through the red faction's no-go region
-    match blue_faction_mask.get(grid_cell.clone(), red_faction_pos) {
+    match blue_faction_mask.get(&grid, grid_cell.clone(), red_faction_pos) {
         NavMaskResult::Masked(masked_cell) => {
             assert_eq!(masked_cell.nav(), Nav::Impassable);
             log::info!(

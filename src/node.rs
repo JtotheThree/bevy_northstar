@@ -2,7 +2,7 @@
 use bevy::{math::UVec3, platform::collections::HashMap};
 use std::hash::{Hash, Hasher};
 
-use crate::{chunk::Chunk, dir::Dir, path::Path};
+use crate::{chunk::Chunk, dir::Dir, path::PathLocal};
 
 /// A `Node` for use in `Graph`.
 #[derive(Debug, Clone)]
@@ -12,7 +12,7 @@ pub(crate) struct Node {
     /// The chunk that this node belongs to.
     pub(crate) chunk_index: (usize, usize, usize),
     /// Edges are the other nodes that this node is connected to and the path to them.
-    pub(crate) edges: HashMap<UVec3, Path>,
+    pub(crate) edges: HashMap<UVec3, PathLocal>,
     /// The direction of the edge relative to the chunk.
     pub(crate) dir: Option<Dir>,
     /// If this is a portal

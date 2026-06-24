@@ -1,7 +1,7 @@
 //! Graph module for managing nodes and edges in relative space.
 use bevy::{log, math::UVec3, platform::collections::HashMap};
 
-use crate::{NodeId, chunk::Chunk, dir::Dir, node::Node, path::Path};
+use crate::{NodeId, chunk::Chunk, dir::Dir, node::Node, path::PathLocal};
 
 /// A graph structure that holds nodes and their connections (edges).
 pub(crate) struct Graph {
@@ -155,7 +155,7 @@ impl Graph {
 
     /// Connect two nodes in the graph with a provided `Path`.
     /// The path will be used as a cached path between the two nodes.
-    pub(crate) fn connect_node(&mut self, from: UVec3, to: UVec3, path: Path) {
+    pub(crate) fn connect_node(&mut self, from: UVec3, to: UVec3, path: PathLocal) {
         if let Some(&from_id) = self.node_ids.get(&from) {
             self.nodes.get_mut(from_id).unwrap().edges.insert(to, path);
         }
@@ -170,7 +170,7 @@ impl Graph {
     }
 
     /// Returns the cached edge path
-    pub(crate) fn edge_path(&self, from: UVec3, to: UVec3) -> Option<&Path> {
+    pub(crate) fn edge_path(&self, from: UVec3, to: UVec3) -> Option<&PathLocal> {
         self.node_ids
             .get(&from)
             .and_then(|&from_id| self.nodes.get(from_id))
@@ -178,7 +178,7 @@ impl Graph {
     }
 
     /// Returns all cached `Path`s in the graph.
-    pub(crate) fn all_paths(&self) -> Vec<Path> {
+    pub(crate) fn all_paths(&self) -> Vec<PathLocal> {
         let mut paths = Vec::new();
         for node in self.nodes.iter().map(|(_, node)| node) {
             for path in node.edges.values() {

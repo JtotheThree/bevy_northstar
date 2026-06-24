@@ -105,18 +105,43 @@ pub struct SearchLimits {
     pub partial: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct SearchLimitsLocal {
+    pub boundary: Option<NavRegionLocal>,
+    pub distance: Option<u32>,
+    pub partial: bool,
+}
+
+impl SearchLimits {
+    pub(crate) fn localize<N: crate::neighbor::Neighborhood>(
+        &self,
+        grid: &crate::grid::Grid<N>,
+    ) -> Option<SearchLimitsLocal> {
+        let boundary = match self.boundary {
+            Some(region) => Some(NavRegionLocal::from_world(region, grid)?),
+            None => None,
+        };
+
+        Some(SearchLimitsLocal {
+            boundary,
+            distance: self.distance,
+            partial: self.partial,
+        })
+    }
+}
+
 /// A Region3d with an iter method to iterate over all positions in the region.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Reflect)]
 pub struct NavRegion {
     /// The minimum position of the region.
-    pub min: UVec3,
+    pub min: IVec3,
     /// The maximum position of the region (exclusive).
-    pub max: UVec3,
+    pub max: IVec3,
 }
 
 impl NavRegion {
     /// Creates a new Region3d with the given minimum and maximum positions.
-    pub fn new(min: UVec3, max: UVec3) -> Self {
+    pub fn new(min: IVec3, max: IVec3) -> Self {
         assert!(
             min.x <= max.x && min.y <= max.y && min.z <= max.z,
             "Invalid region bounds"
@@ -128,13 +153,13 @@ impl NavRegion {
     pub fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
         let shape = grid.shape();
         Self {
-            min: UVec3::new(0, 0, 0),
-            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
+            min: IVec3::ZERO,
+            max: IVec3::new(shape[0] as i32, shape[1] as i32, shape[2] as i32),
         }
     }
 
     /// Tests if a position is contained in the region.
-    pub fn contains(&self, pos: UVec3) -> bool {
+    pub fn contains(&self, pos: IVec3) -> bool {
         pos.x >= self.min.x
             && pos.x <= self.max.x
             && pos.y >= self.min.y
@@ -155,10 +180,89 @@ impl NavRegion {
 /// An iterator over all positions in a Region3d.
 pub struct NavRegionIter {
     region: NavRegion,
-    current: UVec3,
+    current: IVec3,
 }
 
 impl Iterator for NavRegionIter {
+    type Item = IVec3;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.z > self.region.max.z {
+            return None;
+        }
+
+        let result = self.current;
+
+        self.current.x += 1;
+        if self.current.x > self.region.max.x {
+            self.current.x = self.region.min.x;
+            self.current.y += 1;
+
+            if self.current.y > self.region.max.y {
+                self.current.y = self.region.min.y;
+                self.current.z += 1;
+            }
+        }
+
+        Some(result)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct NavRegionLocal {
+    pub min: UVec3,
+    pub max: UVec3,
+}
+
+impl NavRegionLocal {
+    pub(crate) fn new(min: UVec3, max: UVec3) -> Self {
+        assert!(
+            min.x <= max.x && min.y <= max.y && min.z <= max.z,
+            "Invalid region bounds"
+        );
+        Self { min, max }
+    }
+
+    pub(crate) fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
+        let shape = grid.shape();
+        Self {
+            min: UVec3::new(0, 0, 0),
+            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
+        }
+    }
+
+    pub(crate) fn from_world<N: crate::neighbor::Neighborhood>(
+        region: NavRegion,
+        grid: &crate::grid::Grid<N>,
+    ) -> Option<Self> {
+        let min = grid.world_to_local(region.min)?;
+        let max = grid.world_to_local(region.max)?;
+        Some(Self { min, max })
+    }
+
+    pub(crate) fn contains(&self, pos: UVec3) -> bool {
+        pos.x >= self.min.x
+            && pos.x <= self.max.x
+            && pos.y >= self.min.y
+            && pos.y <= self.max.y
+            && pos.z >= self.min.z
+            && pos.z <= self.max.z
+    }
+
+    pub(crate) fn iter(&self) -> NavRegionLocalIter {
+        NavRegionLocalIter {
+            region: *self,
+            current: self.min,
+        }
+    }
+}
+
+pub(crate) struct NavRegionLocalIter {
+    region: NavRegionLocal,
+    current: UVec3,
+}
+
+impl Iterator for NavRegionLocalIter {
     type Item = UVec3;
 
     fn next(&mut self) -> Option<Self::Item> {

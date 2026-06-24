@@ -489,7 +489,7 @@ fn avoidance<N: Neighborhood + 'static>(
                     .iter()
                     .skip_while(|pos| *pos != avoidance_goal)
                     .cloned()
-                    .collect::<Vec<UVec3>>();
+                    .collect::<Vec<IVec3>>();
 
                 // Combine the new path with the old path
                 let mut combined_path = new_path.path().to_vec();

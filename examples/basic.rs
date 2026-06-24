@@ -47,7 +47,7 @@ fn startup(mut commands: Commands) {
     // Let's spawn a player entity that will be used to demonstrate pathfinding.
     commands.spawn((
         Name::new("Player"),
-        AgentPos(UVec3::new(4, 4, 0)), // Starting position in the grid.
+        AgentPos(IVec3::new(4, 4, 0)), // Starting position in the grid.
         player_transform,
     ));
 }
@@ -62,7 +62,7 @@ fn build_grid(grid: Single<&mut CardinalGrid>) {
         for y in 0..grid.height() {
             // Create some staggered impassable cells.
             if x % 2 == 0 && y % 3 == 0 {
-                grid.set_nav(UVec3::new(x, y, 0), Nav::Impassable);
+                grid.set_nav(IVec3::new(x as i32, y as i32, 0), Nav::Impassable);
             }
         }
     }
@@ -128,9 +128,9 @@ fn input(
         .map(|cursor_position| {
             let offset = Vec2::new(-384.0, -288.0);
             let cursor_position = cursor_position - offset;
-            UVec3::new(
-                (cursor_position.x / 12.0).round() as u32,
-                (cursor_position.y / 12.0).round() as u32,
+            IVec3::new(
+                (cursor_position.x / 12.0).round() as i32,
+                (cursor_position.y / 12.0).round() as i32,
                 0,
             )
         });

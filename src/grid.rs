@@ -14,7 +14,7 @@ use bevy::{
 use ndarray::{Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip, s};
 
 use crate::{
-    MovementCost, SearchLimits,
+    MovementCost, SearchLimitsLocal,
     chunk::Chunk,
     dijkstra::*,
     dir::*,
@@ -25,7 +25,7 @@ use crate::{
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
     node::Node,
-    path::{Path, path_to_local},
+    path::{Path, PathLocal, path_to_local, path_to_world},
     pathfind::{PathfindArgs, pathfind, pathfind_astar, pathfind_thetastar, reroute_path},
     position_in_cubic_window,
     prelude::{NavMask, Pathfind, PathfindMode},
@@ -177,7 +177,23 @@ impl GridSettingsBuilder {
         }
     }
 
-    /// Origin of the world center.
+    /// Set the minimum coordinates of the grid in world space.
+    /// Set this to align the grid when using negative coordinates in your tile coordinates.
+    ///  
+    /// # Arguments
+    ///
+    /// * `origin` - The minimum coordinates of the grid in world space.
+    /// 
+    /// Example usage:
+    /// 
+    /// ```rust,no-run
+    /// use bevy::math::IVec3;
+    /// use bevy_northstar::prelude::*;
+    /// 
+    /// let grid = GridSettingsBuilder::new_2d(64, 64)
+    ///     .origin(IVec3::new(-32, -32, 0))
+    ///     .build();
+    /// ```
     pub fn origin(mut self, origin: IVec3) -> Self {
         self.origin = origin;
         self
@@ -345,9 +361,9 @@ impl Default for GridInternalSettings {
 ///    let mut grid: Grid<CardinalNeighborhood> = Grid::new(&grid_settings);
 ///
 ///    // Set the cell at (0, 0, 0) to be passable with a cost of 1
-///    grid.set_nav(UVec3::new(0, 0, 0), Nav::Passable(1));
+///    grid.set_nav(IVec3::new(0, 0, 0), Nav::Passable(1));
 ///    // Set the cell at (1, 0, 0) to be impassable
-///    grid.set_nav(UVec3::new(1, 0, 0), Nav::Impassable);
+///    grid.set_nav(IVec3::new(1, 0, 0), Nav::Impassable);
 ///    // Initialize the grid
 ///    grid.build();
 ///
@@ -458,7 +474,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         Self {
             neighborhood: N::from_settings(&settings.0.neighborhood_settings),
             dimensions,
-            origin: IVec3::ZERO,
+            origin,
             chunk_settings,
             collision_settings,
 
@@ -557,7 +573,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         let navcell = NavCell::new(nav);
-        self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]] = navcell;
+        self.grid[[local.x as usize, local.y as usize, local.z as usize]] = navcell;
     }
 
     /// Gets the [`Nav`] settings at a given [`bevy::math::IVec3`] position in the grid.
@@ -641,10 +657,6 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Checks if a position is within the bounds of the grid.
     pub fn in_bounds(&self, pos: UVec3) -> bool {
         pos.x < self.dimensions.x && pos.y < self.dimensions.y && pos.z < self.dimensions.z
-    }
-
-    pub(crate) fn in_bounds_world(&self, world: IVec3) -> bool {
-        self.world_to_local(world).is_some()
     }
 
     pub(crate) fn local_to_world(&self, local: UVec3) -> IVec3 {
@@ -1386,7 +1398,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         (
                             world_start,
                             world_goal,
-                            Path::new(path_vec.clone(), path.cost()),
+                            PathLocal::new(path_vec.clone(), path.cost()),
                         )
                     })
                 })
@@ -1422,7 +1434,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     }
 
                     // Create a path from the portal node to its target
-                    let path = Path::from_slice(&[node.pos, target], cost);
+                    let path = PathLocal::from_slice(&[node.pos, target], cost);
 
                     connections.push((node.pos, target, path));
                 }
@@ -1462,7 +1474,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     // Check if neighbor is in a different chunk
                     if node.chunk_index != neighbor.chunk_index {
                         let cost = self.navcell(neighbor.pos).cost;
-                        let path = Path::from_slice(&[node.pos, neighbor.pos], cost);
+                        let path = PathLocal::from_slice(&[node.pos, neighbor.pos], cost);
 
                         connections.push((node.pos, neighbor.pos, path));
                     }
@@ -1524,12 +1536,12 @@ impl<N: Neighborhood + Default> Grid<N> {
     ///
     /// # Arguments
     /// * `path` - The [`Path`] to reroute.
-    /// * `start` - The start position of the path.
-    /// * `goal` - The goal position of the path.
-    /// * `blocking` - A map of positions to entities that are blocking the path. Pass `&HashMap::new()` if you're not concerned with collision.
-    ///   Pass `&HasMap::new()` if you're not concerned with collision. If using [`crate::plugin::NorthstarPlugin`] you can pass it the [`crate::plugin::BlockingMap`] resource.
-    ///   If not, build a [`HashMap<UVec3, Entity>`] with the positions of entities that should be blocking paths.
-    /// * `refined` - Whether to use refined pathing or not.
+    /// * `start` - The world-space [`bevy::math::IVec3`] start position of the path.
+    /// * `pathfind` - The [`Pathfind`] settings describing the world-space goal and reroute mode.
+    /// * `blocking` - A map of world-space [`bevy::math::IVec3`] positions to entities that are blocking the path.
+    ///   Pass `&HashMap::new()` if you're not concerned with collision. If using [`crate::plugin::NorthstarPlugin`]
+    ///   you can pass it the [`crate::plugin::BlockingMap`] resource.
+    /// * `mask` - Optional [`NavMask`] to apply during rerouting.
     ///
     /// # Returns
     /// A new rerouted [`Path`] if successful, or `None` if no viable path could be found.
@@ -1551,15 +1563,59 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        reroute_path(self, path, start, pathfind, blocking, &mut mask)
+        let Some(start_local) = self.world_to_local(start) else {
+            warn!("Failed to convert start position to local coordinates.");
+            return None;
+        };
+
+        let Some(goal_local) = self.world_to_local(pathfind.goal) else {
+            warn!("Failed to convert goal position to local coordinates.");
+            return None;
+        };
+
+        let Some(path_local) = path_to_local(self, path) else {
+            warn!("Failed to convert path to local coordinates.");
+            return None;
+        };
+
+        let mut blocking_local = HashMap::new();
+        for (pos, entity) in blocking {
+            let Some(local_pos) = self.world_to_local(*pos) else {
+                warn!("Failed to convert blocking positions to local coordinates.");
+                return None;
+            };
+            blocking_local.insert(local_pos, *entity);
+        }
+
+        let Some(local_limits) = pathfind.limits.localize(self) else {
+            warn!("Failed to convert search limits to local coordinates.");
+            return None;
+        };
+
+        let Some(mode) = pathfind.mode else {
+            warn!("Pathfind mode must be set before rerouting a path.");
+            return None;
+        };
+
+        reroute_path(
+            self,
+            &path_local,
+            start_local,
+            goal_local,
+            mode,
+            &blocking_local,
+            &mut mask,
+            local_limits,
+        )
+        .map(|path| path_to_world(self, &path))
     }
 
     /// Checks if a path exists from `start` to `goal` using the fastest algorithm.
     /// Ignores any blocking entities.
     ///
     /// # Arguments
-    /// * `start` - The starting position in the grid.
-    /// * `goal` - The goal position in the grid.
+    /// * `start` - The world-space [`bevy::math::IVec3`] starting position.
+    /// * `goal` - The world-space [`bevy::math::IVec3`] goal position.
     /// # Returns
     /// `true` if a path exists, `false` otherwise.
     ///
@@ -1587,7 +1643,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             &mut NavMaskData::new(),
             false,
             false,
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .is_some()
     }
@@ -1597,27 +1653,34 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// You'll want to ensure your radius at least covers the distance to the goal.
     ///
     /// # Arguments
-    /// * `start` - The starting position in the grid.
-    /// * `goal` - The goal position in the grid.
+    /// * `start` - The world-space [`bevy::math::IVec3`] starting position.
+    /// * `goal` - The world-space [`bevy::math::IVec3`] goal position.
     /// * `radius` - The radius around the start position to search for a path.
-    /// * `blocking` - A map of positions to entities that are blocking the path.
-    ///   Pass `&HasMap::new()` if you're not concerned with collision. If using [`crate::plugin::NorthstarPlugin`] you can pass it the [`crate::plugin::BlockingMap`] resource.
-    ///   If not, build a [`HashMap<UVec3, Entity>`] with the positions of entities that should be blocking paths.
-    /// * `partial` - Whether to allow partial paths (i.e., if the goal is unreachable, return the closest reachable point).
+    /// * `blocking` - A map of world-space [`bevy::math::IVec3`] positions to entities that are blocking the path.
+    ///   Pass `&HashMap::new()` if you're not concerned with collision. If using [`crate::plugin::NorthstarPlugin`] you can pass it the [`crate::plugin::BlockingMap`] resource.
+    ///   If not, build a [`HashMap<IVec3, Entity>`] with the world positions of entities that should be blocking paths.
     /// # Returns
     /// A [`Path`] if successful, or `None` if no viable path could be found.
     ///
     pub(crate) fn pathfind_astar_radius(
         &self,
-        start: UVec3,
-        goal: UVec3,
+        start: IVec3,
+        goal: IVec3,
         radius: u32,
-        blocking: &HashMap<UVec3, Entity>,
+        blocking: &HashMap<IVec3, Entity>,
         mask: Option<&NavMask>,
     ) -> Option<Path> {
         if self.needs_build() {
             return None;
         }
+
+        let Some(start_local_world) = self.world_to_local(start) else {
+            return None;
+        };
+
+        let Some(goal_local_world) = self.world_to_local(goal) else {
+            return None;
+        };
 
         // Lock and get the underlying data from the NavMask
         let mask: NavMaskData = match mask {
@@ -1625,8 +1688,10 @@ impl<N: Neighborhood + Default> Grid<N> {
             None => NavMaskData::new(),
         };
 
-        let min = start.as_ivec3().saturating_sub(IVec3::splat(radius as i32));
-        let max = start
+        let min = start_local_world
+            .as_ivec3()
+            .saturating_sub(IVec3::splat(radius as i32));
+        let max = start_local_world
             .as_ivec3()
             .saturating_add(IVec3::splat(radius as i32) + IVec3::ONE);
 
@@ -1643,7 +1708,12 @@ impl<N: Neighborhood + Default> Grid<N> {
             grid_shape[1] as i32,
             grid_shape[2] as i32,
         );
-        if !position_in_cubic_window(goal, start.as_ivec3(), radius as i32, grid_shape_vec) {
+        if !position_in_cubic_window(
+            goal_local_world,
+            start_local_world.as_ivec3(),
+            radius as i32,
+            grid_shape_vec,
+        ) {
             return None;
         }
 
@@ -1655,14 +1725,14 @@ impl<N: Neighborhood + Default> Grid<N> {
         ]);
 
         // Remap start/goal into local view
-        let start_local = (start.as_ivec3() - min).as_uvec3();
-        let goal_local = (goal.as_ivec3() - min).as_uvec3();
+        let start_local = (start_local_world.as_ivec3() - min).as_uvec3();
+        let goal_local = (goal_local_world.as_ivec3() - min).as_uvec3();
 
         // Remap blocking positions into local view
         let blocking_local: HashMap<UVec3, Entity> = blocking
             .iter()
             .filter_map(|(pos, &ent)| {
-                let pos_i = pos.as_ivec3();
+                let pos_i = self.world_to_local(*pos)?.as_ivec3();
                 if pos_i.cmplt(min).any() || pos_i.cmpge(max).any() {
                     return None;
                 }
@@ -1670,7 +1740,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             })
             .collect();
 
-        let mask_local = mask.translate_by(-min);
+        let mask_local = mask.localize(-min);
 
         // Run pathfinding on the subview
         let result = pathfind_astar(
@@ -1680,13 +1750,13 @@ impl<N: Neighborhood + Default> Grid<N> {
             goal_local,
             &blocking_local,
             &mask_local,
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         );
 
         // Convert path result back to global positions
         result.map(|mut path| {
             path.translate_by(min.as_uvec3());
-            path
+            path_to_world(self, &path)
         })
     }
 
@@ -1704,8 +1774,8 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// fn pathfinding_system(grid: Single<&Grid<CardinalNeighborhood>>) {
     ///     let grid = grid.into_inner();
     ///
-    ///     let start = UVec3::new(0, 0, 0);
-    ///     let goal = UVec3::new(10, 10, 0);
+    ///     let start = IVec3::new(0, 0, 0);
+    ///     let goal = IVec3::new(10, 10, 0);
     ///
     ///     let mut request = PathfindArgs::new(start, goal).mode(PathfindMode::ThetaStar);
     ///     let path = grid.pathfind(&mut request);
@@ -1740,6 +1810,11 @@ impl<N: Neighborhood + Default> Grid<N> {
             return None;
         }
 
+        let Some(limits) = request.limits.localize(self) else {
+            log::error!("Search region is out of bounds in world coordinates: {:?}", request.limits.boundary);
+            return None;
+        };
+
         let empty_blocking = HashMap::new();
         let blocking_world = request.blocking.unwrap_or(&empty_blocking);
 
@@ -1751,7 +1826,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             })
             .collect::<HashMap<UVec3, Entity>>();
 
-        match request.mode {
+        let local_path = match request.mode {
             PathfindMode::Refined => {
                 match request.mask.as_mut() {
                     Some(nav_mask) => {
@@ -1764,7 +1839,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                                 &mut data,
                                 true,
                                 false,
-                                request.limits,
+                                limits,
                             )
                         } else {
                             log::error!(
@@ -1783,9 +1858,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                             &mut empty_mask,
                             true,
                             false,
-                            request.limits,
+                            limits,
                         )
-                    }
+                    },
                 }
             }
             PathfindMode::Coarse => match request.mask.take() {
@@ -1799,7 +1874,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         &mut data,
                         false,
                         false,
-                        request.limits,
+                        limits,
                     )
                 }
                 None => {
@@ -1812,7 +1887,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         &mut empty_mask,
                         false,
                         false,
-                        request.limits,
+                        limits,
                     )
                 }
             },
@@ -1826,7 +1901,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         goal,
                         &blocking,
                         &data,
-                        request.limits,
+                        limits,
                     )
                 }
                 None => {
@@ -1838,7 +1913,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         goal,
                         &blocking,
                         &empty_mask,
-                        request.limits,
+                        limits,
                     )
                 }
             },
@@ -1853,7 +1928,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         &mut data,
                         false,
                         true,
-                        request.limits,
+                        limits,
                     )
                 }
                 None => {
@@ -1866,7 +1941,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         &mut empty_mask,
                         false,
                         true,
-                        request.limits,
+                        limits,
                     )
                 }
             },
@@ -1880,7 +1955,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                         goal,
                         &blocking,
                         &data,
-                        request.limits,
+                        limits,
                     )
                 }
                 None => {
@@ -1892,11 +1967,13 @@ impl<N: Neighborhood + Default> Grid<N> {
                         goal,
                         &blocking,
                         &empty_mask,
-                        request.limits,
+                        limits,
                     )
                 }
             },
-        }
+        };
+
+        local_path.map(|path| path_to_world(self, &path))
     }
 }
 
@@ -2226,11 +2303,11 @@ mod tests {
 
         assert!(path.is_some());
         // Ensure start cell is the first cell in the path
-        assert_ne!(path.clone().unwrap().path()[0], UVec3::new(10, 10, 0));
+        assert_ne!(path.clone().unwrap().path()[0], IVec3::new(10, 10, 0));
         // Ensure end cell is the last cell in the path
         assert_eq!(
             path.clone().unwrap().path().last().unwrap(),
-            &UVec3::new(4, 4, 0)
+            &IVec3::new(4, 4, 0)
         );
 
         assert_eq!(path.clone().unwrap().len(), raw_path.unwrap().len());
@@ -2497,7 +2574,6 @@ mod tests {
     #[test]
     fn test_dirty_chunk_rebuild_and_pathfinding() {
         use crate::nav::Nav;
-        use bevy::math::UVec3;
 
         // Create a 16x16 grid with 4x4 chunks (so 4x4 chunks)
         let grid_settings = GridSettingsBuilder::new_2d(16, 16).chunk_size(4).build();
@@ -2553,7 +2629,7 @@ mod tests {
         assert!(path.is_some(), "Path should exist after opening gap");
         let path = path.unwrap();
         assert!(
-            path.path().contains(&UVec3::new(8, 8, 0)),
+            path.path().contains(&IVec3::new(8, 8, 0)),
             "Path should go through the gap at (8,8,0)"
         );
 
@@ -2846,6 +2922,29 @@ mod tests {
         assert!(
             start_boundary_node.is_some(),
             "Expected boundary node at (3,7,3) wasn't created"
+        );
+    }
+
+    #[test]
+    fn test_ivec_grid() {
+        let settings = GridSettingsBuilder::new_3d(64, 64, 16)
+            .chunk_size(8)
+            .chunk_depth(8)
+            .origin(IVec3::new(-32, -32, -8))
+            .build();
+
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&settings);
+
+        grid.build();
+
+        let path = grid.pathfind(&mut PathfindArgs::new(
+            IVec3::new(-16, -16, -4),
+            IVec3::new(16, 16, 4),
+        ));
+
+        assert!(
+            path.is_some(),
+            "No path exists from (-16,-16,-4) to (16,16,4)"
         );
     }
 }

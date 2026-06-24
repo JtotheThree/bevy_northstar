@@ -21,8 +21,8 @@ const GRID_LINE_COLOR: Color = Color::srgba(0.4, 0.4, 0.4, 0.3);
 /// Marks an agent that loops between two endpoints.
 #[derive(Component)]
 struct Patrol {
-    a: UVec3,
-    b: UVec3,
+    a: IVec3,
+    b: IVec3,
 }
 
 fn main() {
@@ -46,7 +46,7 @@ fn offset() -> Vec3 {
     )
 }
 
-fn grid_to_world(pos: UVec3) -> Vec3 {
+fn grid_to_world(pos: IVec3) -> Vec3 {
     Vec3::new(pos.x as f32 * TILE, pos.y as f32 * TILE, 0.0) + offset()
 }
 
@@ -67,13 +67,13 @@ fn startup(mut commands: Commands) {
     // Two patrolling agents with colored debug paths.
     let agents = [
         (
-            UVec3::new(2, 8, 0),
-            UVec3::new(29, 8, 0),
+            IVec3::new(2, 8, 0),
+            IVec3::new(29, 8, 0),
             Color::srgb(0.2, 1.0, 0.2),
         ),
         (
-            UVec3::new(2, 16, 0),
-            UVec3::new(29, 16, 0),
+            IVec3::new(2, 16, 0),
+            IVec3::new(29, 16, 0),
             Color::srgb(0.3, 0.6, 1.0),
         ),
     ];
@@ -111,10 +111,10 @@ fn build_grid(grid: Single<&mut CardinalGrid>) {
     // Two vertical wall segments with gaps — agents must path around them.
     for y in 3..21 {
         if y != 10 && y != 11 {
-            grid.set_nav(UVec3::new(10, y, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(10, y as i32, 0), Nav::Impassable);
         }
         if y != 6 && y != 7 {
-            grid.set_nav(UVec3::new(20, y, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(20, y as i32, 0), Nav::Impassable);
         }
     }
     grid.build();
@@ -150,7 +150,7 @@ fn draw_grid(grid: Single<&CardinalGrid>, mut gizmos: Gizmos) {
     // Filled squares for walls.
     for x in 0..GRID_W {
         for y in 0..GRID_H {
-            let pos = UVec3::new(x, y, 0);
+            let pos = IVec3::new(x as i32, y as i32, 0);
             if let Some(nav) = grid.nav(pos) {
                 if matches!(nav, Nav::Impassable) {
                     let center = grid_to_world(pos).truncate();
@@ -251,11 +251,13 @@ fn input(
         0,
     );
 
-    let Some(nav) = grid.nav(cell) else { return };
+    let cell_world = IVec3::new(cell.x as i32, cell.y as i32, 0);
+
+    let Some(nav) = grid.nav(cell_world) else { return };
     if matches!(nav, Nav::Impassable) {
-        grid.set_nav(cell, Nav::Passable(1));
+        grid.set_nav(cell_world, Nav::Passable(1));
     } else {
-        grid.set_nav(cell, Nav::Impassable);
+        grid.set_nav(cell_world, Nav::Impassable);
     }
     grid.build();
 

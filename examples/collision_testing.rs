@@ -132,16 +132,16 @@ fn layer_created(
             let width = tile_layer.width().unwrap();
             let height = tile_layer.height().unwrap();
 
-            for x in 0..width {
-                for y in 0..height {
-                    let tile = tile_layer.get_tile(x as i32, y as i32);
+            for x in 0..width as i32 {
+                for y in 0..height as i32 {
+                    let tile = tile_layer.get_tile(x, y);
                     if let Some(tile) = tile {
                         let tile_id = tile.id();
 
                         if tile_id == 14 {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Passable(1));
                         } else {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
+                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Impassable);
                         }
                     }
                 }
@@ -174,9 +174,9 @@ fn spawn_minions(
     let layer_entity = layer_entity.iter().next().unwrap();
 
     walkable.tiles = Vec::new();
-    for x in 0..grid.width() {
-        for y in 0..grid.height() {
-            if grid.is_passable(UVec3::new(x, y, 0)) {
+    for x in 0..grid.width() as i32 {
+        for y in 0..grid.height() as i32 {
+            if grid.is_passable(IVec3::new(x, y, 0)) {
                 let position = Vec3::new(x as f32 * 8.0, y as f32 * 8.0, 0.0);
 
                 walkable.tiles.push(position);
@@ -215,9 +215,9 @@ fn spawn_minions(
             .insert(AgentOfGrid(grid_entity))
             .insert(Blocking)
             .insert(Transform::from_translation(transform))
-            .insert(AgentPos(UVec3::new(
-                (position.x / 8.0) as u32,
-                (position.y / 8.0) as u32,
+            .insert(AgentPos(IVec3::new(
+                (position.x / 8.0) as i32,
+                (position.y / 8.0) as i32,
                 0,
             )))
             .insert(ChildOf(layer_entity));
@@ -282,7 +282,7 @@ fn set_new_goal(
     for entity in minions.iter_mut() {
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
-        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
+        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as i32, (new_goal.y / 8.0) as i32);
 
         match config.mode {
             PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),
@@ -309,7 +309,7 @@ fn handle_pathfinding_failed(
         log::info!("Pathfinding failed for entity {entity:?}, setting new goal.");
         let new_goal = walkable.tiles.choose(&mut rand::rng()).unwrap();
 
-        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as u32, (new_goal.y / 8.0) as u32);
+        let mut pathfind = Pathfind::new_2d((new_goal.x / 8.0) as i32, (new_goal.y / 8.0) as i32);
 
         match config.mode {
             PathfindMode::AStar => pathfind = pathfind.mode(PathfindMode::AStar),

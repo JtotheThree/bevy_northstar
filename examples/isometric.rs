@@ -177,34 +177,38 @@ fn tile_created(
             // We want a two-way teleporter, but we want to ensure the player doesn't warp back and forth,
             // so we set the target of the first teleporter to be adjacent to the second teleporter.
             grid.set_nav(
-                UVec3::new(tile_pos.x, tile_pos.y, tile_info.height as u32),
+                IVec3::new(tile_pos.x as i32, tile_pos.y as i32, tile_info.height),
                 // Long hand way to create a portal.
                 Nav::Portal(Portal {
-                    target: UVec3::new(2, 45, 0),
+                    target: IVec3::new(2, 45, 0),
                     cost: 1,
                     one_way: true,
                 }),
             )
         } else if tile_pos.x == 1 && tile_pos.y == 46 && tile_info.height == 4 {
             grid.set_nav(
-                UVec3::new(tile_pos.x, tile_pos.y, tile_info.height as u32),
-                // Short hand way, new takes the target UVec3 and cost.
-                Nav::Portal(Portal::to(UVec3::new(12, 28, 8), 1, true)),
+                IVec3::new(tile_pos.x as i32, tile_pos.y as i32, tile_info.height),
+                // Short hand way, new takes the target IVec3 and cost.
+                Nav::Portal(Portal::to(IVec3::new(12, 28, 8), 1, true)),
             )
         // If the tile is a ramp, we set it as a portal with the target being the same x,y but a higher z position.
         // This allows the player to climb higher elevations in the map.
         } else if tile_info.ramp {
             grid.set_nav(
-                UVec3::new(tile_pos.x, tile_pos.y, tile_info.height as u32),
+                IVec3::new(tile_pos.x as i32, tile_pos.y as i32, tile_info.height),
                 Nav::Portal(Portal::to(
-                    UVec3::new(tile_pos.x, tile_pos.y, 4 + layer_height_offset),
+                    IVec3::new(
+                        tile_pos.x as i32,
+                        tile_pos.y as i32,
+                        4 + layer_height_offset as i32,
+                    ),
                     1,
                     false,
                 )),
             );
         } else {
             // We've hit a bog standard walkable tile, so we'll set nav as passable there.
-            let pos = UVec3::new(tile_pos.x, tile_pos.y, tile_info.height as u32);
+            let pos = IVec3::new(tile_pos.x as i32, tile_pos.y as i32, tile_info.height);
             grid.set_nav(pos, Nav::Passable(1));
 
             // You don't have to do the following, but it makes designing maps easier.
@@ -212,8 +216,9 @@ fn tile_created(
             // You could design that out of our your tilemap, but it's easier on design to just make a few tiles below impassable.
             if tile_info.height > 4 {
                 for z in 2..tile_info.height {
-                    let squash_pos = UVec3::new(tile_pos.x, tile_pos.y, z as u32);
-                    if grid.in_bounds(squash_pos) {
+                    let squash_pos_local = UVec3::new(tile_pos.x, tile_pos.y, z as u32);
+                    if grid.in_bounds(squash_pos_local) {
+                        let squash_pos = IVec3::new(tile_pos.x as i32, tile_pos.y as i32, z);
                         grid.set_nav(squash_pos, Nav::Impassable);
                     }
                 }
@@ -235,7 +240,7 @@ fn loading_complete(
 
     grid.build();
 
-    let player_start = UVec3::new(32, 25, 0);
+    let player_start = IVec3::new(32, 25, 0);
 
     // Insert the debug grid as a child to the grid entity
     if let Some(map) = map_query.iter().next() {
@@ -258,7 +263,7 @@ fn loading_complete(
         .iter()
         .next()
         .map(|map| {
-            TilePos::new(player_start.x, player_start.y).center_in_world(
+            TilePos::new(player_start.x as u32, player_start.y as u32).center_in_world(
                 map.map_size,
                 map.grid_size,
                 map.tile_size,
@@ -410,7 +415,7 @@ fn input(
             log::info!("Pathfinding to tile: {:?}", tile);
             commands
                 .entity(player)
-                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z));
+                .insert(Pathfind::new_3d(tile.x as i32, tile.y as i32, tile.z as i32));
         }
     }
 }
@@ -474,7 +479,7 @@ fn warp(
             position.0 = portal.target;
 
             // Update the transform to the portal's target position
-            let tile_pos = TilePos::new(position.0.x, position.0.y);
+            let tile_pos = TilePos::new(position.0.x as u32, position.0.y as u32);
             let base_vec = TilePos::center_in_world(
                 &tile_pos,
                 map.map_size,
@@ -531,8 +536,8 @@ fn animate_move(
 
     for (position, mut transform, mut ysort) in query.iter_mut() {
         let tile_pos = TilePos {
-            x: position.0.x,
-            y: position.0.y,
+            x: position.0.x as u32,
+            y: position.0.y as u32,
         };
 
         let base_vec = TilePos::center_in_world(

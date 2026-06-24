@@ -5,8 +5,8 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, in_bounds_3d, nav::NavCell,
-    nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight,
+    FxIndexMap, NavRegionLocal, SearchLimitsLocal, SmallestCostHolder, in_bounds_3d, nav::NavCell,
+    nav_mask::NavMaskData, neighbor::Neighborhood, path::PathLocal, raycast::has_line_of_sight,
     size_hint_grid,
 };
 
@@ -31,10 +31,10 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    limits: SearchLimits,
-) -> Option<Path> {
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     let bounded = limits.boundary.is_some();
-    let boundary = limits.boundary.unwrap_or(NavRegion {
+    let boundary = limits.boundary.unwrap_or(NavRegionLocal {
         min: UVec3::ZERO,
         max: UVec3::ZERO,
     });
@@ -84,7 +84,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 }
 
                 steps.reverse();
-                return Some(Path::new(steps, current_cost));
+                return Some(PathLocal::new(steps, current_cost));
             }
 
             if cost > current_cost {
@@ -209,7 +209,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
         }
 
         steps.reverse();
-        Some(Path::new(steps, visited[&closest_node].1))
+        Some(PathLocal::new(steps, visited[&closest_node].1))
     } else {
         None
     }
@@ -247,7 +247,7 @@ use super::*;
             goal,
             &HashMap::new(),
             &NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -272,7 +272,7 @@ use super::*;
         let start = UVec3::new(0, 0, 0);
         let goal = UVec3::new(7, 7, 7);
 
-        let mut search_limits = SearchLimits {
+        let mut search_limits = SearchLimitsLocal {
             boundary: None,
             distance: Some(5), // Limit to a max distance of 5
             partial: false,
@@ -312,7 +312,7 @@ use super::*;
         assert_eq!(path.path[1], UVec3::new(5, 5, 5));
         // Test boundary
 
-        search_limits.boundary = Some(NavRegion {
+        search_limits.boundary = Some(NavRegionLocal {
             min: UVec3::new(0, 0, 0),
             max: UVec3::new(4, 4, 4),
         });

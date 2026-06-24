@@ -1,10 +1,10 @@
 //! This module defines pathfinding functions which can be called directly.
 
-use bevy::{ecs::entity::Entity, log::{self, warn}, math::{IVec3, UVec3}, platform::collections::HashMap};
+use bevy::{ecs::entity::Entity, log, math::{IVec3, UVec3}, platform::collections::HashMap};
 use ndarray::ArrayView3;
 
 use crate::{
-    NavRegion, SearchLimits,
+    NavRegion, SearchLimits, SearchLimitsLocal,
     astar::astar_grid,
     components::PathfindMode,
     dijkstra::dijkstra_grid,
@@ -13,8 +13,8 @@ use crate::{
     nav::NavCell,
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
-    path::{Path, PathLocal, path_to_local},
-    prelude::{NavMask, Pathfind},
+    path::PathLocal,
+    prelude::NavMask,
     raycast::bresenham_path_internal,
     thetastar::thetastar_grid,
 };
@@ -27,8 +27,8 @@ use crate::{
 /// use bevy_northstar::prelude::*;
 ///
 /// fn example_pathfinding(grid: &Grid<CardinalNeighborhood>) {
-///     let start = UVec3::new(1, 1, 1);
-///     let goal = UVec3::new(10, 10, 10);
+///     let start = IVec3::new(1, 1, 1);
+///     let goal = IVec3::new(10, 10, 10);
 ///
 ///     let path = grid.pathfind(
 ///         &mut PathfindArgs::new(start, goal).astar()
@@ -148,8 +148,8 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    limits: SearchLimits,
-) -> Option<Path> {
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     if let Some(mask_cell) = mask.get(goal_cell, goal)
@@ -193,8 +193,8 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     goal: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &NavMaskData,
-    limits: SearchLimits,
-) -> Option<Path> {
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     // If the goal is impassibe and partial isn't set, return none
     if grid[[start.x as usize, start.y as usize, start.z as usize]].is_impassable()
         || grid[[goal.x as usize, goal.y as usize, goal.z as usize]].is_impassable()
@@ -229,8 +229,8 @@ pub(crate) fn pathfind<N: Neighborhood>(
     mask: &mut NavMaskData,
     refined: bool,
     waypoints: bool,
-    limits: SearchLimits,
-) -> Option<Path> {
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     if limits.partial {
         log::warn!("Partial pathfinding is not supported with HPA*, use A* or Theta* instead");
     }
@@ -268,7 +268,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     }
 
     // Get all nodes in the start chunk
-    let start_paths: HashMap<UVec3, Path> = {
+    let start_paths: HashMap<UVec3, PathLocal> = {
         let chunk_view = grid.chunk_view(&start_chunk);
         let local_start = start - start_chunk.min();
         let node_goals: Vec<UVec3> = grid
@@ -280,7 +280,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
         if node_goals.is_empty() {
             return None;
         }
-        let mask_local = mask.translate_by(-start_chunk.min().as_ivec3());
+        let mask_local = mask.localize(-start_chunk.min().as_ivec3());
         dijkstra_grid(&chunk_view, local_start, &node_goals, false, &mask_local)
     };
 
@@ -289,7 +289,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
     }
 
     // Dijkstra from goal → all boundary nodes in goal chunk (local coords)
-    let goal_paths: HashMap<UVec3, Path> = {
+    let goal_paths: HashMap<UVec3, PathLocal> = {
         let chunk_view = grid.chunk_view(&goal_chunk);
         let local_goal = goal - goal_chunk.min();
         let node_goals: Vec<UVec3> = grid
@@ -301,7 +301,7 @@ pub(crate) fn pathfind<N: Neighborhood>(
         if node_goals.is_empty() {
             return None;
         }
-        let mask_local = mask.translate_by(-goal_chunk.min().as_ivec3());
+        let mask_local = mask.localize(-goal_chunk.min().as_ivec3());
         dijkstra_grid(&chunk_view, local_goal, &node_goals, false, &mask_local)
     };
 
@@ -310,10 +310,10 @@ pub(crate) fn pathfind<N: Neighborhood>(
     }
 
     // Build the scratch pad for the low-level HPA* search
-    let mut start_outgoing: HashMap<UVec3, Path> = HashMap::new();
+    let mut start_outgoing: HashMap<UVec3, PathLocal> = HashMap::new();
     for (local_pos, local_path) in &start_paths {
         let boundary = *local_pos + start_chunk.min();
-        let global_path = Path::new(
+        let global_path = PathLocal::new(
             local_path
                 .path()
                 .iter()
@@ -324,10 +324,10 @@ pub(crate) fn pathfind<N: Neighborhood>(
         start_outgoing.insert(boundary, global_path);
     }
 
-    let mut edge_to_goal: HashMap<UVec3, Path> = HashMap::new();
+    let mut edge_to_goal: HashMap<UVec3, PathLocal> = HashMap::new();
     for (local_pos, local_path) in &goal_paths {
         let boundary = *local_pos + goal_chunk.min();
-        let global_path = Path::new(
+        let global_path = PathLocal::new(
             local_path
                 .path()
                 .iter()
@@ -387,9 +387,9 @@ pub(crate) fn pathfind<N: Neighborhood>(
 pub(crate) fn extract_waypoints<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
-    path: &Path,
+    path: &PathLocal,
     mask: &NavMaskData,
-) -> Path {
+) -> PathLocal {
     if path.is_empty() {
         return path.clone();
     }
@@ -467,7 +467,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
         }
     }
 
-    Path::new(waypoints_path, total_cost)
+    PathLocal::new(waypoints_path, total_cost)
 }
 
 /// Optimize a path by using line of sight checks to skip waypoints.
@@ -488,8 +488,8 @@ pub(crate) fn optimize_path<N: Neighborhood>(
     neighborhood: &N,
     grid: &ArrayView3<NavCell>,
     mask: &NavMaskData,
-    path: &Path,
-) -> Path {
+    path: &PathLocal,
+) -> PathLocal {
     if path.is_empty() {
         return path.clone();
     }
@@ -579,7 +579,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
         })
         .sum();
 
-    let mut path = Path::new(refined_path.clone(), cost);
+    let mut path = PathLocal::new(refined_path.clone(), cost);
     path.graph_path = refined_path.into();
     path
 }
@@ -594,67 +594,45 @@ pub(crate) fn optimize_path<N: Neighborhood>(
 #[inline(always)]
 pub(crate) fn reroute_path<N: Neighborhood>(
     grid: &Grid<N>,
-    path: &Path,
-    start: IVec3,
-    pathfind: &Pathfind,
-    blocking: &HashMap<IVec3, Entity>,
+    path: &PathLocal,
+    start: UVec3,
+    goal: UVec3,
+    mode: PathfindMode,
+    blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
-) -> Option<Path> {
-    // Convert all to local coordinates
-    let Some(start_local) = grid.world_to_local(start) else {
-        warn!("Failed to convert start position to local coordinates.");
-        return None;
-    };
-
-    let Some(goal_local) = grid.world_to_local(pathfind.goal) else {
-        warn!("Failed to convert goal position to local coordinates.");
-        return None;
-    };
-
-    let Some(path_local) = path_to_local(grid, path) else {
-        warn!("Failed to convert path to local coordinates.");
-        return None;
-    };
-
-    let Some(blocking_local) = blocking_to_local(grid, blocking) else {
-        warn!("Failed to convert blocking positions to local coordinates.");
-        return None;
-    };
-
-
-
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     // When the starting chunks entrances are all blocked, this will try astar path to the NEXT chunk in the graph path
     // recursively until it can find a path out.
     // If it can't find a path out, it will return None.
 
-    if !grid.in_bounds(start_local) || !grid.in_bounds(goal_local) {
+    if !grid.in_bounds(start) || !grid.in_bounds(goal) {
         return None;
     }
 
     if path.graph_path.is_empty() {
         // Our only option here is to try a new path to the goal
-        // We can unwrap here because this is internal and the caller has at least inserted the default
-        match pathfind.mode.unwrap() {
+        match mode {
             PathfindMode::Refined | PathfindMode::Coarse | PathfindMode::AStar => {
                 return pathfind_astar(
                     &grid.neighborhood,
                     &grid.view(),
-                    start_local,
-                    goal_local,
-                    &blocking_local,
+                    start,
+                    goal,
+                    blocking,
                     mask,
-                    pathfind.limits,
+                    limits,
                 );
             }
             PathfindMode::Waypoints | PathfindMode::ThetaStar => {
                 return pathfind_thetastar(
                     &grid.neighborhood,
                     &grid.view(),
-                    start_local,
-                    goal_local,
-                    &blocking_local,
+                    start,
+                    goal,
+                    blocking,
                     mask,
-                    pathfind.limits,
+                    limits,
                 );
             }
         }
@@ -663,29 +641,24 @@ pub(crate) fn reroute_path<N: Neighborhood>(
     let max_attempts = 3;
 
     let new_path = path.graph_path.iter().take(max_attempts).find_map(|pos| {
-        let Some(pos) = grid.world_to_local(*pos) else {
-            warn!("Failed to convert position to local coordinates.");
-            return None;
-        };
-
-        let new_path = match pathfind.mode.unwrap() {
+        let new_path = match mode {
             PathfindMode::Refined | PathfindMode::Coarse | PathfindMode::AStar => pathfind_astar(
                 &grid.neighborhood,
                 &grid.view(),
-                start_local,
-                pos,
-                &blocking_local,
+                start,
+                *pos,
+                blocking,
                 mask,
-                pathfind.limits,
+                limits,
             ),
             PathfindMode::Waypoints | PathfindMode::ThetaStar => pathfind_thetastar(
                 &grid.neighborhood,
                 &grid.view(),
-                start_local,
-                pos,
-                &blocking_local,
+                start,
+                *pos,
+                blocking,
                 mask,
-                pathfind.limits,
+                limits,
             ),
         };
 
@@ -706,24 +679,24 @@ pub(crate) fn reroute_path<N: Neighborhood>(
 
         let last_pos = *full_path.last().unwrap();
 
-        let remaining_path = match pathfind.mode.unwrap() {
+        let remaining_path = match mode {
             PathfindMode::Refined | PathfindMode::Coarse | PathfindMode::AStar => pathfind_astar(
                 &grid.neighborhood,
                 &grid.view(),
                 last_pos,
-                pathfind.goal,
+                goal,
                 blocking,
                 mask,
-                pathfind.limits,
+                limits,
             ),
             PathfindMode::Waypoints | PathfindMode::ThetaStar => pathfind_thetastar(
                 &grid.neighborhood,
                 &grid.view(),
                 last_pos,
-                pathfind.goal,
+                goal,
                 blocking,
                 mask,
-                pathfind.limits,
+                limits,
             ),
         };
 
@@ -732,40 +705,11 @@ pub(crate) fn reroute_path<N: Neighborhood>(
                 full_path.push(*pos);
             }
 
-            let mut path = Path::new(full_path, new_path.cost() + remaining_path.cost());
+            let mut path = PathLocal::new(full_path, new_path.cost() + remaining_path.cost());
             path.graph_path = remaining_path.graph_path.clone();
             return Some(path);
         }
     }
 
     None
-}
-
-
-pub(crate) fn blocking_to_local<N: Neighborhood + 'static>(
-    grid: &Grid<N>,
-    blocking: &HashMap<IVec3, Entity>,
-) -> Option<HashMap<UVec3, Entity>> {
-    let mut local_blocking = HashMap::new();
-    for (pos, entity) in blocking {
-        if let Some(local_pos) = grid.world_to_local(*pos) {
-            local_blocking.insert(local_pos, *entity);
-        } else {
-            return None;
-        }
-    }
-
-    Some(local_blocking)
-}
-
-pub(crate) fn blocking_to_world<N: Neighborhood + 'static>(
-    grid: &Grid<N>,
-    blocking: &HashMap<UVec3, Entity>,
-) -> HashMap<IVec3, Entity> {
-    let mut world_blocking = HashMap::new();
-    for (pos, entity) in blocking {
-        let world_pos = grid.local_to_world(*pos);
-        world_blocking.insert(world_pos, *entity);
-    }
-    world_blocking
 }

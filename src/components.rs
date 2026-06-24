@@ -76,7 +76,7 @@ impl Pathfind {
     /// If you want to allow partial paths, use the [`Pathfind::partial()`] method.
     /// # Example
     /// ```rust,no_run
-    /// use bevy::math::UVec3;
+    /// use bevy::math::IVec3;
     /// use bevy_northstar::prelude::*;
     ///
     /// let pathfind = Pathfind::new(IVec3::new(5, 5, 0))
@@ -91,7 +91,7 @@ impl Pathfind {
         }
     }
 
-    /// Shorthand constructor for 2D pathfinding to avoid needing to construct a [`bevy::math::UVec3`].
+    /// Shorthand constructor for 2D pathfinding to avoid needing to construct a [`bevy::math::IVec3`].
     /// This will set the z-coordinate to 0.
     pub fn new_2d(x: i32, y: i32) -> Self {
         Pathfind {
@@ -100,7 +100,7 @@ impl Pathfind {
         }
     }
 
-    /// Shorthand constructor for 3D pathfinding to avoid needing to construct a [`bevy::math::UVec3`].
+    /// Shorthand constructor for 3D pathfinding to avoid needing to construct a [`bevy::math::IVec3`].
     pub fn new_3d(x: i32, y: i32, z: i32) -> Self {
         Pathfind {
             goal: IVec3::new(x, y, z),
@@ -152,11 +152,12 @@ impl Pathfind {
 
 /// The next position in the path inserted into an entity by the pathfinding system.
 /// The `pathfind` system in [`crate::plugin::NorthstarPlugin`] will insert this.
+/// This is stored in world coordinates.
 /// Remove [`NextPos`] after you've moved the entity to the next position and
 /// a new [`NextPos`] will be inserted on the next frame.
 #[derive(Component, Default, Debug, Reflect)]
 #[component(storage = "SparseSet")]
-pub struct NextPos(pub UVec3);
+pub struct NextPos(pub IVec3);
 
 // See src/path.rs for the Path component
 

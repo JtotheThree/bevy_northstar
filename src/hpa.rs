@@ -4,8 +4,8 @@ use std::collections::BinaryHeap;
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
 use crate::{
-    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, are_adjacent, astar::astar_grid,
-    grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph,
+    FxIndexMap, NavRegionLocal, SearchLimitsLocal, SmallestCostHolder, are_adjacent, astar::astar_grid,
+    grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::PathLocal, size_hint_graph,
 };
 
 /// Scratch pad for the HPA* search with virtualized nodes
@@ -13,8 +13,8 @@ use crate::{
 pub(crate) struct HpaScratch {
     pub(crate) start: UVec3,
     pub(crate) goal: UVec3,
-    pub(crate) start_edges: HashMap<UVec3, Path>,
-    pub(crate) edge_to_goal: HashMap<UVec3, Path>,
+    pub(crate) start_edges: HashMap<UVec3, PathLocal>,
+    pub(crate) edge_to_goal: HashMap<UVec3, PathLocal>,
 }
 
 pub(crate) fn hpa<N: Neighborhood>(
@@ -24,10 +24,10 @@ pub(crate) fn hpa<N: Neighborhood>(
     scratch: Option<&HpaScratch>,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
-    limits: SearchLimits,
-) -> Option<Path> {
+    limits: SearchLimitsLocal,
+) -> Option<PathLocal> {
     let bounded = limits.boundary.is_some();
-    let boundary = limits.boundary.unwrap_or(NavRegion {
+    let boundary = limits.boundary.unwrap_or(NavRegionLocal {
         min: UVec3::ZERO,
         max: UVec3::ZERO,
     });
@@ -84,7 +84,7 @@ pub(crate) fn hpa<N: Neighborhood>(
                 // Now rebuild the full path from cached paths
                 let full_path = rebuild_full_path(grid, &node_path, mask, scratch);
 
-                let mut path = Path::new(full_path, current_cost);
+                let mut path = PathLocal::new(full_path, current_cost);
                 path.graph_path = node_path.into_iter().collect();
 
                 return Some(path);
@@ -191,7 +191,7 @@ pub(crate) fn hpa<N: Neighborhood>(
                                 grid.neighborhood().is_ordinal(),
                             ) {
                                 // Adjacent case
-                                let path = Path::new(vec![current_pos, *neighbor], cell_cost);
+                                let path = PathLocal::new(vec![current_pos, *neighbor], cell_cost);
                                 mask.add_cached_path(current_pos, *neighbor, path);
                                 cell_cost
                             } else {
@@ -270,7 +270,7 @@ pub(crate) fn hpa<N: Neighborhood>(
         let full_path = rebuild_full_path(grid, &node_path, mask, scratch);
 
         let closest_cost = visited.get(&closest_node).unwrap().1;
-        let mut path = Path::new(full_path, closest_cost);
+        let mut path = PathLocal::new(full_path, closest_cost);
         path.graph_path = node_path.into_iter().collect();
         path.set_partial(true);
         return Some(path);
@@ -337,7 +337,7 @@ fn find_mask_path<N: Neighborhood>(
     neighbor_pos: UVec3,
     blocking: &HashMap<UVec3, Entity>,
     mask: &mut NavMaskData,
-    limits: SearchLimits,
+    limits: SearchLimitsLocal,
 ) -> Option<u32> {
     let chunk_ref = grid.chunk_at_position(neighbor_pos)?;
     let chunk = grid.chunk_view(chunk_ref);
@@ -346,7 +346,7 @@ fn find_mask_path<N: Neighborhood>(
     let chunk_neighbor = chunk_ref.global_to_chunk(&neighbor_pos)?;
 
     let min = chunk_ref.min().as_ivec3();
-    let mask_local = mask.translate_by(-min);
+    let mask_local = mask.localize(-min);
 
     let mut path = astar_grid(
         grid.neighborhood(),
@@ -398,7 +398,7 @@ use crate::{
             None,
             &HashMap::new(),
             &mut NavMaskData::new(),
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -435,7 +435,7 @@ use crate::{
         layer
             .insert_region_fill(
                 &grid,
-                NavRegion::new(UVec3::new(5, 5, 0), UVec3::new(10, 10, 0)),
+                NavRegion::new(IVec3::new(5, 5, 0), IVec3::new(10, 10, 0)),
                 NavCellMask::ModifyCost(5000),
             )
             .ok();
@@ -450,7 +450,7 @@ use crate::{
             None,
             &HashMap::new(),
             &mut mask,
-            SearchLimits::default(),
+            SearchLimitsLocal::default(),
         )
         .unwrap();
 
@@ -489,7 +489,7 @@ use crate::{
         // Test Boundary
         let path = grid.pathfind(
             &mut PathfindArgs::new(start, goal)
-                .search_region(NavRegion::new(UVec3::new(0, 0, 0), UVec3::new(4, 4, 4))),
+                .search_region(NavRegion::new(IVec3::new(0, 0, 0), IVec3::new(4, 4, 4))),
         );
         assert!(path.is_none());
     }
