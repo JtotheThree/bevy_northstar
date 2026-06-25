@@ -4,8 +4,9 @@ use std::collections::BinaryHeap;
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
 use crate::{
-    FxIndexMap, NavRegionLocal, SearchLimitsLocal, SmallestCostHolder, are_adjacent, astar::astar_grid,
-    grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::PathLocal, size_hint_graph,
+    FxIndexMap, NavRegionLocal, SearchLimitsLocal, SmallestCostHolder, are_adjacent,
+    astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::PathLocal,
+    size_hint_graph,
 };
 
 /// Scratch pad for the HPA* search with virtualized nodes
@@ -372,7 +373,7 @@ fn find_mask_path<N: Neighborhood>(
 mod tests {
     use bevy::math::IVec3;
 
-use crate::{
+    use crate::{
         grid::GridSettingsBuilder,
         nav::Nav,
         pathfind::PathfindArgs,

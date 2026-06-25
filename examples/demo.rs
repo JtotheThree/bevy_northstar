@@ -140,22 +140,22 @@ fn layer_created(
     let mut grid = grid.into_inner();
 
     let layer = trigger.event().get_layer(&map_asset);
-    if let Some(layer) = layer {
-        if let Some(tile_layer) = layer.as_tile_layer() {
-            let width = tile_layer.width().unwrap();
-            let height = tile_layer.height().unwrap();
+    if let Some(layer) = layer
+        && let Some(tile_layer) = layer.as_tile_layer()
+    {
+        let width = tile_layer.width().unwrap();
+        let height = tile_layer.height().unwrap();
 
-            for x in 0..width as i32 {
-                for y in 0..height as i32 {
-                    let tile = tile_layer.get_tile(x, y);
-                    if let Some(tile) = tile {
-                        let tile_id = tile.id();
+        for x in 0..width as i32 {
+            for y in 0..height as i32 {
+                let tile = tile_layer.get_tile(x, y);
+                if let Some(tile) = tile {
+                    let tile_id = tile.id();
 
-                        if tile_id == 14 {
-                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Passable(1));
-                        } else {
-                            grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Impassable);
-                        }
+                    if tile_id == 14 {
+                        grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Passable(1));
+                    } else {
+                        grid.set_nav(IVec3::new(x, height as i32 - 1 - y, 0), Nav::Impassable);
                     }
                 }
             }

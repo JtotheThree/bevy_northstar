@@ -23,7 +23,7 @@ fn setup_grid(map: tiled::Map, grid_settings: GridSettings) -> Grid<OrdinalNeigh
                     if let Some(tile) = tile {
                         // Let's make tiles with an id of 1 impassable
                         if tile.id() == 14 {
-                            grid.set_nav(IVec3::new(x as i32, y as i32, 0), Nav::Passable(1));
+                            grid.set_nav(IVec3::new(x, y, 0), Nav::Passable(1));
                         }
                     }
                 }

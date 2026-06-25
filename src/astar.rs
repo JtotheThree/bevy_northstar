@@ -300,7 +300,7 @@ pub(crate) fn astar_graph<N: Neighborhood>(
 mod tests {
     use bevy::math::IVec3;
 
-use super::*;
+    use super::*;
     use crate::chunk::Chunk;
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;
@@ -371,7 +371,7 @@ use super::*;
         assert_eq!(path.path()[0], start);
         // Ensure last position is the goal position
         assert_eq!(path.path()[3], goal);
-        assert!(!path.is_position_in_path(UVec3::new(1, 1, 1)));
+        assert!(!path.path().contains(&UVec3::new(1, 1, 1)));
     }
 
     #[test]

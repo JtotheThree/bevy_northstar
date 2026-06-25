@@ -111,10 +111,10 @@ fn build_grid(grid: Single<&mut CardinalGrid>) {
     // Two vertical wall segments with gaps — agents must path around them.
     for y in 3..21 {
         if y != 10 && y != 11 {
-            grid.set_nav(IVec3::new(10, y as i32, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(10, y, 0), Nav::Impassable);
         }
         if y != 6 && y != 7 {
-            grid.set_nav(IVec3::new(20, y as i32, 0), Nav::Impassable);
+            grid.set_nav(IVec3::new(20, y, 0), Nav::Impassable);
         }
     }
     grid.build();
@@ -151,15 +151,15 @@ fn draw_grid(grid: Single<&CardinalGrid>, mut gizmos: Gizmos) {
     for x in 0..GRID_W {
         for y in 0..GRID_H {
             let pos = IVec3::new(x as i32, y as i32, 0);
-            if let Some(nav) = grid.nav(pos) {
-                if matches!(nav, Nav::Impassable) {
-                    let center = grid_to_world(pos).truncate();
-                    gizmos.rect_2d(
-                        Isometry2d::from_translation(center),
-                        Vec2::splat(half * 2.0),
-                        WALL_COLOR,
-                    );
-                }
+            if let Some(nav) = grid.nav(pos)
+                && matches!(nav, Nav::Impassable)
+            {
+                let center = grid_to_world(pos).truncate();
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(center),
+                    Vec2::splat(half * 2.0),
+                    WALL_COLOR,
+                );
             }
         }
     }
@@ -253,7 +253,9 @@ fn input(
 
     let cell_world = IVec3::new(cell.x as i32, cell.y as i32, 0);
 
-    let Some(nav) = grid.nav(cell_world) else { return };
+    let Some(nav) = grid.nav(cell_world) else {
+        return;
+    };
     if matches!(nav, Nav::Impassable) {
         grid.set_nav(cell_world, Nav::Passable(1));
     } else {

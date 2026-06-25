@@ -138,13 +138,6 @@ impl Path {
         self.path.front().cloned()
     }
 
-    /// Shifts all positions in the path by the given offset.
-    pub(crate) fn translate_by(&mut self, offset: IVec3) {
-        for pos in &mut self.path {
-            *pos += offset;
-        }
-    }
-
     /// Returns true if the path is a partial path that was returned because the goal could not be reached.
     pub fn is_partial(&self) -> bool {
         self.is_partial
@@ -183,7 +176,6 @@ pub(crate) struct PathLocal {
 }
 
 impl PathLocal {
-
     /// Create a new path from a vector of `UVec3` positions
     /// # Arguments
     /// * `path` - A vector of `UVec3` positions
@@ -218,11 +210,6 @@ impl PathLocal {
         }
     }
 
-    /// Returns true if the path contains the given position
-    pub(crate) fn is_position_in_path(&self, pos: UVec3) -> bool {
-        self.path.contains(&pos)
-    }
-
     pub(crate) fn path(&self) -> &[UVec3] {
         self.path.as_slices().0
     }
@@ -252,24 +239,6 @@ impl PathLocal {
     /// Returns true if the path is empty
     pub(crate) fn is_empty(&self) -> bool {
         self.path.is_empty()
-    }
-
-    /// Reverse the path in place.
-    pub(crate) fn reverse(&mut self) {
-        self.path.make_contiguous().reverse();
-        self.is_reversed = !self.is_reversed;
-    }
-
-    /// Pops the first position of the path.
-    pub(crate) fn pop(&mut self) -> Option<UVec3> {
-        // Remove the first element of the path
-        self.path.pop_front()
-    }
-
-    /// Returns the next position in the path without removing it.
-    pub(crate) fn next(&self) -> Option<UVec3> {
-        // Get the next position in the path
-        self.path.front().cloned()
     }
 
     /// Shifts all positions in the path by the given offset.
@@ -307,11 +276,7 @@ impl IntoIterator for PathLocal {
     }
 }
 
-
-pub(crate) fn path_to_local<N: Neighborhood>(
-    grid: &Grid<N>, 
-    path: &Path
-) -> Option<PathLocal> {
+pub(crate) fn path_to_local<N: Neighborhood>(grid: &Grid<N>, path: &Path) -> Option<PathLocal> {
     let mut local_path = Vec::with_capacity(path.path().len());
     for pos in path.path() {
         local_path.push(grid.world_to_local(*pos)?);
@@ -328,11 +293,12 @@ pub(crate) fn path_to_local<N: Neighborhood>(
     Some(local)
 }
 
-pub(crate) fn path_to_world<N: Neighborhood>(
-    grid: &Grid<N>, 
-    path: &PathLocal
-) -> Path {
-    let world_path = path.path().iter().map(|p| grid.local_to_world(*p)).collect();
+pub(crate) fn path_to_world<N: Neighborhood>(grid: &Grid<N>, path: &PathLocal) -> Path {
+    let world_path = path
+        .path()
+        .iter()
+        .map(|p| grid.local_to_world(*p))
+        .collect();
     let world_graph_path = path
         .graph_path()
         .iter()

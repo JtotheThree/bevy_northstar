@@ -11,7 +11,7 @@ use bevy::{
 };
 
 use crate::{
-    MovementCost, NavRegion, NavRegionLocal,
+    MovementCost, NavRegion,
     grid::Grid,
     nav::{Nav, NavCell},
     path::PathLocal,
@@ -136,7 +136,12 @@ impl NavMask {
     /// * `pos` - The position in the grid to get the masked [`NavCell`].
     /// # Returns
     /// A [`Result`] containing the masked [`NavCell`] or an error message if the lock is poisoned.
-    pub fn get<N: Neighborhood>(&self, grid: &Grid<N>, original: NavCell, pos: IVec3) -> NavMaskResult {
+    pub fn get<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        original: NavCell,
+        pos: IVec3,
+    ) -> NavMaskResult {
         let Some(local) = grid.world_to_local(pos) else {
             return NavMaskResult::NotMasked;
         };
@@ -402,7 +407,10 @@ impl NavMaskLayer {
         mask: NavCellMask,
     ) -> Result<(), String> {
         let Some(local) = grid.world_to_local(pos) else {
-            log::warn!("Unable to insert mask position: {:?} is out of bounds!", pos);
+            log::warn!(
+                "Unable to insert mask position: {:?} is out of bounds!",
+                pos
+            );
             return Ok(());
         };
 
@@ -450,16 +458,15 @@ impl NavMaskLayer {
             for y in region.min.y..region.max.y {
                 for z in region.min.z..region.max.z {
                     let pos = IVec3::new(x, y, z);
-                    if pos.x == region.min.x
+                    if (pos.x == region.min.x
                         || pos.x == region.max.x - 1
                         || pos.y == region.min.y
                         || pos.y == region.max.y - 1
                         || pos.z == region.min.z
-                        || pos.z == region.max.z - 1
+                        || pos.z == region.max.z - 1)
+                        && let Some(local) = grid.world_to_local(pos)
                     {
-                        if let Some(local) = grid.world_to_local(pos) {
-                            data.insert_mask(grid, local, mask.clone());
-                        }
+                        data.insert_mask(grid, local, mask.clone());
                     }
                 }
             }
@@ -523,7 +530,11 @@ impl NavMaskLayer {
     // }
 
     /// Gets the [`NavCellMask`] for a specific position in the layer.
-    pub fn get_mask<N: Neighborhood>(&self, grid: &Grid<N>, pos: IVec3) -> Result<Option<NavCellMask>, String> {
+    pub fn get_mask<N: Neighborhood>(
+        &self,
+        grid: &Grid<N>,
+        pos: IVec3,
+    ) -> Result<Option<NavCellMask>, String> {
         let Some(local) = grid.world_to_local(pos) else {
             return Ok(None);
         };
@@ -576,19 +587,24 @@ impl From<NavMaskLayerData> for NavMaskLayer {
 /// The underlying data structure for NavMaskLayer
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NavMaskLayerData {
-    pub mask: HashMap<UVec3, NavCellMask>,
-    pub chunks: HashSet<(usize, usize, usize)>,
+    mask: HashMap<UVec3, NavCellMask>,
+    chunks: HashSet<(usize, usize, usize)>,
 }
 
 impl NavMaskLayerData {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             mask: HashMap::new(),
             chunks: HashSet::new(),
         }
     }
 
-    pub fn insert_mask<N: Neighborhood>(&mut self, grid: &Grid<N>, pos: UVec3, mask: NavCellMask) {
+    pub(crate) fn insert_mask<N: Neighborhood>(
+        &mut self,
+        grid: &Grid<N>,
+        pos: UVec3,
+        mask: NavCellMask,
+    ) {
         if !grid.in_bounds(pos) {
             log::warn!(
                 "Unable to insert mask position: {:?} is out of bounds!",
@@ -602,64 +618,7 @@ impl NavMaskLayerData {
         self.chunks.insert(chunk.index());
     }
 
-    pub fn insert_region_fill<N: Neighborhood>(
-        &mut self,
-        grid: &Grid<N>,
-        region: NavRegionLocal,
-        mask: NavCellMask,
-    ) {
-        for pos in region.iter() {
-            self.insert_mask(grid, pos, mask.clone());
-        }
-    }
-
-    pub fn insert_region_outline<N: Neighborhood>(
-        &mut self,
-        grid: &Grid<N>,
-        region: NavRegionLocal,
-        mask: NavCellMask,
-    ) {
-        // Insert the outline of the region
-        for x in region.min.x..region.max.x {
-            for y in region.min.y..region.max.y {
-                for z in region.min.z..region.max.z {
-                    let pos = UVec3::new(x, y, z);
-                    if pos.x == region.min.x
-                        || pos.x == region.max.x - 1
-                        || pos.y == region.min.y
-                        || pos.y == region.max.y - 1
-                        || pos.z == region.min.z
-                        || pos.z == region.max.z - 1
-                    {
-                        self.insert_mask(grid, pos, mask.clone());
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn insert_hashmap<N: Neighborhood>(
-        &mut self,
-        grid: &Grid<N>,
-        masks: &HashMap<UVec3, NavCellMask>,
-    ) {
-        for (pos, mask) in masks {
-            self.insert_mask(grid, *pos, mask.clone());
-        }
-    }
-
-    pub fn insert_hashset<N: Neighborhood>(
-        &mut self,
-        grid: &Grid<N>,
-        cells: &HashSet<UVec3>,
-        mask: NavCellMask,
-    ) {
-        for pos in cells {
-            self.insert_mask(grid, *pos, mask.clone());
-        }
-    }
-
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.mask.clear();
         self.chunks.clear();
     }
@@ -738,25 +697,33 @@ mod tests {
 
         mask.add_layer(updated_layer4).unwrap();
 
-        if let NavMaskResult::Masked(cell) = mask.get(&grid, NavCell::default(), IVec3::new(1, 1, 1)) {
+        if let NavMaskResult::Masked(cell) =
+            mask.get(&grid, NavCell::default(), IVec3::new(1, 1, 1))
+        {
             assert_eq!(cell.nav, Nav::Impassable);
         } else {
             panic!("Expected masked result");
         }
 
-        if let NavMaskResult::Masked(cell) = mask.get(&grid, NavCell::default(), IVec3::new(5, 5, 5)) {
+        if let NavMaskResult::Masked(cell) =
+            mask.get(&grid, NavCell::default(), IVec3::new(5, 5, 5))
+        {
             assert_eq!(cell.nav, Nav::Impassable);
         } else {
             panic!("Expected masked result");
         }
 
-        if let NavMaskResult::Masked(cell) = mask.get(&grid, NavCell::default(), IVec3::new(6, 6, 6)) {
+        if let NavMaskResult::Masked(cell) =
+            mask.get(&grid, NavCell::default(), IVec3::new(6, 6, 6))
+        {
             assert_eq!(cell.nav, Nav::Passable(6));
         } else {
             panic!("Expected masked result");
         }
 
-        if let NavMaskResult::NotMasked = mask.get(&grid, NavCell::default(), IVec3::new(40, 40, 40)) {
+        if let NavMaskResult::NotMasked =
+            mask.get(&grid, NavCell::default(), IVec3::new(40, 40, 40))
+        {
             // This position is not masked, so we should get NotMasked
         } else {
             panic!("Expected not masked result");

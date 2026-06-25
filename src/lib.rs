@@ -215,22 +215,6 @@ pub(crate) struct NavRegionLocal {
 }
 
 impl NavRegionLocal {
-    pub(crate) fn new(min: UVec3, max: UVec3) -> Self {
-        assert!(
-            min.x <= max.x && min.y <= max.y && min.z <= max.z,
-            "Invalid region bounds"
-        );
-        Self { min, max }
-    }
-
-    pub(crate) fn from_grid(grid: &ArrayView3<NavCell>) -> Self {
-        let shape = grid.shape();
-        Self {
-            min: UVec3::new(0, 0, 0),
-            max: UVec3::new(shape[0] as u32, shape[1] as u32, shape[2] as u32),
-        }
-    }
-
     pub(crate) fn from_world<N: crate::neighbor::Neighborhood>(
         region: NavRegion,
         grid: &crate::grid::Grid<N>,
@@ -248,64 +232,7 @@ impl NavRegionLocal {
             && pos.z >= self.min.z
             && pos.z <= self.max.z
     }
-
-    pub(crate) fn iter(&self) -> NavRegionLocalIter {
-        NavRegionLocalIter {
-            region: *self,
-            current: self.min,
-        }
-    }
 }
-
-pub(crate) struct NavRegionLocalIter {
-    region: NavRegionLocal,
-    current: UVec3,
-}
-
-impl Iterator for NavRegionLocalIter {
-    type Item = UVec3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current.z > self.region.max.z {
-            return None;
-        }
-
-        let result = self.current;
-
-        self.current.x += 1;
-        if self.current.x > self.region.max.x {
-            self.current.x = self.region.min.x;
-            self.current.y += 1;
-
-            if self.current.y > self.region.max.y {
-                self.current.y = self.region.min.y;
-                self.current.z += 1;
-            }
-        }
-
-        Some(result)
-    }
-}
-
-/* Greedy A* implementation from the rust Pathfinding crate
-  It's meant to be faster, but is actually quite a bit slower testing it in the stress demo
-  and ~10% slower in the benchmarks.
-
-impl<Id: Ord> PartialOrd for SmallestCostHolder<Id> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<Id: Ord> Ord for SmallestCostHolder<Id> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match other.estimated_cost.cmp(&self.estimated_cost) {
-            Ordering::Equal => self.cost.cmp(&other.cost),
-            s => s,
-        }
-    }
-}
-*/
 
 impl<Id: Ord + std::ops::Add<Output = Id> + Copy> PartialOrd for SmallestCostHolder<Id> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

@@ -219,7 +219,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
 mod tests {
     use bevy::math::IVec3;
 
-use super::*;
+    use super::*;
 
     use crate::grid::{Grid, GridSettingsBuilder};
     use crate::nav::Nav;

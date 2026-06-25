@@ -1,6 +1,11 @@
 //! This module defines pathfinding functions which can be called directly.
 
-use bevy::{ecs::entity::Entity, log, math::{IVec3, UVec3}, platform::collections::HashMap};
+use bevy::{
+    ecs::entity::Entity,
+    log,
+    math::{IVec3, UVec3},
+    platform::collections::HashMap,
+};
 use ndarray::ArrayView3;
 
 use crate::{
@@ -480,7 +485,7 @@ pub(crate) fn extract_waypoints<N: Neighborhood>(
 ///
 /// * `neighborhood` - The [`Neighborhood`] to use for the pathfinding.
 /// * `grid` - The [`ArrayView3`] of the grid.
-/// * `path` - The [`Path`] to optimize.
+/// * `path` - The [`PathLocal`] to optimize.
 /// * `ordinal` - If true, use ordinal movement. If false, use cardinal movement.
 ///
 #[inline(always)]
@@ -591,6 +596,7 @@ pub(crate) fn optimize_path<N: Neighborhood>(
 /// If you're using the plugin pathing systems, you shouldn't need to call this directly.
 ///
 /// # Arguments
+#[allow(clippy::too_many_arguments)]
 #[inline(always)]
 pub(crate) fn reroute_path<N: Neighborhood>(
     grid: &Grid<N>,

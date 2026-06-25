@@ -183,13 +183,13 @@ impl GridSettingsBuilder {
     /// # Arguments
     ///
     /// * `origin` - The minimum coordinates of the grid in world space.
-    /// 
+    ///
     /// Example usage:
-    /// 
-    /// ```rust,no-run
+    ///
+    /// ```rust,no_run
     /// use bevy::math::IVec3;
     /// use bevy_northstar::prelude::*;
-    /// 
+    ///
     /// let grid = GridSettingsBuilder::new_2d(64, 64)
     ///     .origin(IVec3::new(-32, -32, 0))
     ///     .build();
@@ -538,11 +538,13 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Set the [`Nav`] settings at a given [`bevy::math::IVec3`] position in the grid.
     pub fn set_nav(&mut self, pos: IVec3, nav: Nav) {
         let Some(local) = self.world_to_local(pos) else {
-            panic!("Attempted to set nav at out-of-bounds position at {pos}");
+            log::warn!("Attempted to set nav at out-of-bounds position at {pos}");
+            return;
         };
 
         if !self.in_bounds(local) {
-            panic!("Attempted to set nav at out-of-bounds position at {pos}");
+            log::warn!("Attempted to set nav at out-of-bounds position at {pos}");
+            return;
         }
 
         // If the grid not dirty, we need to flag every chunk, edge, and nodes that needs to be rebuilt.
@@ -579,6 +581,7 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Gets the [`Nav`] settings at a given [`bevy::math::IVec3`] position in the grid.
     pub fn nav(&self, pos: IVec3) -> Option<Nav> {
         let Some(local) = self.world_to_local(pos) else {
+            log::warn!("Attempted to get nav at out-of-bounds position at {pos}. Returning None.");
             return None;
         };
 
@@ -672,7 +675,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         if local.x < 0 || local.y < 0 || local.z < 0 {
             return None;
         }
-        
+
         let local = UVec3::new(local.x as u32, local.y as u32, local.z as u32);
 
         if !self.in_bounds(local) {
@@ -837,16 +840,14 @@ impl<N: Neighborhood + Default> Grid<N> {
     #[cfg(not(feature = "parallel"))]
     fn precompute_neighbors_single(&mut self) {
         let mut updates = Vec::new();
-        let grid_view = self.grid.view();
-        let neighborhood = &self.neighborhood;
 
-        for (_, chunk) in self.chunks.indexed_iter_mut() {
+        for (_, chunk) in self.chunks.indexed_iter() {
             if !self.dirty_chunks.contains(&chunk.index()) {
                 continue;
             }
 
             for pos in chunk.bounds() {
-                let (pos, bits, special) = compute_cell_neighbors(neighborhood, &grid_view, pos);
+                let (pos, bits, special) = self.compute_cell_neighbors(pos);
                 updates.push((pos, bits, special));
             }
         }
@@ -861,32 +862,18 @@ impl<N: Neighborhood + Default> Grid<N> {
     /// Precomputes the neighbors for each cell in the grid in parallel.
     #[cfg(feature = "parallel")]
     fn precompute_neighbors_parallel(&mut self) {
-        let grid_view = self.grid.view();
-        let neighborhood = &self.neighborhood;
+        use rayon::prelude::*;
 
-        let updates: Vec<(UVec3, u32, Vec<UVec3>)> = self
+        let dirty_positions: Vec<UVec3> = self
             .chunks
-            .indexed_iter()
-            .par_bridge() // rayon parallel iterator over non-par types
-            .filter_map(|(_, chunk)| {
-                if !self.dirty_chunks.contains(&chunk.index()) {
-                    return None;
-                }
+            .iter()
+            .filter(|chunk| self.dirty_chunks.contains(&chunk.index()))
+            .flat_map(|chunk| chunk.bounds())
+            .collect();
 
-                let updates = chunk
-                    .bounds()
-                    .map(|pos| {
-                        let (pos, bits, special) =
-                            self.compute_cell_neighbors(&grid_view, pos);
-                        (pos, bits, special)
-                    })
-                    .collect::<Vec<_>>();
-
-                // Handle special neighbors?
-
-                Some(updates)
-            })
-            .flatten()
+        let updates: Vec<(UVec3, u32, Vec<UVec3>)> = dirty_positions
+            .into_par_iter()
+            .map(|pos| self.compute_cell_neighbors(pos))
             .collect();
 
         // Now apply updates
@@ -1348,7 +1335,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     all_connections.push((
                         world_start,
                         world_goal,
-                        Path::new(path_vec.clone(), path.cost()),
+                        PathLocal::new(path_vec.clone(), path.cost()),
                     ));
                 }
             }
@@ -1511,8 +1498,19 @@ impl<N: Neighborhood + Default> Grid<N> {
         })
     }
 
+    fn compute_cell_neighbors(&self, pos: UVec3) -> (UVec3, u32, Vec<UVec3>) {
+        let bits = self.neighborhood.neighbors(&self.grid.view(), pos);
+        let nav = self.grid[[pos.x as usize, pos.y as usize, pos.z as usize]].nav();
 
-    fn compute_cell_neighbors(
+        let special = match nav {
+            Nav::Portal(p) => vec![self.world_to_local(p.target).unwrap()],
+            _ => Vec::new(),
+        };
+
+        (pos, bits, special)
+    }
+
+    /*fn compute_cell_neighbors(
         &self,
         grid_view: &ArrayView3<NavCell>,
         pos: UVec3,
@@ -1526,7 +1524,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         };
 
         (pos, bits, special)
-    }
+    }*/
 
     /// Recursively reroutes a path using astar pathing to further away chunks until a path can be found.
     ///
@@ -1675,10 +1673,18 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         let Some(start_local_world) = self.world_to_local(start) else {
+            log::warn!(
+                "Start position is out of bounds in world coordinates: {:?}",
+                start
+            );
             return None;
         };
 
         let Some(goal_local_world) = self.world_to_local(goal) else {
+            log::warn!(
+                "Goal position is out of bounds in world coordinates: {:?}",
+                goal
+            );
             return None;
         };
 
@@ -1792,11 +1798,17 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         let Some(start) = self.world_to_local(request.start) else {
-            log::error!("Start position is out of bounds in world coordinates: {:?}", request.start);
+            log::error!(
+                "Start position is out of bounds in world coordinates: {:?}",
+                request.start
+            );
             return None;
         };
         let Some(goal) = self.world_to_local(request.goal) else {
-            log::error!("Goal position is out of bounds in world coordinates: {:?}", request.goal);
+            log::error!(
+                "Goal position is out of bounds in world coordinates: {:?}",
+                request.goal
+            );
             return None;
         };
 
@@ -1811,7 +1823,10 @@ impl<N: Neighborhood + Default> Grid<N> {
         }
 
         let Some(limits) = request.limits.localize(self) else {
-            log::error!("Search region is out of bounds in world coordinates: {:?}", request.limits.boundary);
+            log::error!(
+                "Search region is out of bounds in world coordinates: {:?}",
+                request.limits.boundary
+            );
             return None;
         };
 
@@ -1831,16 +1846,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                 match request.mask.as_mut() {
                     Some(nav_mask) => {
                         if let Ok(mut data) = nav_mask.data.lock() {
-                            pathfind(
-                                self,
-                                start,
-                                goal,
-                                &blocking,
-                                &mut data,
-                                true,
-                                false,
-                                limits,
-                            )
+                            pathfind(self, start, goal, &blocking, &mut data, true, false, limits)
                         } else {
                             log::error!(
                                 "NavMask is currently locked by another thread, cannot perform pathfinding with a NavMask."
@@ -1860,21 +1866,14 @@ impl<N: Neighborhood + Default> Grid<N> {
                             false,
                             limits,
                         )
-                    },
+                    }
                 }
             }
             PathfindMode::Coarse => match request.mask.take() {
                 Some(nav_mask) => {
                     let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
                     pathfind(
-                        self,
-                        start,
-                        goal,
-                        &blocking,
-                        &mut data,
-                        false,
-                        false,
-                        limits,
+                        self, start, goal, &blocking, &mut data, false, false, limits,
                     )
                 }
                 None => {
@@ -1920,16 +1919,7 @@ impl<N: Neighborhood + Default> Grid<N> {
             PathfindMode::Waypoints => match request.mask.take() {
                 Some(nav_mask) => {
                     let mut data = nav_mask.data.lock().expect("Failed to lock NavMask data");
-                    pathfind(
-                        self,
-                        start,
-                        goal,
-                        &blocking,
-                        &mut data,
-                        false,
-                        true,
-                        limits,
-                    )
+                    pathfind(self, start, goal, &blocking, &mut data, false, true, limits)
                 }
                 None => {
                     let mut empty_mask = NavMaskData::new();
@@ -1976,7 +1966,6 @@ impl<N: Neighborhood + Default> Grid<N> {
         local_path.map(|path| path_to_world(self, &path))
     }
 }
-
 
 #[cfg(test)]
 mod tests {
