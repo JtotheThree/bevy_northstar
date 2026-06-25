@@ -645,7 +645,7 @@ impl From<&NavMaskLayer> for NavMaskLayerData {
 
 #[cfg(test)]
 mod tests {
-    use crate::{grid::GridSettingsBuilder, prelude::CardinalNeighborhood};
+    use crate::{grid::GridSettingsBuilder, pathfind::PathfindArgs, prelude::CardinalNeighborhood};
 
     use super::*;
 
@@ -754,13 +754,8 @@ mod tests {
 
     #[test]
     fn test_waypoints_with_navmask_cost() {
-        use crate::{
-            grid::GridSettingsBuilder, neighbor::OrdinalNeighborhood3d, pathfind::PathfindArgs,
-            prelude::Grid,
-        };
-
         let grid_settings = GridSettingsBuilder::new_2d(16, 16).chunk_size(4).build();
-        let mut grid = Grid::<OrdinalNeighborhood3d>::new(&grid_settings);
+        let mut grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
         grid.build();
 
         let start = IVec3::new(2, 8, 0);
@@ -805,6 +800,43 @@ mod tests {
         assert!(
             has_detour,
             "Waypoint path should detour around high-cost area"
+        );
+    }
+
+    #[test]
+    fn test_nav_mask_origin() {
+        let grid_settings = GridSettingsBuilder::new_2d(64, 64)
+            .origin(IVec3::new(-32, -32, 0))
+            .chunk_size(4)
+            .build();
+        let mut grid = Grid::<CardinalNeighborhood>::new(&grid_settings);
+        grid.build();
+
+        let layer = NavMaskLayer::new();
+        layer
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(IVec3::new(-4, -4, 0), IVec3::new(4, 4, 0)),
+                NavCellMask::ImpassableOverride,
+            )
+            .ok();
+
+        let mut mask = NavMask::new();
+        mask.add_layer(layer).unwrap();
+
+        let start = IVec3::new(-7, -7, 0);
+        let goal = IVec3::new(7, 7, 0);
+
+        let path = grid.pathfind(&mut PathfindArgs::new(start, goal).mask(&mut mask));
+
+        let Some(path) = path else {
+            panic!("Should find path with mask");
+        };
+
+        assert!(
+            path.path()
+                .iter()
+                .all(|pos| pos.x < -4 || pos.x > 4 || pos.y < -4 || pos.y > 4)
         );
     }
 }
