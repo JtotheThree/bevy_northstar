@@ -36,6 +36,18 @@ pub(crate) fn dijkstra_grid(
 
     let masked = !mask.layers.is_empty();
 
+    let start_cell = grid[[start.x as usize, start.y as usize, start.z as usize]].clone();
+    let start_masked_impassable = if masked {
+        mask.get(start_cell.clone(), start)
+            .is_some_and(|cell| cell.is_impassable())
+    } else {
+        false
+    };
+
+    if start_cell.is_impassable() || start_masked_impassable {
+        return HashMap::default();
+    }
+
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {
         estimated_cost: 0,

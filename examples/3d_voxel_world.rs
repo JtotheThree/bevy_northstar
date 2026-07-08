@@ -335,20 +335,20 @@ fn player_input_3d(
     cursor_q: Query<&CursorCube>,
     mut commands: Commands,
 ) {
-    if buttons.just_pressed(MouseButton::Left) {
-        if let (Ok(player), Ok(cursor)) = (player_q.single(), cursor_q.single()) {
-            let pos_i = cursor.voxel_pos;
+    if buttons.just_pressed(MouseButton::Left)
+        && let (Ok(player), Ok(cursor)) = (player_q.single(), cursor_q.single())
+    {
+        let pos_i = cursor.voxel_pos;
 
-            // Disallow invalid negative targets
-            if pos_i.x < 0 || pos_i.y < 0 || pos_i.z < 0 {
-                return;
-            }
-            let pos = pos_i.as_uvec3();
-            info!("Player movement target via click: {:?}", pos);
-            commands
-                .entity(player)
-                .insert(Pathfind::new_3d(pos.x, pos.y, pos.z));
+        // Disallow invalid negative targets
+        if pos_i.x < 0 || pos_i.y < 0 || pos_i.z < 0 {
+            return;
         }
+        let pos = pos_i.as_uvec3();
+        info!("Player movement target via click: {:?}", pos);
+        commands
+            .entity(player)
+            .insert(Pathfind::new_3d(pos.x, pos.y, pos.z));
     }
 }
 

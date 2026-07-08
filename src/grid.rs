@@ -2138,6 +2138,21 @@ mod tests {
     }
 
     #[test]
+    fn test_refined_path_rejects_goal() {
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&GRID_SETTINGS);
+
+        grid.build();
+
+        let blocked_goal = UVec3::new(4, 4, 0);
+        grid.set_nav(blocked_goal, Nav::Impassable);
+        grid.build();
+
+        let path = grid.pathfind(&mut PathfindArgs::new(UVec3::new(10, 10, 0), blocked_goal));
+
+        assert!(path.is_none());
+    }
+
+    #[test]
     fn test_calculate_face_nodes_returns_center() {
         //2D
         let grid_settings = GridSettingsBuilder::new_2d(64, 64).chunk_size(32).build();
