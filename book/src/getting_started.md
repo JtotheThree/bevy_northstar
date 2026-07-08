@@ -6,8 +6,8 @@ Add required dependencies to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bevy = "0.18"
-bevy_northstar = "0.6"
+bevy = "0.19"
+bevy_northstar = "0.7"
 ```
 
 ### Features

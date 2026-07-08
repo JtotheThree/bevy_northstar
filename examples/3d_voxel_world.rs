@@ -6,7 +6,7 @@
 use bevy::{light::CascadeShadowConfigBuilder, prelude::*};
 use bevy_northstar::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin, TrackpadBehavior};
-use bevy_voxel_world::custom_meshing::{generate_chunk_mesh, PaddedChunkShape, CHUNK_SIZE_U};
+use bevy_voxel_world::custom_meshing::{CHUNK_SIZE_U, PaddedChunkShape, generate_chunk_mesh};
 use bevy_voxel_world::prelude::*;
 use ndshape::ConstShape;
 use std::sync::Arc;
@@ -189,7 +189,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.1, 0.15), Vec3::Y),
@@ -293,10 +293,10 @@ fn update_cursor_cube(
                 || cursor_cube.voxel_pos.z < 0
             {
                 //indicate that this voxel position is not ment to spawn a cube
-                if let Some(mat) = materials.get_mut(&material_handle.0) {
+                if let Some(mut mat) = materials.get_mut(&material_handle.0) {
                     mat.base_color = Color::srgba_u8(255, 144, 124, 128);
                 }
-            } else if let Some(mat) = materials.get_mut(&material_handle.0) {
+            } else if let Some(mut mat) = materials.get_mut(&material_handle.0) {
                 mat.base_color = Color::srgba_u8(124, 144, 255, 128);
             }
         }

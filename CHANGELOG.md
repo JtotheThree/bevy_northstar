@@ -1,3 +1,6 @@
+## v0.7.0
+- Bevy 0.19 Update
+
 ## v0.6.2
 ### Features
 - Rework of the base HPA* algorithm. Coarse (unrefined HPA*) pathfinding will noteably return shorter paths. Waypoints algorithm is faster.

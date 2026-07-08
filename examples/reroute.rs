@@ -151,15 +151,15 @@ fn draw_grid(grid: Single<&CardinalGrid>, mut gizmos: Gizmos) {
     for x in 0..GRID_W {
         for y in 0..GRID_H {
             let pos = UVec3::new(x, y, 0);
-            if let Some(nav) = grid.nav(pos) {
-                if matches!(nav, Nav::Impassable) {
-                    let center = grid_to_world(pos).truncate();
-                    gizmos.rect_2d(
-                        Isometry2d::from_translation(center),
-                        Vec2::splat(half * 2.0),
-                        WALL_COLOR,
-                    );
-                }
+            if let Some(nav) = grid.nav(pos)
+                && matches!(nav, Nav::Impassable)
+            {
+                let center = grid_to_world(pos).truncate();
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(center),
+                    Vec2::splat(half * 2.0),
+                    WALL_COLOR,
+                );
             }
         }
     }
