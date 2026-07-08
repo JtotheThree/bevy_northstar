@@ -1,5 +1,6 @@
 ## v0.7.0
 - Bevy 0.19 Update
+- Fixed regression with refined paths sometimes allowing blocked goals
 
 ## v0.6.2
 ### Features
