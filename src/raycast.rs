@@ -308,11 +308,7 @@ pub(crate) fn bresenham_path_internal(
         },
     );
 
-    if success {
-        Some(path)
-    } else {
-        None
-    }
+    if success { Some(path) } else { None }
 }
 
 #[cfg(test)]

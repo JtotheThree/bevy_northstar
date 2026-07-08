@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use bevy::{log, platform::collections::HashMap, prelude::*};
 
-use crate::{pathfind::PathfindArgs, prelude::*, WithoutPathingFailures};
+use crate::{WithoutPathingFailures, pathfind::PathfindArgs, prelude::*};
 
 /// Sets default settings for the Pathfind component.
 #[derive(Default, Debug, Copy, Clone)]

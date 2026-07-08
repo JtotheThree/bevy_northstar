@@ -94,22 +94,22 @@ fn layer_created(
     let mut grid = grid.into_inner();
 
     let layer = trigger.event().get_layer(&map_asset);
-    if let Some(layer) = layer {
-        if let Some(tile_layer) = layer.as_tile_layer() {
-            let width = tile_layer.width().unwrap();
-            let height = tile_layer.height().unwrap();
+    if let Some(layer) = layer
+        && let Some(tile_layer) = layer.as_tile_layer()
+    {
+        let width = tile_layer.width().unwrap();
+        let height = tile_layer.height().unwrap();
 
-            for x in 0..width {
-                for y in 0..height {
-                    let tile = tile_layer.get_tile(x as i32, y as i32);
-                    if let Some(tile) = tile {
-                        let tile_id = tile.id();
+        for x in 0..width {
+            for y in 0..height {
+                let tile = tile_layer.get_tile(x as i32, y as i32);
+                if let Some(tile) = tile {
+                    let tile_id = tile.id();
 
-                        if tile_id == 14 {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
-                        } else {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
-                        }
+                    if tile_id == 14 {
+                        grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
+                    } else {
+                        grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
                     }
                 }
             }
@@ -200,28 +200,28 @@ fn input(
             )
         });
 
-    if input.just_pressed(MouseButton::Left) {
-        if let Some(goal) = clicked_tile {
-            let mask_layer = NavMaskLayer::new();
-            mask_layer
-                .insert_region_fill(
-                    &grid,
-                    NavRegion::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
-                    NavCellMask::ModifyCost(500),
-                )
-                .unwrap();
+    if input.just_pressed(MouseButton::Left)
+        && let Some(goal) = clicked_tile
+    {
+        let mask_layer = NavMaskLayer::new();
+        mask_layer
+            .insert_region_fill(
+                &grid,
+                NavRegion::new(UVec3::new(64, 64, 0), UVec3::new(84, 84, 0)),
+                NavCellMask::ModifyCost(500),
+            )
+            .unwrap();
 
-            let nav_mask = NavMask::new();
-            nav_mask.add_layer(mask_layer).ok();
+        let nav_mask = NavMask::new();
+        nav_mask.add_layer(mask_layer).ok();
 
-            debug_grid.set_debug_mask(nav_mask.clone());
+        debug_grid.set_debug_mask(nav_mask.clone());
 
-            log::info!("Pathfinding to: {:?}", goal);
-            commands
-                .entity(player)
-                .insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints))
-                .insert(AgentMask(nav_mask));
-        }
+        log::info!("Pathfinding to: {:?}", goal);
+        commands
+            .entity(player)
+            .insert(Pathfind::new(UVec3::new(goal.x, goal.y, 0)).mode(PathfindMode::Waypoints))
+            .insert(AgentMask(nav_mask));
     }
 }
 

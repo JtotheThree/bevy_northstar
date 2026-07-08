@@ -4,8 +4,8 @@ use std::collections::BinaryHeap;
 use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap};
 
 use crate::{
-    are_adjacent, astar::astar_grid, grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, size_hint_graph, FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder,
+    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, are_adjacent, astar::astar_grid,
+    grid::Grid, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph,
 };
 
 /// Scratch pad for the HPA* search with virtualized nodes
@@ -297,17 +297,17 @@ fn rebuild_full_path<N: Neighborhood>(
 
         // Virtual start → boundary edge
         if let Some(aug) = augmentation {
-            if from == aug.start {
-                if let Some(p) = aug.start_edges.get(&to) {
-                    full_path.extend(p.path().iter().skip(1));
-                    continue;
-                }
+            if from == aug.start
+                && let Some(p) = aug.start_edges.get(&to)
+            {
+                full_path.extend(p.path().iter().skip(1));
+                continue;
             }
-            if to == aug.goal {
-                if let Some(p) = aug.edge_to_goal.get(&from) {
-                    full_path.extend(p.path().iter().skip(1));
-                    continue;
-                }
+            if to == aug.goal
+                && let Some(p) = aug.edge_to_goal.get(&from)
+            {
+                full_path.extend(p.path().iter().skip(1));
+                continue;
             }
         }
 

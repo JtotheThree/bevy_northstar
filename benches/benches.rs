@@ -1,14 +1,13 @@
 use bevy::math::UVec3;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 use bevy_northstar::{
-    filter,
+    NavRegion, filter,
     grid::{Grid, GridSettings, GridSettingsBuilder},
     nav::Nav,
     nav_mask::{NavCellMask, NavMask, NavMaskLayer},
     pathfind::PathfindArgs,
     prelude::OrdinalNeighborhood,
-    NavRegion,
 };
 
 use pprof::criterion::{Output, PProfProfiler};

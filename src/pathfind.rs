@@ -4,11 +4,12 @@ use bevy::{ecs::entity::Entity, log, math::UVec3, platform::collections::HashMap
 use ndarray::ArrayView3;
 
 use crate::{
+    NavRegion, SearchLimits,
     astar::astar_grid,
     components::PathfindMode,
     dijkstra::dijkstra_grid,
     grid::Grid,
-    hpa::{hpa, HpaScratch},
+    hpa::{HpaScratch, hpa},
     nav::NavCell,
     nav_mask::NavMaskData,
     neighbor::Neighborhood,
@@ -16,7 +17,6 @@ use crate::{
     prelude::{NavMask, Pathfind},
     raycast::bresenham_path_internal,
     thetastar::thetastar_grid,
-    NavRegion, SearchLimits,
 };
 
 /// Builder struct for pathfinding arguments
@@ -156,10 +156,11 @@ pub(crate) fn pathfind_astar<N: Neighborhood>(
 ) -> Option<Path> {
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
-    if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !limits.partial {
-            return None;
-        }
+    if let Some(mask_cell) = mask.get(goal_cell, goal)
+        && mask_cell.is_impassable()
+        && !limits.partial
+    {
+        return None;
     }
 
     //let start_time = std::time::Instant::now();
@@ -209,11 +210,12 @@ pub(crate) fn pathfind_thetastar<N: Neighborhood>(
     let goal_cell = grid[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // if goal is in the blocking mask, return None
-    if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !limits.partial {
-            //log::error!("Goal is in the blocking mask");
-            return None;
-        }
+    if let Some(mask_cell) = mask.get(goal_cell, goal)
+        && mask_cell.is_impassable()
+        && !limits.partial
+    {
+        //log::error!("Goal is in the blocking mask");
+        return None;
     }
 
     thetastar_grid(neighborhood, grid, start, goal, blocking, mask, limits)
@@ -239,10 +241,11 @@ pub(crate) fn pathfind<N: Neighborhood>(
     let goal_cell = grid.view()[[goal.x as usize, goal.y as usize, goal.z as usize]].clone();
 
     // If the goal is impassable and partial isn't set, return none
-    if let Some(mask_cell) = mask.get(goal_cell, goal) {
-        if mask_cell.is_impassable() && !limits.partial {
-            return None;
-        }
+    if let Some(mask_cell) = mask.get(goal_cell, goal)
+        && mask_cell.is_impassable()
+        && !limits.partial
+    {
+        return None;
     }
 
     // Clone chunk data to avoid borrow conflicts during graph mutation
@@ -261,11 +264,10 @@ pub(crate) fn pathfind<N: Neighborhood>(
             limits,
         );
 
-        if let Some(mut path) = path {
+        {
+            let mut path = path?;
             path.path.pop_front();
             return Some(path);
-        } else {
-            return None;
         }
     }
 

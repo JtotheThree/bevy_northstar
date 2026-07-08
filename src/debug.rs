@@ -301,17 +301,17 @@ fn draw_debug_map<N: Neighborhood + 'static>(
 
                         for edge in node.edges() {
                             let neighbor = grid.graph().node_at(edge);
-                            if let Some(neighbor) = neighbor {
-                                if neighbor.chunk_index != node.chunk_index {
-                                    let neighbor_pos = to_world(
-                                        neighbor.pos.x as f32 + 0.5,
-                                        neighbor.pos.y as f32 + 0.5,
-                                        neighbor.pos.z as f32 + 0.5,
-                                        debug_grid.swap_yz,
-                                    ) * voxel_size
-                                        + offset_3d;
-                                    gizmos.line(pos, neighbor_pos, css::GREEN);
-                                }
+                            if let Some(neighbor) = neighbor
+                                && neighbor.chunk_index != node.chunk_index
+                            {
+                                let neighbor_pos = to_world(
+                                    neighbor.pos.x as f32 + 0.5,
+                                    neighbor.pos.y as f32 + 0.5,
+                                    neighbor.pos.z as f32 + 0.5,
+                                    debug_grid.swap_yz,
+                                ) * voxel_size
+                                    + offset_3d;
+                                gizmos.line(pos, neighbor_pos, css::GREEN);
                             }
                         }
                     }
@@ -349,34 +349,34 @@ fn draw_debug_map<N: Neighborhood + 'static>(
                         // Draw the node connection only to nodes in other chunks
                         for edge in node.edges() {
                             let neighbor = grid.graph().node_at(edge);
-                            if let Some(neighbor) = neighbor {
-                                if neighbor.chunk_index != node.chunk_index {
-                                    let neighbor_offset =
-                                        *debug_depth_offsets.get(&neighbor.pos.z).unwrap_or(&0.0);
+                            if let Some(neighbor) = neighbor
+                                && neighbor.chunk_index != node.chunk_index
+                            {
+                                let neighbor_offset =
+                                    *debug_depth_offsets.get(&neighbor.pos.z).unwrap_or(&0.0);
 
-                                    let neighbor_position = match debug_grid.map_type {
-                                        DebugTilemapType::Square => Vec2::new(
-                                            (neighbor.pos.x * debug_grid.tile_width) as f32,
-                                            (neighbor.pos.y * debug_grid.tile_height) as f32
-                                                + neighbor_offset,
-                                        ),
-                                        DebugTilemapType::Isometric => Vec2::new(
-                                            (neighbor.pos.y as f32 + neighbor.pos.x as f32)
-                                                * half_tile_width,
-                                            (neighbor.pos.y as f32 - neighbor.pos.x as f32)
-                                                * half_tile_height
-                                                - half_tile_height
-                                                + neighbor_offset,
-                                        ),
-                                        DebugTilemapType::Square3d => unreachable!(),
-                                    };
+                                let neighbor_position = match debug_grid.map_type {
+                                    DebugTilemapType::Square => Vec2::new(
+                                        (neighbor.pos.x * debug_grid.tile_width) as f32,
+                                        (neighbor.pos.y * debug_grid.tile_height) as f32
+                                            + neighbor_offset,
+                                    ),
+                                    DebugTilemapType::Isometric => Vec2::new(
+                                        (neighbor.pos.y as f32 + neighbor.pos.x as f32)
+                                            * half_tile_width,
+                                        (neighbor.pos.y as f32 - neighbor.pos.x as f32)
+                                            * half_tile_height
+                                            - half_tile_height
+                                            + neighbor_offset,
+                                    ),
+                                    DebugTilemapType::Square3d => unreachable!(),
+                                };
 
-                                    gizmos.line_2d(
-                                        position + offset,
-                                        neighbor_position + offset,
-                                        css::GREEN,
-                                    );
-                                }
+                                gizmos.line_2d(
+                                    position + offset,
+                                    neighbor_position + offset,
+                                    css::GREEN,
+                                );
                             }
                         }
                     }
@@ -773,10 +773,11 @@ fn navcell_color(cell: &NavCell) -> Srgba {
 }
 
 fn apply_debug_mask(cell: NavCell, mask: &Option<NavMask>, pos: UVec3) -> NavCell {
-    if let Some(mask) = mask {
-        if let NavMaskResult::Masked(masked_cell) = mask.get(cell.clone(), pos) {
-            return masked_cell;
-        }
+    if let Some(mask) = mask
+        && let NavMaskResult::Masked(masked_cell) = mask.get(cell.clone(), pos)
+    {
+        return masked_cell;
     }
+
     cell
 }

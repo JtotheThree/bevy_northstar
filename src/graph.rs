@@ -1,7 +1,7 @@
 //! Graph module for managing nodes and edges in relative space.
 use bevy::{log, math::UVec3, platform::collections::HashMap};
 
-use crate::{chunk::Chunk, dir::Dir, node::Node, path::Path, NodeId};
+use crate::{NodeId, chunk::Chunk, dir::Dir, node::Node, path::Path};
 
 /// A graph structure that holds nodes and their connections (edges).
 pub(crate) struct Graph {
@@ -31,14 +31,11 @@ impl Graph {
 
     /// Returns all `Node`s that exist in the given `Chunk`.
     pub(crate) fn nodes_in_chunk(&self, chunk: &Chunk) -> Vec<&Node> {
-        let nodes = self
-            .nodes
+        self.nodes
             .iter()
             .filter(|(_, node)| node.chunk_index == chunk.index())
             .map(|(_, node)| node)
-            .collect();
-
-        nodes
+            .collect()
     }
 
     /// Add a new `Node` to the graph at the given position with the specified `Chunk`
@@ -105,7 +102,9 @@ impl Graph {
             } else {
                 log::warn!(
                     "Tried to remove node {:?} with id {:?} from Chunk {:?}, but it was already gone",
-                    pos, id, chunk
+                    pos,
+                    id,
+                    chunk
                 );
             }
         }
@@ -248,10 +247,10 @@ impl Graph {
     pub(crate) fn clear_duplicates(&mut self) {
         let mut to_remove = Vec::new();
         for (id, node) in self.nodes.iter() {
-            if let Some(&other_id) = self.node_ids.get(&node.pos) {
-                if id != other_id {
-                    to_remove.push(id);
-                }
+            if let Some(&other_id) = self.node_ids.get(&node.pos)
+                && id != other_id
+            {
+                to_remove.push(id);
             }
         }
 
@@ -263,8 +262,7 @@ impl Graph {
     /// Returns the closest `Node` to the given position in the specified `Chunk`.
     #[allow(dead_code)]
     pub(crate) fn closest_node_in_chunk(&self, pos: UVec3, chunk: &Chunk) -> Option<&Node> {
-        let node = self
-            .nodes_in_chunk(chunk)
+        self.nodes_in_chunk(chunk)
             .iter()
             .min_by_key(|node| {
                 let dx = (node.pos.x as i32 - pos.x as i32).abs();
@@ -272,9 +270,7 @@ impl Graph {
                 let dz = (node.pos.z as i32 - pos.z as i32).abs();
                 (dx + dy + dz) as u32
             })
-            .cloned();
-
-        node
+            .cloned()
     }
 }
 

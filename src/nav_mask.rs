@@ -11,11 +11,11 @@ use bevy::{
 };
 
 use crate::{
+    MovementCost, NavRegion,
     grid::Grid,
     nav::{Nav, NavCell},
     path::Path,
     prelude::Neighborhood,
-    MovementCost, NavRegion,
 };
 
 /// Result of a navigation mask query.
@@ -277,11 +277,7 @@ impl NavMaskData {
             }
         }
 
-        if mask_found {
-            Some(result)
-        } else {
-            None
-        }
+        if mask_found { Some(result) } else { None }
     }
 
     pub(crate) fn chunk_in_mask(&self, chunk_index: (usize, usize, usize)) -> bool {

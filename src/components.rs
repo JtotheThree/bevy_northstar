@@ -9,7 +9,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{debug::DebugTilemapType, nav_mask::NavMask, NavRegion, SearchLimits};
+use crate::{NavRegion, SearchLimits, debug::DebugTilemapType, nav_mask::NavMask};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.

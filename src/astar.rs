@@ -5,9 +5,9 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood,
-    path::Path, size_hint_graph, size_hint_grid, FxIndexMap, NavRegion, SearchLimits,
-    SmallestCostHolder,
+    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, graph::Graph, in_bounds_3d,
+    nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, size_hint_graph,
+    size_hint_grid,
 };
 
 /// A* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.

@@ -20,7 +20,7 @@ fn main() {
         .add_plugins(FpsOverlayPlugin {
             config: FpsOverlayConfig {
                 text_config: TextFont {
-                    font_size: 32.0,
+                    font_size: FontSize::Px(32.0),
                     font_smoothing: FontSmoothing::default(),
                     font: default(),
                     ..default()
@@ -140,22 +140,22 @@ fn layer_created(
     let mut grid = grid.into_inner();
 
     let layer = trigger.event().get_layer(&map_asset);
-    if let Some(layer) = layer {
-        if let Some(tile_layer) = layer.as_tile_layer() {
-            let width = tile_layer.width().unwrap();
-            let height = tile_layer.height().unwrap();
+    if let Some(layer) = layer
+        && let Some(tile_layer) = layer.as_tile_layer()
+    {
+        let width = tile_layer.width().unwrap();
+        let height = tile_layer.height().unwrap();
 
-            for x in 0..width {
-                for y in 0..height {
-                    let tile = tile_layer.get_tile(x as i32, y as i32);
-                    if let Some(tile) = tile {
-                        let tile_id = tile.id();
+        for x in 0..width {
+            for y in 0..height {
+                let tile = tile_layer.get_tile(x as i32, y as i32);
+                if let Some(tile) = tile {
+                    let tile_id = tile.id();
 
-                        if tile_id == 14 {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
-                        } else {
-                            grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
-                        }
+                    if tile_id == 14 {
+                        grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Passable(1));
+                    } else {
+                        grid.set_nav(UVec3::new(x, height - 1 - y, 0), Nav::Impassable);
                     }
                 }
             }

@@ -36,6 +36,9 @@ mod thetastar;
 
 /// Crate Prelude
 pub mod prelude {
+    pub use crate::MovementCost;
+    pub use crate::NavRegion;
+    pub use crate::SearchLimits;
     pub use crate::components::*;
     pub use crate::debug::{DebugTilemapType, NorthstarDebugPlugin};
     pub use crate::dir::Dir;
@@ -49,9 +52,6 @@ pub mod prelude {
     pub use crate::plugin::{
         BlockingMap, NorthstarPlugin, NorthstarPluginSettings, PathfindSettings, PathingSet, Stats,
     };
-    pub use crate::MovementCost;
-    pub use crate::NavRegion;
-    pub use crate::SearchLimits;
     pub use crate::{CardinalGrid, CardinalGrid3d, CardinalIsoGrid, OrdinalGrid, OrdinalGrid3d};
 }
 

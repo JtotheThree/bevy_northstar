@@ -11,9 +11,10 @@ use bevy::{
     prelude::Component,
     transform::components::Transform,
 };
-use ndarray::{s, Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip};
+use ndarray::{Array2, Array3, ArrayView1, ArrayView2, ArrayView3, Zip, s};
 
 use crate::{
+    MovementCost, SearchLimits,
     chunk::Chunk,
     dijkstra::*,
     dir::*,
@@ -25,10 +26,10 @@ use crate::{
     neighbor::Neighborhood,
     node::Node,
     path::Path,
-    pathfind::{pathfind, pathfind_astar, pathfind_thetastar, reroute_path, PathfindArgs},
+    pathfind::{PathfindArgs, pathfind, pathfind_astar, pathfind_thetastar, reroute_path},
     position_in_cubic_window,
     prelude::{NavMask, Pathfind, PathfindMode},
-    timed, MovementCost, SearchLimits,
+    timed,
 };
 
 /// Settings for how the grid is divided into chunks.
@@ -389,7 +390,9 @@ impl<N: Neighborhood + Default> Grid<N> {
         let z_remainder = z % chunk_settings.depth;
 
         if x_remainder != 0 || y_remainder != 0 || (z_remainder != 0) {
-            debug!("Grid dimensions are not divisible by chunk size and depth. Rounding up the number of chunks...");
+            debug!(
+                "Grid dimensions are not divisible by chunk size and depth. Rounding up the number of chunks..."
+            );
 
             // Round up the number of chunks to cover the entire grid
             if x_remainder != 0 {
@@ -1174,41 +1177,41 @@ impl<N: Neighborhood + Default> Grid<N> {
 
             // Iterate over all cells in the grid and check for portals.
             for (pos, cell) in chunk.view(&self.grid).indexed_iter() {
-                if cell.is_portal() {
-                    if let Nav::Portal(Portal { target, .. }) = cell.nav() {
-                        // If the current cell and target are in the same chunk, skip.
-                        let pos_uvec3 = UVec3::new(
-                            pos.0 as u32 + chunk.min().x,
-                            pos.1 as u32 + chunk.min().y,
-                            pos.2 as u32 + chunk.min().z,
-                        );
+                if cell.is_portal()
+                    && let Nav::Portal(Portal { target, .. }) = cell.nav()
+                {
+                    // If the current cell and target are in the same chunk, skip.
+                    let pos_uvec3 = UVec3::new(
+                        pos.0 as u32 + chunk.min().x,
+                        pos.1 as u32 + chunk.min().y,
+                        pos.2 as u32 + chunk.min().z,
+                    );
 
-                        if let Some(target_chunk) = self.chunk_at_position(target) {
-                            if chunk == target_chunk {
-                                continue;
-                            }
-
-                            let node = Node {
-                                pos: pos_uvec3,
-                                chunk_index: chunk.index(),
-                                edges: HashMap::new(),
-                                dir: None,
-                                portal: true,
-                            };
-
-                            // Create node at the target position and give it a reverse path
-                            let target_node = Node {
-                                pos: target,
-                                chunk_index: target_chunk.index(),
-                                edges: HashMap::new(),
-                                dir: None,
-                                portal: true,
-                            };
-
-                            // Create a Node for the portal and insert it into the graph.
-                            self.graph.add_node(node);
-                            self.graph.add_node(target_node);
+                    if let Some(target_chunk) = self.chunk_at_position(target) {
+                        if chunk == target_chunk {
+                            continue;
                         }
+
+                        let node = Node {
+                            pos: pos_uvec3,
+                            chunk_index: chunk.index(),
+                            edges: HashMap::new(),
+                            dir: None,
+                            portal: true,
+                        };
+
+                        // Create node at the target position and give it a reverse path
+                        let target_node = Node {
+                            pos: target,
+                            chunk_index: target_chunk.index(),
+                            edges: HashMap::new(),
+                            dir: None,
+                            portal: true,
+                        };
+
+                        // Create a Node for the portal and insert it into the graph.
+                        self.graph.add_node(node);
+                        self.graph.add_node(target_node);
                     }
                 }
             }
@@ -1635,7 +1638,7 @@ impl<N: Neighborhood + Default> Grid<N> {
         let empty_blocking = HashMap::new();
         let blocking = request.blocking.unwrap_or(&empty_blocking);
 
-        let path = match request.mode {
+        match request.mode {
             PathfindMode::Refined => {
                 match request.mask.as_mut() {
                     Some(nav_mask) => {
@@ -1651,7 +1654,9 @@ impl<N: Neighborhood + Default> Grid<N> {
                                 request.limits,
                             )
                         } else {
-                            log::error!("NavMask is currently locked by another thread, cannot perform pathfinding with a NavMask.");
+                            log::error!(
+                                "NavMask is currently locked by another thread, cannot perform pathfinding with a NavMask."
+                            );
                             None // Return None if lock is contended, don't wait
                         }
                     }
@@ -1778,9 +1783,7 @@ impl<N: Neighborhood + Default> Grid<N> {
                     )
                 }
             },
-        };
-
-        path
+        }
     }
 }
 
@@ -2132,6 +2135,21 @@ mod tests {
 
         assert_eq!(path.clone().unwrap().len(), raw_path.unwrap().len());
         assert_eq!(path.unwrap().len(), 6);
+    }
+
+    #[test]
+    fn test_refined_path_rejects_goal() {
+        let mut grid: Grid<OrdinalNeighborhood3d> = Grid::new(&GRID_SETTINGS);
+
+        grid.build();
+
+        let blocked_goal = UVec3::new(4, 4, 0);
+        grid.set_nav(blocked_goal, Nav::Impassable);
+        grid.build();
+
+        let path = grid.pathfind(&mut PathfindArgs::new(UVec3::new(10, 10, 0), blocked_goal));
+
+        assert!(path.is_none());
     }
 
     #[test]

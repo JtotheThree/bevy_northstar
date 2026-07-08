@@ -9,8 +9,8 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    graph::Graph, in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, path::Path, FxIndexMap,
-    SmallestCostHolder,
+    FxIndexMap, SmallestCostHolder, graph::Graph, in_bounds_3d, nav::NavCell,
+    nav_mask::NavMaskData, path::Path,
 };
 
 /// Dijkstra's algorithm for pathfinding in a grid.
@@ -35,6 +35,18 @@ pub(crate) fn dijkstra_grid(
     let size_hint = grid.shape().iter().copied().product::<usize>() / 3;
 
     let masked = !mask.layers.is_empty();
+
+    let start_cell = grid[[start.x as usize, start.y as usize, start.z as usize]].clone();
+    let start_masked_impassable = if masked {
+        mask.get(start_cell.clone(), start)
+            .is_some_and(|cell| cell.is_impassable())
+    } else {
+        false
+    };
+
+    if start_cell.is_impassable() || start_masked_impassable {
+        return HashMap::default();
+    }
 
     let mut to_visit = BinaryHeap::with_capacity(size_hint);
     to_visit.push(SmallestCostHolder {

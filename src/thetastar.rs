@@ -5,9 +5,9 @@ use ndarray::ArrayView3;
 use std::collections::BinaryHeap;
 
 use crate::{
-    in_bounds_3d, nav::NavCell, nav_mask::NavMaskData, neighbor::Neighborhood, path::Path,
-    raycast::has_line_of_sight, size_hint_grid, FxIndexMap, NavRegion, SearchLimits,
-    SmallestCostHolder,
+    FxIndexMap, NavRegion, SearchLimits, SmallestCostHolder, in_bounds_3d, nav::NavCell,
+    nav_mask::NavMaskData, neighbor::Neighborhood, path::Path, raycast::has_line_of_sight,
+    size_hint_grid,
 };
 
 /// θ* search algorithm for a [`crate::grid::Grid`] of [`crate::nav::NavCell`]s.
@@ -137,7 +137,7 @@ pub(crate) fn thetastar_grid<N: Neighborhood>(
                 continue;
             }
 
-            let current_parent_index = visited.get_index(index).unwrap().1 .0;
+            let current_parent_index = visited.get_index(index).unwrap().1.0;
             let mut chosen_parent_index = index; // default to current node
 
             if current_parent_index != usize::MAX {

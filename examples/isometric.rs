@@ -286,7 +286,7 @@ fn loading_complete(
 
     // Zoom camera into the player
     let (mut transform, mut projection) = camera.into_inner();
-    if let Projection::Orthographic(ref mut ortho) = &mut *projection {
+    if let Projection::Orthographic(ortho) = &mut *projection {
         ortho.scale = 0.5;
         transform.translation = Vec3::new(center.x, center.y + PLAYER_CENTER_OFFSET, 10.0);
     }
@@ -335,40 +335,40 @@ fn update_cursor(
                 // Find the tile with the highest height at this position
                 let mut top_tile: Option<(Entity, i32)> = None;
                 for storage in tile_storage.iter() {
-                    if let Some(tile) = storage.get(&tile_pos) {
-                        if let Ok(info) = tile_info.get(tile) {
-                            let tile_height = info.height as f32;
-                            let mut tile_world = TilePos::center_in_world(
-                                &tile_pos,
-                                map.map_size,
-                                map.grid_size,
-                                map.tile_size,
-                                map.map_type,
-                                map.anchor,
-                            );
-                            // Add height offset to the tile world position
-                            // The visual "click" area of each tile's height is different to the view of the user
-                            // so we adjust that here.
-                            tile_world.y += tile_height * HEIGHT_OFFSET;
+                    if let Some(tile) = storage.get(&tile_pos)
+                        && let Ok(info) = tile_info.get(tile)
+                    {
+                        let tile_height = info.height as f32;
+                        let mut tile_world = TilePos::center_in_world(
+                            &tile_pos,
+                            map.map_size,
+                            map.grid_size,
+                            map.tile_size,
+                            map.map_type,
+                            map.anchor,
+                        );
+                        // Add height offset to the tile world position
+                        // The visual "click" area of each tile's height is different to the view of the user
+                        // so we adjust that here.
+                        tile_world.y += tile_height * HEIGHT_OFFSET;
 
-                            // At a certain point the tiles in this tile position are actually a full tile y offset away from the cursor
-                            // so we want to ensure we ignore these.
-                            if (cursor_position.y - tile_world.y).abs() > LAYER_Y_OFFSET {
-                                continue; // Skip tiles that are too far y offset
-                            }
+                        // At a certain point the tiles in this tile position are actually a full tile y offset away from the cursor
+                        // so we want to ensure we ignore these.
+                        if (cursor_position.y - tile_world.y).abs() > LAYER_Y_OFFSET {
+                            continue; // Skip tiles that are too far y offset
+                        }
 
-                            if top_tile.is_none() || info.height > top_tile.unwrap().1 {
-                                top_tile = Some((tile, info.height));
-                            }
+                        if top_tile.is_none() || info.height > top_tile.unwrap().1 {
+                            top_tile = Some((tile, info.height));
                         }
                     }
                 }
 
-                if let Some((_, height)) = top_tile {
-                    if height as u32 == test_height {
-                        selected_tile = Some(UVec3::new(tile_pos.x, tile_pos.y, test_height));
-                        break; // Found the topmost tile
-                    }
+                if let Some((_, height)) = top_tile
+                    && height as u32 == test_height
+                {
+                    selected_tile = Some(UVec3::new(tile_pos.x, tile_pos.y, test_height));
+                    break; // Found the topmost tile
                 }
             }
         }
@@ -405,13 +405,13 @@ fn input(
         camera_transform.translation.x += 10.0;
     }
 
-    if mouse.just_pressed(MouseButton::Left) {
-        if let Some(tile) = cursor.tile {
-            log::info!("Pathfinding to tile: {:?}", tile);
-            commands
-                .entity(player)
-                .insert(Pathfind::new_3d(tile.x, tile.y, tile.z));
-        }
+    if mouse.just_pressed(MouseButton::Left)
+        && let Some(tile) = cursor.tile
+    {
+        log::info!("Pathfinding to tile: {:?}", tile);
+        commands
+            .entity(player)
+            .insert(Pathfind::new_3d(tile.x, tile.y, tile.z));
     }
 }
 
@@ -496,10 +496,10 @@ fn warp(
             // Check if the next position in the path is the target of the portal
             // We do this because the player may just step into the portal as the goal,
             // if not we need to remove a step from the path.
-            if let Some(next_pos) = path.next() {
-                if next_pos == portal.target {
-                    path.pop();
-                }
+            if let Some(next_pos) = path.next()
+                && next_pos == portal.target
+            {
+                path.pop();
             }
         }
     }

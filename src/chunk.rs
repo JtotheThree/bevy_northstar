@@ -1,6 +1,6 @@
 //! This module defines the `Chunk` struct, which represents a 3D region of the grid.
 use bevy::math::{IVec3, UVec3};
-use ndarray::{s, Array3, ArrayView1, ArrayView2, ArrayView3};
+use ndarray::{Array3, ArrayView1, ArrayView2, ArrayView3, s};
 
 use crate::{dir::Dir, nav::NavCell};
 

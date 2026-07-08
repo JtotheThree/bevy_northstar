@@ -1,7 +1,7 @@
 //! `Nav` and `NavCell` structs for navigation and movement cost data.
 use bevy::math::UVec3;
 
-use crate::{prelude::ORDINAL_3D_OFFSETS, MovementCost};
+use crate::{MovementCost, prelude::ORDINAL_3D_OFFSETS};
 
 /// Navigation state for a cell (position) in the `Grid`.
 #[derive(Clone, Copy, Debug)]
