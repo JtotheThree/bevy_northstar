@@ -1,6 +1,6 @@
 [package]
 name = "bevy_northstar"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 authors = ["John Mullins"]
 description = "A Bevy plugin for Hierarchical Pathfinding"
@@ -13,16 +13,16 @@ keywords = ["astar", "bevy", "game", "hpa", "pathfinding"]
 exclude = ["assets/*", "res/*"]
 autoexamples = false
 
-[[example]]
-name = "demo"
-required-features = ["stats"]
+# [[example]]
+# name = "demo"
+# required-features = ["stats"]
 
-[[example]]
-name = "isometric"
+# [[example]]
+# name = "isometric"
 
-[[example]]
-name = "collision_testing"
-required-features = ["stats"]
+# [[example]]
+# name = "collision_testing"
+# required-features = ["stats"]
 
 [[example]]
 name = "basic"
@@ -30,44 +30,44 @@ name = "basic"
 [[example]]
 name = "nav_mask"
 
-[[example]]
-name = "freeform_movement"
+# [[example]]
+# name = "freeform_movement"
 
 [[example]]
 name = "reroute"
 
-[[example]]
-name = "3d_voxel_world"
+# [[example]]
+# name = "3d_voxel_world"
 
 [[bench]]
 harness = false
 name = "benches"
 
 [dependencies]
-indexmap = "2.14.0"
+indexmap = "2.14.2"
 ndarray = { version = "0.17.2" }
 rayon = { version = "1.12.0", optional = true }
 rustc-hash = "2.1.3"
 slab = "0.4.12"
-smallvec = "1.15.2"
+smallvec = "1.16.3"
 
 [dependencies.bevy]
-version = "0.19"
+version = "0.20"
 default-features = false
 features = ["bevy_gizmos", "bevy_log", "bevy_render"]
 
 [dev-dependencies]
-bevy = { version = "0.19", features = ["bevy_dev_tools"] }
-bevy_ecs_tiled = { version = "0.13", features = ["user_properties"] }
-bevy_panorbit_camera = { version = "0.35.0" }
-bevy_voxel_world = { version = "0.17" }
+bevy = { version = "0.20", features = ["bevy_dev_tools"] }
+# bevy_ecs_tiled = { version = "0.13", features = ["user_properties"] }
+# bevy_panorbit_camera = { version = "0.35.0" }
+# bevy_voxel_world = { version = "0.17" }
 ndshape = { version = "0.3.0" }
 
 [target.'cfg(not(target_os = "windows"))']
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 criterion = { version = "0.5.0" }
 pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
-rand = "0.10.2"
+rand = "0.10.3"
 tiled = { version = "0.16.0" }
 
 [features]
