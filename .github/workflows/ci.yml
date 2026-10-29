@@ -8,9 +8,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Reduce compile time and cache size.
-  RUSTFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0 -C debuginfo=line-tables-only
-  RUSTDOCFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0 -C debuginfo=line-tables-only
+  # Reduce debug information and cache size.
+  RUSTFLAGS: -Dwarnings -C debuginfo=line-tables-only
+  RUSTDOCFLAGS: -Dwarnings -C debuginfo=line-tables-only
   toolchain: stable
 
 jobs:
