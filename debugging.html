@@ -208,6 +208,10 @@ fn startup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
     ));
 }
 </code></pre></pre>
+<blockquote>
+<p>⚠️ <code>render</code> feature
+Debugging requires Bevy rendering features enabled. If you disable the <code>render</code> feature on this crate, visual debugging is also disabled.</p>
+</blockquote>
 <h1 id="debugging-in-3d"><a class="header" href="#debugging-in-3d">Debugging in 3d</a></h1>
 <p>Debug Gizmos are available for 3d voxel maps. Use <code>DebugTilemapType::Square3d</code> for the tilemap type.</p>
 <p>You can set it when you initialize and build <code>DebugGridBuilder</code> with:</p>
