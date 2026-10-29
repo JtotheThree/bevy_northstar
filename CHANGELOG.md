@@ -1,3 +1,8 @@
+## v0.8.0
+- Bevy 0.20 Update
+- Default `render` feature added. Disabling it will allow you to use the crate without Bevy rendering dependencies, but removes visual debug gizmos.
+- Temporarily removed the 3d example due to dependencies
+
 ## v0.7.0
 - Bevy 0.19 Update
 - Fixed regression with refined paths sometimes allowing blocked goals

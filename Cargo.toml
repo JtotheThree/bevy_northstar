@@ -13,31 +13,32 @@ keywords = ["astar", "bevy", "game", "hpa", "pathfinding"]
 exclude = ["assets/*", "res/*"]
 autoexamples = false
 
-# [[example]]
-# name = "demo"
-# required-features = ["stats"]
+[[example]]
+name = "demo"
+required-features = ["stats", "render"]
 
-# [[example]]
-# name = "isometric"
+[[example]]
+name = "isometric"
+required-features = ["render"]
 
-# [[example]]
-# name = "collision_testing"
-# required-features = ["stats"]
+[[example]]
+name = "collision_testing"
+required-features = ["stats", "render"]
 
 [[example]]
 name = "basic"
+required-features = ["render"]
 
 [[example]]
 name = "nav_mask"
 
-# [[example]]
-# name = "freeform_movement"
+[[example]]
+name = "freeform_movement"
+required-features = ["render"]
 
 [[example]]
 name = "reroute"
-
-# [[example]]
-# name = "3d_voxel_world"
+required-features = ["render"]
 
 [[bench]]
 harness = false
@@ -54,13 +55,12 @@ smallvec = "1.16.3"
 [dependencies.bevy]
 version = "0.20"
 default-features = false
-features = ["bevy_gizmos", "bevy_log", "bevy_render"]
+features = ["bevy_log"]
 
 [dev-dependencies]
 bevy = { version = "0.20", features = ["bevy_dev_tools"] }
-# bevy_ecs_tiled = { version = "0.13", features = ["user_properties"] }
-# bevy_panorbit_camera = { version = "0.35.0" }
-# bevy_voxel_world = { version = "0.17" }
+bevy_dev_tools = { version = "0.20", features = ["render"] }
+bevy_ecs_tiled = { version = "0.14", features = ["user_properties"] }
 ndshape = { version = "0.3.0" }
 
 [target.'cfg(not(target_os = "windows"))']
@@ -71,6 +71,7 @@ rand = "0.10.3"
 tiled = { version = "0.16.0" }
 
 [features]
-default = ["parallel"]
+default = ["parallel", "render"]
 parallel = ["ndarray/rayon", "rayon"]
+render = ["bevy/bevy_gizmos", "bevy/bevy_render"]
 stats = []

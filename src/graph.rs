@@ -178,6 +178,7 @@ impl Graph {
     }
 
     /// Returns all cached `Path`s in the graph.
+    #[cfg(feature = "render")]
     pub(crate) fn all_paths(&self) -> Vec<Path> {
         let mut paths = Vec::new();
         for node in self.nodes.iter().map(|(_, node)| node) {

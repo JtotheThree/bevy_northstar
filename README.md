@@ -45,7 +45,8 @@ Press R to change the nav data for random tiles every 5 seconds.
 This crate has the following Cargo features:
 
 - `stats`: Enables pathfinding benchmarks. Useful to get an idea of how much time it's using per frame.
-- `parallel`: Enabled by default. Disable default features to run grid builds single-threaded if needed for WASM.
+- `parallel`: Enabled by default. Builds grids in parallel; disable it for single-threaded builds.
+- `render`: Enabled by default. Gizmo-based debugging requires Bevy rendering, you can remove `render` to use the crate without rendering.
 
 # Quick Start
 
@@ -53,8 +54,8 @@ Add required dependencies to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bevy = "0.18"
-bevy_northstar = "0.6"
+bevy = "0.20"
+bevy_northstar = "0.8"
 ```
 
 The basic requirements to use the crate are to spawn an entity with a `Grid` component, adjust the grid cells, and then call `Grid::build()` so the neighbors, chunk entrances, and internal paths can be calculated. 
@@ -124,6 +125,7 @@ opt-level = 3
 
 |bevy|bevy_northstar|
 |---|---|
+|0.20|0.8|
 |0.19|0.7|
 |0.18|0.6|
 |0.17|0.5|

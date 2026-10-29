@@ -16,7 +16,10 @@ fn main() {
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding
         .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood>::default())
-        .add_plugins(TiledPlugin::default())
+        .add_plugins(TiledPlugin(TiledPluginConfig {
+            tiled_types_export_file: None,
+            ..default()
+        }))
         .add_systems(Startup, startup)
         .add_systems(OnEnter(shared::State::Playing), spawn_player)
         .add_systems(

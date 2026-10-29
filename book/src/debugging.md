@@ -70,6 +70,9 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 ```
 
+> ⚠️ `render` feature
+> Debugging requires Bevy rendering features enabled. If you disable the `render` feature on this crate, visual debugging is also disabled.
+
 # Debugging in 3d
 Debug Gizmos are available for 3d voxel maps. Use `DebugTilemapType::Square3d` for the tilemap type.
 

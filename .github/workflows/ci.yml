@@ -143,3 +143,13 @@ jobs:
 
       - name: Check project
         run: cargo check-all-features
+
+      - name: Check headless dependency graph
+        run: |
+          for features in "" "parallel"; do
+            tree=$(cargo tree --edges normal --prefix none --no-default-features --features "$features")
+            if echo "$tree" | grep -E '^bevy_(render|gizmos) v'; then
+              echo "Rendering dependencies unexpectedly enabled with features: $features"
+              exit 1
+            fi
+          done
