@@ -8,10 +8,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Reduce compile time and cache size.
-  RUSTFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0 -C debuginfo=line-tables-only
-  RUSTDOCFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0 -C debuginfo=line-tables-only
-  toolchain: nightly
+  # Reduce debug information and cache size.
+  RUSTFLAGS: -Dwarnings -C debuginfo=line-tables-only
+  RUSTDOCFLAGS: -Dwarnings -C debuginfo=line-tables-only
+  toolchain: stable
 
 jobs:
   # Run tests.
@@ -143,3 +143,13 @@ jobs:
 
       - name: Check project
         run: cargo check-all-features
+
+      - name: Check headless dependency graph
+        run: |
+          for features in "" "parallel"; do
+            tree=$(cargo tree --edges normal --prefix none --no-default-features --features "$features")
+            if echo "$tree" | grep -E '^bevy_(render|gizmos) v'; then
+              echo "Rendering dependencies unexpectedly enabled with features: $features"
+              exit 1
+            fi
+          done

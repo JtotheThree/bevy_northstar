@@ -15,6 +15,7 @@ use crate::nav::NavCell;
 mod astar;
 mod chunk;
 pub mod components;
+#[cfg(feature = "render")]
 pub mod debug;
 mod dijkstra;
 pub mod dir;
@@ -40,6 +41,7 @@ pub mod prelude {
     pub use crate::NavRegion;
     pub use crate::SearchLimits;
     pub use crate::components::*;
+    #[cfg(feature = "render")]
     pub use crate::debug::{DebugTilemapType, NorthstarDebugPlugin};
     pub use crate::dir::Dir;
     pub use crate::filter;

@@ -2,6 +2,8 @@
 // Press ` to toggle the debug view, +/- to change the z depth of the debug view.
 // In the debug view hover over an entrance node to see its internal connections.
 
+use bevy::sprite_render::{SpriteMeshMaterial, check_entities_needing_specialization};
+use bevy::transform::TransformSystems;
 use bevy::{log, prelude::*};
 use bevy_ecs_tiled::prelude::*;
 use bevy_northstar::prelude::*;
@@ -48,7 +50,7 @@ pub struct Pivot(pub Vec2);
 pub struct AnimationWaitEvent;
 
 // Event that signals the completion of the tilemap loading.
-#[derive(Debug, Event, Message)]
+#[derive(Debug, Event)]
 pub struct LoadCompleteEvent;
 
 // Cursor resource to track the moused over tile
@@ -76,12 +78,14 @@ pub const POSITION_TOLERANCE: f32 = 0.1;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugins(TiledPlugin::default())
+        .add_plugins(TiledPlugin(TiledPluginConfig {
+            tiled_types_export_file: None,
+            ..default()
+        }))
         // Add the Northstar Plugin with an isometric neighborhood for 3D pathfinding.
         .add_plugins(NorthstarPlugin::<OrdinalNeighborhood3d>::default())
         // Add the Debug Plugin to visualize the grid and pathfinding.
         .add_plugins(NorthstarDebugPlugin::<OrdinalNeighborhood3d>::default())
-        .add_message::<LoadCompleteEvent>()
         .add_message::<AnimationWaitEvent>()
         .add_systems(Startup, startup)
         .add_systems(
@@ -97,11 +101,20 @@ fn main() {
         )
         .add_systems(
             Update,
-            (animate_move, pathfind_error).run_if(in_state(State::Playing)),
+            (
+                finish_loading.run_if(in_state(State::Loading)),
+                (animate_move, pathfind_error).run_if(in_state(State::Playing)),
+            ),
         )
         .add_systems(
             PostUpdate,
-            (y_sort, camera_follow_player).run_if(in_state(State::Playing)),
+            (
+                y_sort
+                    .before(TransformSystems::Propagate)
+                    .before(check_entities_needing_specialization::<SpriteMeshMaterial>),
+                camera_follow_player,
+            )
+                .run_if(in_state(State::Playing)),
         )
         .add_observer(tile_created)
         .add_observer(loading_complete)
@@ -146,27 +159,24 @@ fn tile_created(
     trigger: On<TiledEvent<TileCreated>>,
     mut query: Query<(&mut TileInfo, &TilePos)>,
     grid: Single<&mut OrdinalGrid3d>,
-    mut commands: Commands,
 ) {
     let mut grid = grid.into_inner();
 
     if let Ok((mut tile_info, tile_pos)) = query.get_mut(trigger.event().origin) {
-        // HACK: I'm not aware of anyway to know when all the tiles have been fully loaded.
-        // There's a hiddden tile with a height of 99 in the corner of the map on layer 2
-        // with a height of 99 that is used to determine the end of the tilemap loading.
+        // Ignore the hidden marker tile in the example map.
         if tile_info.height == 99 {
-            commands.trigger(LoadCompleteEvent);
             return;
         }
 
-        let layer = trigger.get_layer_id().unwrap_or_default();
-
         // Treat the higher layers as having a higher height offset.
-        let layer_height_offset = match layer {
-            0 => 0,
-            1 => 4,
-            2 => 8,
-            _ => 0,
+        let layer_height_offset = match trigger.get_layer_id() {
+            Some(1) => 0,
+            Some(2) => 4,
+            Some(3) => 8,
+            layer => {
+                error!("Unexpected tile layer ID: {layer:?}");
+                return;
+            }
         };
 
         // Readjust the tile_info height based on the layer.
@@ -219,6 +229,18 @@ fn tile_created(
                 }
             }
         }
+    }
+}
+
+fn finish_loading(
+    mut map_created: MessageReader<TiledEvent<MapCreated>>,
+    grids: Query<(), With<OrdinalGrid3d>>,
+    mut commands: Commands,
+) {
+    // Tiled sends MapCreated before its tile events, but all tile observers have
+    // run by Update, after the map-spawning commands are applied in PreUpdate.
+    if map_created.read().any(|event| grids.contains(event.origin)) {
+        commands.trigger(LoadCompleteEvent);
     }
 }
 
@@ -556,9 +578,8 @@ fn animate_move(
 
         let d = (target - transform.translation).length();
         let animating = if d > POSITION_TOLERANCE {
-            transform.translation = transform
-                .translation
-                .lerp(target, LERP_SPEED * time.delta_secs());
+            let factor = 1.0 - (-LERP_SPEED * time.delta_secs()).exp();
+            transform.translation = transform.translation.lerp(target, factor);
             true
         } else {
             transform.translation = target;
@@ -572,7 +593,12 @@ fn animate_move(
 }
 
 fn y_sort(
-    mut query: Query<(&mut Transform, &YSort, &Pivot)>,
+    mut query: Query<(
+        &mut Transform,
+        &YSort,
+        &Pivot,
+        Option<&mut MeshMaterial2d<SpriteMeshMaterial>>,
+    )>,
     map_query: Query<(&TilemapSize, &TilemapTileSize)>,
 ) {
     let Some((map_size, tile_size)) = map_query.iter().next() else {
@@ -581,13 +607,20 @@ fn y_sort(
 
     let max_y = map_size.y as f32 * tile_size.y;
 
-    for (mut transform, ysort, pivot) in query.iter_mut() {
+    for (mut transform, ysort, pivot, material) in query.iter_mut() {
         let y = transform.translation.y + pivot.0.y;
 
         // Match the y-sort algorithm that bevy_ecs_tilemap uses.
         // We don't need to worry about Tiled layers because we handle our own height offsets and sort all that out in the
         // animate_move system and ensure that the bevy_ecs_tiled TiledMapLayerZOffset aligns with our height offsets.
-        transform.translation.z = ysort.0 + (1.0 - (y / max_y));
+        let depth = ysort.0 + (1.0 - (y / max_y));
+        if transform.translation.z != depth {
+            transform.translation.z = depth;
+            // Bevy 0.20 retains transparent mesh sort keys until specialization is refreshed.
+            if let Some(mut material) = material {
+                material.set_changed();
+            }
+        }
     }
 }
 
@@ -636,7 +669,8 @@ fn camera_follow_player(
     }
 
     // Smoothly interpolate the camera position
-    let lerped = camera_pos.lerp(target_camera_pos, CAMERA_LERP_SPEED * time.delta_secs());
+    let factor = 1.0 - (-CAMERA_LERP_SPEED * time.delta_secs()).exp();
+    let lerped = camera_pos.lerp(target_camera_pos, factor);
     camera_transform.translation.x = lerped.x;
     camera_transform.translation.y = lerped.y;
 }

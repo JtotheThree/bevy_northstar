@@ -32,7 +32,10 @@ fn main() {
             },
         })
         // bevy_ecs_tilemap and bevy_ecs_tiled main plugins
-        .add_plugins(TiledPlugin::default())
+        .add_plugins(TiledPlugin(TiledPluginConfig {
+            tiled_types_export_file: None,
+            ..default()
+        }))
         // bevy_northstar plugins
         .add_plugins((
             NorthstarPlugin::<OrdinalNeighborhood>::default(),

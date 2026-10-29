@@ -1,15 +1,18 @@
 //! Components for pathfinding, collision, and debugging.
+use bevy::{ecs::entity::Entity, math::UVec3, prelude::Component, reflect::Reflect};
+
+#[cfg(feature = "render")]
+use crate::debug::DebugTilemapType;
+#[cfg(feature = "render")]
 use bevy::{
     color::palettes::css,
-    ecs::entity::Entity,
-    math::{UVec3, Vec2, Vec3},
+    math::{Vec2, Vec3},
     platform::collections::HashMap,
-    prelude::{Color, Component},
-    reflect::Reflect,
+    prelude::Color,
     transform::components::Transform,
 };
 
-use crate::{NavRegion, SearchLimits, debug::DebugTilemapType, nav_mask::NavMask};
+use crate::{NavRegion, SearchLimits, nav_mask::NavMask};
 
 /// An entities position on the pathfinding [`crate::grid::Grid`].
 /// You'll need to maintain this position if you use the plugin pathfinding systems.
@@ -231,25 +234,30 @@ pub struct RerouteFailed;
 
 /// Add this component to the same entity as [`DebugPath`] to offset the debug gizmos.
 /// Useful for aligning the gizmos with your tilemap rendering offset.
+#[cfg(feature = "render")]
 #[derive(Component, Default, Reflect)]
 pub struct DebugOffset(pub Vec3);
 
 /// You can add DebugDepthOffsets to your DebugGrid entity and the debug gizmo's y position
 /// will be offset by the depth (z-coordinate) of the grid/path position.
+#[cfg(feature = "render")]
 #[derive(Component, Default, Reflect)]
 pub struct DebugDepthYOffsets(pub HashMap<u32, f32>);
 
 /// Add [`DebugCursor`] to your DebugGrid entity and provide it with the current position
 /// of your mouse cursor.
 /// This will allow [`DebugGrid::set_show_connections_on_hover()`] to only draw connections graph node under the cursor.
+#[cfg(feature = "render")]
 #[derive(Component, Debug, Default, Reflect)]
 pub struct DebugCursor(pub Option<Vec2>);
 
 // Internal component to hold which cell the mouse is hovering over.
+#[cfg(feature = "render")]
 #[derive(Component, Debug, Default)]
 pub(crate) struct DebugNode(pub(crate) Option<UVec3>);
 
 /// Component for debugging an entity's [`crate::path::Path`].
+#[cfg(feature = "render")]
 #[derive(Component, Reflect)]
 pub struct DebugPath {
     /// The [`Color`] of the path gizmo.
@@ -259,6 +267,7 @@ pub struct DebugPath {
     pub draw_unrefined: bool,
 }
 
+#[cfg(feature = "render")]
 impl DebugPath {
     /// Creates a new [`DebugPath`] component with the specified color.
     /// The default color is red.
@@ -269,7 +278,7 @@ impl DebugPath {
         }
     }
 }
-
+#[cfg(feature = "render")]
 impl Default for DebugPath {
     fn default() -> Self {
         DebugPath {
@@ -281,6 +290,7 @@ impl Default for DebugPath {
 
 /// Component for debugging [`crate::grid::Grid`].
 /// You need to insert [`DebugGrid`] as a child of your map.
+#[cfg(feature = "render")]
 #[derive(Reflect, Component)]
 #[require(Transform, DebugOffset, DebugDepthYOffsets, DebugCursor, DebugNode)]
 pub struct DebugGrid {
@@ -318,6 +328,7 @@ pub struct DebugGrid {
     pub debug_mask: Option<NavMask>,
 }
 
+#[cfg(feature = "render")]
 impl DebugGrid {
     /// The width and height of a tile in pixels. This is required because your tile pixel dimensions may not match the grid size.
     pub fn tile_size(&mut self, width: u32, height: u32) -> &Self {
@@ -444,6 +455,7 @@ impl DebugGrid {
 ///        ));
 /// }
 /// ```
+#[cfg(feature = "render")]
 pub struct DebugGridBuilder {
     tile_width: u32,
     tile_height: u32,
@@ -459,6 +471,7 @@ pub struct DebugGridBuilder {
     swap_yz: bool,
 }
 
+#[cfg(feature = "render")]
 impl DebugGridBuilder {
     /// Creates a new [`DebugGridBuilder`] with the specified tile pixel width and height.
     pub fn new(tile_width: u32, tile_height: u32) -> Self {
